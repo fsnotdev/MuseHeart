@@ -30,33 +30,26 @@ class ViewHelp(disnake.ui.View):
         self.process_buttons()
 
     async def interaction_check(self, interaction: disnake.Interaction):
-
         if interaction.user != self.ctx.author:
-            await interaction.response.send_message(f"Apenas o membro {self.ctx.author.mention} pode usar essas opções.", ephemeral=True)
+            await interaction.response.send_message(f"Only member {self.ctx.author.mention} can use these options.", ephemeral=True)
             return
-
         return True
 
     def process_buttons(self):
-
         options = []
-
         for category, emoji in self.items:
-
             b = disnake.SelectOption(
                 label=category, value=category, emoji=emoji, default=category == self.category,
-                description="Ver detalhes dos comandos desta categoria."
+                description="View details of commands in this category."
             )
-
             options.append(b)
 
         if options:
-            sel = disnake.ui.Select(placeholder='Escolha uma categoria para ver todos os comandos:', options=options)
+            sel = disnake.ui.Select(placeholder='Choose a category to view all commands:', options=options)
             sel.callback = self.callback_help
             self.add_item(sel)
 
         if self.category:
-
             if len(self.cmd_lst[self.category]['cmds']) > 1:
                 left_button = disnake.ui.Button(style=disnake.ButtonStyle.grey, emoji='<:arrow_left:867934922944442368>', custom_id="left_page")
                 left_button.callback = self.callback_left
@@ -66,12 +59,11 @@ class ViewHelp(disnake.ui.View):
                 right_button.callback = self.callback_right
                 self.add_item(right_button)
 
-            back_button = disnake.ui.Button(style=disnake.ButtonStyle.grey, emoji='<:leftwards_arrow_with_hook:868761137703964692>', custom_id="back_page", label="Voltar")
+            back_button = disnake.ui.Button(style=disnake.ButtonStyle.grey, emoji='<:leftwards_arrow_with_hook:868761137703964692>', custom_id="back_page", label="Back")
             back_button.callback = self.callback_back
             self.add_item(back_button)
 
     async def response(self, interaction):
-
         if not self.category and not self.page_index:
             self.clear_items()
             self.process_buttons()
@@ -83,10 +75,9 @@ class ViewHelp(disnake.ui.View):
             emoji=self.cmd_lst[self.category]['emoji'],
             category=self.category)
 
-        await interaction.response.edit_message(embed= self.main_embed, view=self)
+        await interaction.response.edit_message(embed=self.main_embed, view=self)
 
     async def callback_left(self, interaction):
-
         if self.page_index == 0:
             self.page_index += len(self.cmd_lst[self.category]['cmds']) - 1
         else:
@@ -95,7 +86,6 @@ class ViewHelp(disnake.ui.View):
         await self.response(interaction)
 
     async def callback_right(self, interaction):
-
         if self.page_index == len(self.cmd_lst[self.category]['cmds']) - 1:
             self.page_index -= len(self.cmd_lst[self.category]['cmds']) - 1
         else:
@@ -104,7 +94,6 @@ class ViewHelp(disnake.ui.View):
         await self.response(interaction)
 
     async def callback_back(self, interaction):
-
         self.page_index = 0
         self.category = None
         self.clear_items()
@@ -113,9 +102,7 @@ class ViewHelp(disnake.ui.View):
         await interaction.response.edit_message(embed=self.first_embed, view=self)
 
     async def callback_help(self, interaction: disnake.MessageInteraction):
-
         self.category = interaction.data.values[0]
-
         self.page_index = 0
         self.clear_items()
         self.process_buttons()
@@ -131,7 +118,6 @@ class ViewHelp(disnake.ui.View):
 
 
 async def check_perms(ctx: CustomContext, cmd: commands.Command):
-
     try:
         if cmd.hidden and not await ctx.bot.is_owner(ctx.author):
             return False
@@ -146,7 +132,7 @@ def check_cmd(cmd: commands.command):
         return True
 
 
-class HelpCog(commands.Cog, name="Ajuda"):
+class HelpCog(commands.Cog, name="Help"):
 
     def __init__(self, bot: BotCore):
         self.bot = bot
@@ -156,13 +142,12 @@ class HelpCog(commands.Cog, name="Ajuda"):
         self.mention_cd = commands.CooldownMapping.from_cooldown(1, 30, commands.BucketType.channel)
 
     async def get_cmd(self, ctx, cmds, index=0, category=None, emoji=None):
-
         cmd = cmds[index]
 
         if cmd.description:
             help_cmd = cmd.description
         else:
-            help_cmd = "Sem descrição..."
+            help_cmd = "No description..."
 
         prefix = ctx.prefix if str(ctx.me.id) not in ctx.prefix else f"@{ctx.me.display_name} "
 
@@ -173,51 +158,34 @@ class HelpCog(commands.Cog, name="Ajuda"):
 
         embed = disnake.Embed(color=self.bot.get_color(ctx.guild.me))
 
-        txt = f"### ⌨️ ⠂Comando: {ctx.prefix}{cmd}\n```\n{help_cmd}```\n"
+        txt = f"### ⌨️ ⠂Command: {ctx.prefix}{cmd}\n```\n{help_cmd}```\n"
         if cmd.aliases:
             aliases = " | ".join([f"{ctx.prefix}{ali}" for ali in cmd.aliases])
-            txt += f"🔄 **⠂Alternativas:** ```\n{aliases}```\n"
+            txt += f"🔄 **⠂Alternatives:** ```\n{aliases}```\n"
         if hasattr(cmd, 'commands'):
             subs = " | ".join([c.name for c in cmd.commands if (await check_perms(ctx, c))])
-            txt += f"🔢 **⠂Subcomandos:** ```{subs}``` Use o comando: `[ {ctx.prefix}help {cmd} subcomando ]` para ver mais detalhes do subcomando.\n\n"
+            txt += f"🔢 **⠂Subcommands:** ```{subs}``` Use the command: `[ {ctx.prefix}help {cmd} subcommand ]` to see more details of the subcommand.\n\n"
 
         if usage_cmd:
-            txt += f"📘 **⠂Como Usar:** ```\n{usage_cmd}```\n" \
-                   f"⚠️ **⠂Notas sobre o uso dos argumentos no comando:** ```\n" \
-                   f"[] = Obrigatório | <> = Opcional```\n"
+            txt += f"📘 **⠂How to Use:** ```\n{usage_cmd}```\n" \
+                   f"⚠️ **⠂Notes on using arguments in the command:** ```\n" \
+                   f"[] = Required | <> = Optional```\n"
 
         flags = cmd.extras.get("flags")
 
         if flags and (actions := flags._actions):
-
             t = []
-
             for a in actions:
-
-                # if a.hidden:
-                #    continue
-
                 if not a.help or not a.option_strings:
                     continue
-
                 s = " ".join(i for i in a.option_strings)
-
                 s = f"[{s}] {a.help}"
-
-                # s += f" = `{a.help}`"
-
-                # if a.default is False:
-                #	s += " `Padrão: Desativado`"
-                # elif a.default is True:
-                #	s += " `Padrão: Ativado`"
-                # elif not a.default is None:
-                #	s += f" `Padrão: {a.default}`"
                 t.append(s)
 
             if t:
-                txt += ("🚩 **⠂Flags `(opções para adicionar no final do comando)`:**```ini\n" + "\n\n".join(t) + "```")
+                txt += ("🚩 **⠂Flags `(options to add at the end of the command)`:**```ini\n" + "\n\n".join(t) + "```")
 
-        embed.set_author(name="Menu de ajuda - Lista de comandos (prefix)", icon_url=self.bot.user.display_avatar.url)
+        embed.set_author(name="Help Menu - Command List (prefix)", icon_url=self.bot.user.display_avatar.url)
 
         embed.description = txt
 
@@ -229,7 +197,7 @@ class HelpCog(commands.Cog, name="Ajuda"):
 
         if (max_pages:=len(cmds)) > 1:
             embed.set_footer(icon_url=owner.display_avatar.replace(static_format="png"),
-                             text=f"Página: {index + 1} de {max_pages}")
+                             text=f"Page: {index + 1} of {max_pages}")
         return embed
 
     @commands.cooldown(2, 5, commands.BucketType.user)
@@ -244,7 +212,6 @@ class HelpCog(commands.Cog, name="Ajuda"):
         cmdlst = {}
 
         for cmd in sorted(ctx.bot.commands, key=lambda c: c.name):
-
             if not await check_perms(ctx, cmd):
                 continue
 
@@ -260,13 +227,13 @@ class HelpCog(commands.Cog, name="Ajuda"):
 
             elif not cmd.cog or not hasattr(cmd.cog, 'name') or len(cmd.cog.get_commands()) < 2:
                 if not "🔰" in cmdlst:
-                    cmdlst["🔰"] = ("Diversos", [])
+                    cmdlst["🔰"] = ("Miscellaneous", [])
                 cmdlst["🔰"][1].append(cmd)
 
             else:
                 if not cmd.cog.emoji:
                     cmd.cog.emoji = "⁉"
-                    cmd.cog.name = "Sem Categoria"
+                    cmd.cog.name = "Uncategorized"
                 if not cmd.cog.emoji in cmdlst:
                     cmdlst[cmd.cog.emoji] = (cmd.cog.name, [])
                 cmdlst[cmd.cog.emoji][1].append(cmd)
@@ -285,17 +252,17 @@ class HelpCog(commands.Cog, name="Ajuda"):
 
             cmds = ', '.join([c.name for c in sorted(data['cmds'], key=lambda c: c.name)])
             n = len(data['cmds'])
-            lst.append(f"\n\n**{data['emoji']} ⠂{category} ({n} comando{'s' if n > 1 else ''}):**\n`{cmds}`")
+            lst.append(f"\n\n**{data['emoji']} ⠂{category} ({n} command{'s' if n > 1 else ''}):**\n`{cmds}`")
 
         txt = f"{''.join(lst)}\n\n" \
-              "Para obter informações de um comando diretamente, use: \n" \
-              f"`{ctx.prefix}{ctx.invoked_with} <comando/alias>`"
+              "To get information of a command directly, use:\n" \
+              f"`{ctx.prefix}{ctx.invoked_with} <command/alias>`"
 
         embed = disnake.Embed(
             description=txt.replace(ctx.me.mention, f"@{ctx.me.display_name}").replace(f"<@!{ctx.bot.user.id}>",
                                                                                        f"@{ctx.me.display_name}"),
             color=self.bot.get_color(ctx.guild.me))
-        embed.set_author(name=f"Menu de ajuda - Lista de comandos (prefix)",
+        embed.set_author(name=f"Help Menu - Command List (prefix)",
                          icon_url=self.bot.user.display_avatar.replace(static_format="png").url)
 
         try:
@@ -304,7 +271,7 @@ class HelpCog(commands.Cog, name="Ajuda"):
             owner = self.bot.appinfo.owner
 
         embed.set_footer(icon_url=owner.display_avatar.replace(static_format="png").url,
-                         text=f"Dono(a): {owner} [{owner.id}]")
+                         text=f"Owner: {owner} [{owner.id}]")
 
         view = ViewHelp(ctx, btn_id, get_cmd=self.get_cmd, cmd_list=cmd_lst_new, category_cmd=None,
                  main_embed=embed, timeout=180)
@@ -329,7 +296,7 @@ class HelpCog(commands.Cog, name="Ajuda"):
 
     async def parse_direct(self, ctx: CustomContext, cmd_name: list):
 
-        # TODO: corrigir modo recursivo de subcommands
+        # TODO: Fix recursive mode of subcommands
         cmd: Union[commands.command, commands.Group] = None
         for cname in cmd_name:
             if cmd:
@@ -346,7 +313,7 @@ class HelpCog(commands.Cog, name="Ajuda"):
 
         if not cmd or (not await check_perms(ctx, cmd)):
             b = "`" if len(cmd_name) > 1 else ''
-            raise GenericError(f"Comando [{b}{' '.join(cmd_name[:-1])}{b}{' ' if len(cmd_name) > 1 else ''}**{cmd_name[-1]}**] não encontrado!")
+            raise GenericError(f"Command [{b}{' '.join(cmd_name[:-1])}{b}{' ' if len(cmd_name) > 1 else ''}**{cmd_name[-1]}**] not found!")
 
         if any(c for c in cmd.cog.get_commands() if check_cmd(c)):
             name = cmd.category if cmd.category else cmd.cog.name
@@ -359,7 +326,7 @@ class HelpCog(commands.Cog, name="Ajuda"):
                 index = 0
         else:
             cog = ctx.bot.get_cog(cmd.cog_name)
-            name = cog.name if hasattr(cog, "name") else "Diversos"
+            name = cog.name if hasattr(cog, "name") else "Miscellaneous"
             emoji = cog.emoji if hasattr(cog, "emoji") else "🔰"
 
             cmds = [c for c in sorted(cog.get_commands(), key=lambda cm: cm.name) if await check_perms(ctx, c) or not c.hidden]

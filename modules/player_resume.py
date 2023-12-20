@@ -53,7 +53,7 @@ class PlayerSession(commands.Cog):
         await self.save_info(payload.player)
 
     @commands.is_owner()
-    @commands.command(hidden=True, description="Salvar informações dos players na database instantaneamente.", aliases=["svplayers"])
+    @commands.command(hidden=True, description="Save information of players in the database instantly.", aliases=["svplayers"])
     async def saveplayers(self, ctx: CustomContext):
 
         await ctx.defer()
@@ -68,7 +68,7 @@ class PlayerSession(commands.Cog):
                 except:
                     continue
 
-        txt = f"As informações dos players atuais foram salvos com sucesso ({player_count})!" if player_count else "Não há player ativo..."
+        txt = f"The information of the current players has been successfully saved ({player_count})!" if player_count else "There are no active players..."
         await ctx.send(txt)
 
     async def queue_updater_task(self, player: LavalinkPlayer):
@@ -277,7 +277,7 @@ class PlayerSession(commands.Cog):
             if self.bot.config["PLAYER_SESSIONS_MONGODB"] and self.bot.config["MONGO"]:
                 for d in local_sessions:
                     data_list[d["_id"]] = d
-                    print(f"{self.bot.user} - Migrando dados de sessões do server: {d['_id']} | DB Local -> Mongo")
+                    print(f"{self.bot.user} - Migrating session data from the server: {d['_id']} | Local DB -> Mongo")
                     await self.save_session_mongo(d["_id"], d)
                     self.delete_data_local(d["_id"])
                 for d in mongo_sessions:
@@ -286,7 +286,7 @@ class PlayerSession(commands.Cog):
             else:
                 for d in mongo_sessions:
                     data_list[d["_id"]] = d
-                    print(f"{self.bot.user} - Migrando dados de sessões do server: {d['_id']} | Mongo -> DB Local")
+                    print(f"{self.bot.user} - Migrating session data from the server: {d['_id']} | Mongo -> Local DB")
                     await self.save_session_local(d["_id"], d)
                     if self.bot.config["MONGO"]:
                         await self.delete_data_mongo(d["_id"])
@@ -301,7 +301,7 @@ class PlayerSession(commands.Cog):
                 guild = self.bot.get_guild(data["_id"])
 
                 if not guild:
-                    print(f"{self.bot.user} - Player Ignorado: {data['_id']} | Servidor inexistente...")
+                    print(f"{self.bot.user} - Player Ignored: {data['_id']} | Server does not exist...")
                     if (disnake.utils.utcnow() - data.get("time", disnake.utils.utcnow())).total_seconds() > 172800:
                         await self.delete_data(data["_id"])
                     continue
@@ -331,7 +331,7 @@ class PlayerSession(commands.Cog):
                     try:
                         can_send_message(text_channel, self.bot.user)
                     except Exception:
-                        print(f"{self.bot.user} - Controller Ignorado (falta de permissão) [Canal: {text_channel.name} | ID: {text_channel.id}] - [ {guild.name} - {guild.id} ]")
+                        print(f"{self.bot.user} - Controller Ignored (lack of permission) [Channel: {text_channel.name} | ID: {text_channel.id}] - [ {guild.name} - {guild.id} ]")
                         text_channel = None
                     else:
                         if data["message_id"]:
@@ -362,13 +362,13 @@ class PlayerSession(commands.Cog):
                             message_without_thread = msg
 
                     except Exception as e:
-                        print(f"{self.bot.user} - Falha ao obter mensagem: {repr(e)}\n"
-                              f"channel_id: {text_channel.id} | message_id {data['message']}")
+                        print(f"{self.bot.user} - Failed to retrieve message: {repr(e)}\n"
+                            f"channel_id: {text_channel.id} | message_id {data['message']}")
 
                 if not voice_channel:
-                    print(f"{self.bot.user} - Player Ignorado: {guild.name} [{guild.id}]\nO canal de voz não existe...")
+                    print(f"{self.bot.user} - Player Ignored: {guild.name} [{guild.id}]\nThe voice channel does not exist...")
                     try:
-                        msg = "Player finalizado pois o canal de voz não existe ou foi deletado."
+                        msg = "Player terminated because the voice channel does not exist or has been deleted."
                         if not data["skin_static"]:
                             await text_channel.send(embed=disnake.Embed(description=msg, color=self.bot.get_color(guild.me)))
                         else:
@@ -382,11 +382,11 @@ class PlayerSession(commands.Cog):
                 try:
                     can_connect(voice_channel, guild=guild, bot=self.bot)
                 except Exception as e:
-                    print(f"{self.bot.user} - Player Ignorado: {guild.name} [{guild.id}]\n{repr(e)}")
+                    print(f"{self.bot.user} - Player Ignored: {guild.name} [{guild.id}]\n{repr(e)}")
                     if not data.get("autoplay") and (disnake.utils.utcnow() - data.get("time", disnake.utils.utcnow())).total_seconds() > 172800:
                         await self.delete_data(guild.id)
                     try:
-                        msg = f"O player foi finalizado devido a falta da permissão de conectar no canal {voice_channel.mention}."
+                        msg = f"The player was terminated due to a lack of permission to connect to the channel {voice_channel.mention}."
                         if not data["skin_static"]:
                             await text_channel.send(embed=disnake.Embed(description=msg, color=self.bot.get_color(guild.me)))
                         else:
@@ -440,7 +440,7 @@ class PlayerSession(commands.Cog):
                         session_resuming=True,
                     )
                 except Exception:
-                    print(f"{self.bot.user} - Falha ao criar player: {guild.name} [{guild.id}]\n{traceback.format_exc()}")
+                    print(f"{self.bot.user} - Failed to create player: {guild.name} [{guild.id}]\n{traceback.format_exc()}")
                     if not data.get("autoplay") and (disnake.utils.utcnow() - data.get("time", disnake.utils.utcnow())).total_seconds() > 172800:
                         await self.delete_data(guild.id)
                     continue
@@ -506,7 +506,7 @@ class PlayerSession(commands.Cog):
                     await guild.me.edit(suppress=False)
 
                 player.set_command_log(
-                    text="O player foi restaurado com sucesso!",
+                    text="The player was successfully restored!",
                     emoji="🔰"
                 )
 
@@ -546,7 +546,7 @@ class PlayerSession(commands.Cog):
                         await player.process_next(start_position=position)
                         player._session_resuming = False
                 except Exception:
-                    print(f"{self.bot.user} - Falha na reprodução da música ao retomar player do servidor {guild.name} [{guild.id}]:\n{traceback.format_exc()}")
+                    print(f"{self.bot.user} - Failed to play music when resuming player from server {guild.name} [{guild.id}]:\n{traceback.format_exc()}")
                     continue
 
                 try:
@@ -556,10 +556,10 @@ class PlayerSession(commands.Cog):
 
                 player.members_timeout_task = self.bot.loop.create_task(player.members_timeout(check=check, idle_timeout=10))
 
-                print(f"{self.bot.user} - Player Retomado: {guild.name} [{guild.id}]")
+                print(f"{self.bot.user} - Player Resume: {guild.name} [{guild.id}]")
 
         except Exception:
-            print(f"{self.bot.user} - Falha Crítica ao retomar players:\n{traceback.format_exc()}")
+            print(f"{self.bot.user} - Critical failure when resuming players:\n{traceback.format_exc()}")
 
         self.bot.player_resumed = True
 
@@ -666,7 +666,7 @@ class PlayerSession(commands.Cog):
                 await self.save_session_local(player.guild.id, data)
 
         except asyncio.CancelledError as e:
-            print(f"❌ - {self.bot.user} - Salvamento cancelado: {repr(e)}")
+            print(f"❌ - {self.bot.user} - Saving cancelled: {repr(e)}")
 
     async def delete_data_mongo(self, id_: Union[LavalinkPlayer, int]):
         await self.bot.pool.mongo_database.delete_data(id_=str(id_), db_name=str(self.bot.user.id),

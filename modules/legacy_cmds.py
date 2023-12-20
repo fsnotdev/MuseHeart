@@ -104,9 +104,9 @@ class Owner(commands.Cog):
     @commands.is_owner()
     @commands.command(
         hidden=True, aliases=["gls", "lavalink", "lllist", "lavalinkservers"],
-        description="Baixar um arquivo com lista de servidores lavalink para usá-los no sistema de música."
+        description="Download a file with a list of Lavalink servers to use them in the music system."
     )
-    async def getlavaservers(self, ctx: CustomContext):
+    async def get_lava_servers(self, ctx: CustomContext):
 
         await ctx.defer()
 
@@ -114,19 +114,19 @@ class Owner(commands.Cog):
 
         await ctx.send(
             embed=disnake.Embed(
-                description="**O arquivo lavalink.ini foi baixado com sucesso!\n"
-                            "Será necessário me reiniciar para usar os servidores deste arquivo.**"
+                description="**The lavalink.ini file has been successfully downloaded!\n"
+                            "I will need to restart to use the servers from this file.**"
             )
         )
 
     updatelavalink_flags = CommandArgparse()
     updatelavalink_flags.add_argument('-force', '--force', action='store_true',
-                                      help="Ignorar a execução/uso do servidor LOCAL.")
+                                    help="Ignore execution/usage of the LOCAL server.")
     updatelavalink_flags.add_argument('-yml', '--yml', action='store_true',
-                                      help="Fazer download do arquivo application.yml.")
+                                    help="Download the application.yml file.")
     updatelavalink_flags.add_argument("-resetids", "-reset", "--resetids", "--reset",
-                                      help="Resetar info de ids das músicas (útil pra evitar problemas com certas "
-                                           "mudanças do lavaplayer/lavalink).", action="store_true")
+                                    help="Reset music id info (useful to avoid problems with certain "
+                                        "changes in lavaplayer/lavalink).", action="store_true")
 
     @commands.is_owner()
     @commands.max_concurrency(1, commands.BucketType.user)
@@ -145,7 +145,7 @@ class Owner(commands.Cog):
                 continue
 
         if not node and not args.force:
-            raise GenericError("**O servidor LOCAL não está sendo usado!**")
+            raise GenericError("**The LOCAL server is not being used!**")
 
         download_urls = [self.bot.config["LAVALINK_FILE_URL"]]
 
@@ -165,19 +165,19 @@ class Owner(commands.Cog):
 
         await ctx.send(
             embed=disnake.Embed(
-                description="**O arquivo Lavalink.jar foi atualizado com sucesso!**",
+                description="**The Lavalink.jar file has been successfully updated!**",
                 color=self.bot.get_color(ctx.guild.me)
             )
         )
 
     @commands.is_owner()
-    @panel_command(aliases=["rcfg"], description="Recarregar as configs do bot.", emoji="⚙",
-                   alt_name="Recarregar as configs do bot.")
+    @panel_command(aliases=["rcfg"], description="Reload bot configurations.", emoji="⚙",
+                   alt_name="Reload bot configurations.")
     async def reloadconfig(self, ctx: Union[CustomContext, disnake.MessageInteraction]):
 
         self.bot.pool.load_cfg()
 
-        txt = "Config do bot foi recarregado com sucesso!"
+        txt = "Bot configuration has been reloaded successfully!"
 
         if isinstance(ctx, CustomContext):
             embed = disnake.Embed(colour=self.bot.get_color(ctx.me), description=txt)
@@ -186,8 +186,8 @@ class Owner(commands.Cog):
             return txt
 
     @commands.is_owner()
-    @panel_command(aliases=["rd", "recarregar"], description="Recarregar os módulos.", emoji="🔄",
-                   alt_name="Carregar/Recarregar módulos.")
+    @panel_command(aliases=["rd", "reload"], description="Reload modules.", emoji="🔄",
+                   alt_name="Load/Reload modules.")
     async def reload(self, ctx: Union[CustomContext, disnake.MessageInteraction]):
 
         for m in list(sys.modules):
@@ -215,13 +215,13 @@ class Owner(commands.Cog):
         txt = ""
 
         if data["loaded"]:
-            txt += f'**Módulos carregados:** ```ansi\n[0;34m{" [0;37m| [0;34m".join(data["loaded"])}```\n'
+            txt += f'**Loaded modules:** ```ansi\n[0;34m{" [0;37m| [0;34m".join(data["loaded"])}```\n'
 
         if data["reloaded"]:
-            txt += f'**Módulos recarregados:** ```ansi\n[0;32m{" [0;37m| [0;32m".join(data["reloaded"])}```\n'
+            txt += f'**Reloaded modules:** ```ansi\n[0;32m{" [0;37m| [0;32m".join(data["reloaded"])}```\n'
 
         if not txt:
-            txt = "**Nenhum módulo encontrado...**"
+            txt = "**No modules found...**"
 
         self.bot.pool.config = load_config()
 
@@ -235,16 +235,16 @@ class Owner(commands.Cog):
 
     update_flags = CommandArgparse()
     update_flags.add_argument("-force", "--force", action="store_true",
-                              help="Forçar update ignorando o estado do repositório local).")
+                              help="Force update ignoring the state of the local repository).")
     update_flags.add_argument("-pip", "--pip", action="store_true",
-                              help="Instalar/atualizar dependências após a atualização.")
+                              help="Install/update dependencies after the update.")
 
     @commands.is_owner()
     @commands.max_concurrency(1, commands.BucketType.default)
-    @panel_command(aliases=["up", "atualizar"], description="Atualizar meu code usando o git.",
-                   emoji="<:git:944873798166020116>", alt_name="Atualizar Bot", extras={"flags": update_flags})
+    @panel_command(aliases=["up", "update"], description="Update my code using git.",
+                   emoji="<:git:944873798166020116>", alt_name="Update Bot", extras={"flags": update_flags})
     async def update(self, ctx: Union[CustomContext, disnake.MessageInteraction], *,
-                     opts: str = ""):  # TODO: Rever se há alguma forma de usar commands.Flag sem um argumento obrigatório, ex: --pip.
+                     opts: str = ""):
 
         out_git = ""
 
@@ -299,7 +299,7 @@ class Owner(commands.Cog):
             try:
                 pull_log = await run_command("git pull --allow-unrelated-histories -X theirs")
                 if "Already up to date" in pull_log:
-                    raise GenericError("**Já estou com os ultimos updates instalados...**")
+                    raise GenericError("**I already have the latest updates installed...**")
                 out_git += pull_log
 
             except GenericError as e:
@@ -308,7 +308,7 @@ class Owner(commands.Cog):
             except Exception as e:
 
                 if "Already up to date" in str(e):
-                    raise GenericError("Já estou com os ultimos updates instalados...")
+                    raise GenericError("I already have the latest updates installed...")
 
                 elif not "Fast-forward" in str(e):
                     out_git += await self.cleanup_git(force=True)
@@ -334,9 +334,9 @@ class Owner(commands.Cog):
                 pass
             shutil.copytree("./.git", "./.gitbak")
 
-        text = "`Será necessário me reiniciar após as alterações.`"
+        text = "`I will need to restart after the changes.`"
 
-        txt = f"`✅` **[Atualização realizada com sucesso!]({self.bot.pool.remote_git_url}/commits/main)**"
+        txt = f"`✅` **[Update successful!]({self.bot.pool.remote_git_url}/commits/main)**"
 
         if git_log:
             txt += f"\n\n{self.format_log(git_log[:10])}"
@@ -368,7 +368,7 @@ class Owner(commands.Cog):
         if args.pip:
 
             embed = disnake.Embed(
-                description="**Instalando as dependências.\nPor favor aguarde...**",
+                description="**Installing dependencies.\nPlease wait...**",
                 color=self.bot.get_color(ctx.guild.me)
             )
 
@@ -376,7 +376,7 @@ class Owner(commands.Cog):
 
             await run_command(cmd)
 
-            embed.description = "**As dependências foram instaladas com sucesso!**"
+            embed.description = "**Dependencies have been installed successfully!**"
 
             await msg.edit(embed=embed)
 
@@ -402,20 +402,20 @@ class Owner(commands.Cog):
 
                 await ctx.send(
                     embed=disnake.Embed(
-                        description="**Será necessário atualizar as dependências usando o comando "
-                                    "abaixo no terminal/shell:**\n"
-                                    f"```sh\n{txt}{cmd}```\nou usar usar o comando: "
+                        description="**You'll need to update the dependencies using the command "
+                                    "below in the terminal/shell:**\n"
+                                    f"```sh\n{txt}{cmd}```\nor use the command: "
                                     f"```ansi\n[34;1m{prefix}update --force --pip[0m``` \n"
-                                    f"**Nota:** Dependendo da hospedagem (ou que não tenha 150mb de RAM livre "
-                                    f"e 0.5vCPU) você deve enviar o arquivo requirements.txt ao invés de "
-                                    f"usar uma das opções acima ou os botões de instalar dependências abaixo...",
+                                    f"**Note:** Depending on the hosting (or if you don't have 150MB of free RAM "
+                                    f"and 0.5 vCPU) you should send the requirements.txt file instead of "
+                                    f"using one of the options above or the buttons to install dependencies below...",
                         color=self.bot.get_color(ctx.guild.me)
                     ),
                     components=[
                         disnake.ui.Button(label="Download requirements.txt", custom_id="updatecmd_requirements"),
-                        disnake.ui.Button(label="Atualizar dependências",
+                        disnake.ui.Button(label="Update dependencies",
                                           custom_id="updatecmd_installdeps_" + ("poetry" if use_poetry else "pip")),
-                        disnake.ui.Button(label="Atualizar dependências (force)",
+                        disnake.ui.Button(label="Update dependencies (force)",
                                           custom_id="updatecmd_installdeps_force_" + ("poetry" if use_poetry else "pip")),
                     ]
                 )
@@ -438,7 +438,7 @@ class Owner(commands.Cog):
 
             await inter.send(
                 embed=disnake.Embed(
-                    description="**Baixe o arquivo anexado e envie para sua hospedagem via commit etc.**",
+                    description="**Download the attached file and send it to your hosting via commit etc.**",
                     color=self.bot.get_color(inter.guild.me)
                 ),
                 file=disnake.File("update_reqs.zip")
@@ -481,12 +481,12 @@ class Owner(commands.Cog):
 
     @commands.max_concurrency(1, commands.BucketType.guild)
     @commands.cooldown(1, 10, commands.BucketType.user)
-    @panel_command(aliases=["latest", "lastupdate"], description="Ver minhas atualizações mais recentes.", emoji="📈",
-                   alt_name="Ultimas atualizações", hidden=False)
+    @panel_command(aliases=["latest", "lastupdate"], description="See my most recent updates.", emoji="📈",
+                alt_name="Latest updates", hidden=False)
     async def updatelog(self, ctx: Union[CustomContext, disnake.MessageInteraction], amount: int = 10):
 
         if not os.path.isdir("./.git"):
-            raise GenericError("Não há repositorio iniciado no diretório do bot...\nNota: Use o comando update.")
+            raise GenericError("No repository initiated in the bot's directory...\nNote: Use the update command.")
 
         if not self.bot.pool.remote_git_url:
             self.bot.pool.remote_git_url = self.bot.config["SOURCE_REPO"][:-4]
@@ -497,7 +497,7 @@ class Owner(commands.Cog):
 
         git_log += format_git_log(data)
 
-        txt = f"🔰 ** | [Atualizações recentes:]({self.bot.pool.remote_git_url}/commits/main)**\n\n" + self.format_log(
+        txt = f"🔰 ** | [Recent Updates:]({self.bot.pool.remote_git_url}/commits/main)**\n\n" + self.format_log(
             git_log)
 
         if isinstance(ctx, CustomContext):
@@ -516,38 +516,38 @@ class Owner(commands.Cog):
     @commands.command(hidden=True, aliases=["menu"])
     async def panel(self, ctx: CustomContext):
 
-        embed =disnake.Embed(
-            title="PAINEL DE CONTROLE.",
+        embed = disnake.Embed(
+            title="CONTROL PANEL.",
             color=self.bot.get_color(ctx.guild.me)
         )
-        embed.set_footer(text="Clique em uma tarefa que deseja executar.")
+        embed.set_footer(text="Click on a task you want to execute.")
         await ctx.send(embed=embed, view=PanelView(self.bot))
 
     @commands.has_guild_permissions(manage_guild=True)
-    @commands.command(description="Sincronizar/Registrar os comandos de barra no servidor.", hidden=True)
+    @commands.command(description="Sync/Register slash commands in the server.", hidden=True)
     async def syncguild(self, ctx: Union[CustomContext, disnake.MessageInteraction]):
 
         embed = disnake.Embed(
             color=self.bot.get_color(ctx.guild.me),
-            description="**Esse comando não é mais necessário ser usado (A sincronização dos comandos agora "
-                        f"é automática).**\n\n{sync_message(self.bot)}"
+            description="**This command is no longer necessary to use (Command synchronization is now "
+                        f"automatic).**\n\n{sync_message(self.bot)}"
         )
 
         await ctx.send(embed=embed)
 
     @commands.is_owner()
-    @panel_command(aliases=["sync"], description="Sincronizar os comandos de barra manualmente.",
-                   emoji="<:slash:944875586839527444>",
-                   alt_name="Sincronizar comandos manualmente.")
+    @panel_command(aliases=["sync"], description="Manually sync slash commands.",
+                emoji="<:slash:944875586839527444>",
+                alt_name="Manually sync commands.")
     async def synccmds(self, ctx: Union[CustomContext, disnake.MessageInteraction]):
 
         if self.bot.config["AUTO_SYNC_COMMANDS"] is True:
             raise GenericError(
-                f"**Isso não pode ser usado com a sincronização automática ativada...**\n\n{sync_message(self.bot)}")
+                f"**This cannot be used with automatic synchronization enabled...**\n\n{sync_message(self.bot)}")
 
         await self.bot._sync_application_commands()
 
-        txt = f"**Os comandos de barra foram sincronizados com sucesso!**\n\n{sync_message(self.bot)}"
+        txt = f"**Slash commands have been successfully synchronized!**\n\n{sync_message(self.bot)}"
 
         if isinstance(ctx, CustomContext):
 
@@ -564,16 +564,16 @@ class Owner(commands.Cog):
     @commands.has_guild_permissions(manage_guild=True)
     @commands.cooldown(1, 10, commands.BucketType.guild)
     @commands.command(
-        aliases=["mudarprefixo", "prefix", "changeprefix"],
-        description="Alterar o prefixo do servidor",
-        usage="{prefix}{cmd} [prefixo]\nEx: {prefix}{cmd} >>"
+        aliases=["prefix", "changeprefix"],
+        description="Change the server's prefix",
+        usage="{prefix}{cmd} [prefix]\nEx: {prefix}{cmd} >>"
     )
     async def setprefix(self, ctx: CustomContext, prefix: str):
 
         prefix = prefix.strip()
 
         if not prefix or len(prefix) > 5:
-            raise GenericError("**O prefixo não pode conter espaços ou ter acima de 5 caracteres.**")
+            raise GenericError("**The prefix cannot contain spaces or exceed 5 characters.**")
 
         try:
             guild_data = ctx.global_guild_data
@@ -588,8 +588,8 @@ class Owner(commands.Cog):
         prefix = disnake.utils.escape_markdown(prefix)
 
         embed = disnake.Embed(
-            description=f"**O meu prefixo no servidor agora é:** `{prefix}`\n"
-                        f"**Caso queira restaurar o prefixo padrão use o comando:** `{prefix}{self.resetprefix.name}`",
+            description=f"**My prefix in the server is now:** `{prefix}`\n"
+                        f"**If you want to restore the default prefix, use the command:** `{prefix}{self.resetprefix.name}`",
             color=self.bot.get_color(ctx.guild.me)
         )
 
@@ -598,7 +598,7 @@ class Owner(commands.Cog):
     @commands.has_guild_permissions(manage_guild=True)
     @commands.cooldown(1, 10, commands.BucketType.guild)
     @commands.command(
-        description="Resetar o prefixo do servidor (Usar o prefixo padrão do bot)"
+        description="Reset the server's prefix (Use the bot's default prefix)"
     )
     async def resetprefix(self, ctx: CustomContext):
 
@@ -609,7 +609,7 @@ class Owner(commands.Cog):
             ctx.global_guild_data = guild_data
 
         if not guild_data["prefix"]:
-            raise GenericError("**Nao há prefixo configurado no servidor.**")
+            raise GenericError("**No prefix configured in the server.**")
 
         guild_data["prefix"] = ""
         self.bot.pool.guild_prefix_cache[ctx.guild.id] = ""
@@ -617,8 +617,8 @@ class Owner(commands.Cog):
         await self.bot.update_global_data(ctx.guild.id, guild_data, db_name=DBModel.guilds)
 
         embed = disnake.Embed(
-            description=f"**O prefixo do servidor foi resetado com sucesso.\n"
-                        f"O prefixo padrão agora é:** `{disnake.utils.escape_markdown(self.bot.default_prefix)}`",
+            description=f"**The server's prefix has been successfully reset.\n"
+                        f"The default prefix now is:** `{disnake.utils.escape_markdown(self.bot.default_prefix)}`",
             color=self.bot.get_color(ctx.guild.me)
         )
 
@@ -626,17 +626,16 @@ class Owner(commands.Cog):
 
     @commands.cooldown(1, 10, commands.BucketType.guild)
     @commands.command(
-        aliases=["uprefix", "spu", "setmyprefix", "spm", "setcustomprefix", "scp", "customprefix", "myprefix"],
-        description="Alterar seu prefixo de usuário (prefixo que irei responder a você independente "
-                    "do prefixo configurado no servidor).",
-        usage="{prefix}{cmd} [prefixo]\nEx: {prefix}{cmd} >>"
+        description="Change your user prefix (the prefix I will respond to you with regardless "
+                    "of the prefix configured in the server).",
+        usage="{prefix}{cmd} [prefix]\nEx: {prefix}{cmd} >>"
     )
     async def setuserprefix(self, ctx: CustomContext, prefix: str):
 
         prefix = prefix.strip()
 
         if not prefix or len(prefix) > 5:
-            raise GenericError("**O prefixo não pode conter espaços ou ter acima de 5 caracteres.**")
+            raise GenericError("**The prefix cannot contain spaces or exceed 5 characters.**")
 
         try:
             user_data = ctx.global_user_data
@@ -651,15 +650,15 @@ class Owner(commands.Cog):
         prefix = disnake.utils.escape_markdown(prefix)
 
         embed = disnake.Embed(
-            description=f"**O seu prefixo de usuário agora é:** `{prefix}`\n"
-                        f"**Caso queira remover seu prefixo de usuário use o comando:** `{prefix}{self.resetuserprefix.name}`",
+            description=f"**Your user prefix is now:** `{prefix}`\n"
+                        f"**To remove your user prefix, use the command:** `{prefix}{self.resetuserprefix.name}`",
             color=self.bot.get_color(ctx.guild.me)
         )
 
         await ctx.send(embed=embed)
 
     @commands.cooldown(1, 10, commands.BucketType.guild)
-    @commands.command(description="Remover seu prefixo de usuário")
+    @commands.command(description="Remove your user prefix")
     async def resetuserprefix(self, ctx: CustomContext):
 
         try:
@@ -669,14 +668,14 @@ class Owner(commands.Cog):
             ctx.global_user_data = user_data
 
         if not user_data["custom_prefix"]:
-            raise GenericError("**Você não possui prefixo configurado.**")
+            raise GenericError("**You do not have a configured prefix.**")
 
         user_data["custom_prefix"] = ""
         self.bot.pool.user_prefix_cache[ctx.author.id] = ""
         await self.bot.update_global_data(ctx.author.id, user_data, db_name=DBModel.users)
 
         embed = disnake.Embed(
-            description=f"**O seu prefixo de usuário foi removido com sucesso.**",
+            description=f"**Your user prefix has been successfully removed.**",
             color=self.bot.get_color(ctx.guild.me)
         )
 
@@ -685,13 +684,13 @@ class Owner(commands.Cog):
     @commands.is_owner()
     @commands.command(
         aliases=["guildprefix", "sgp", "gp"], hidden=True,
-        description="Setar um prefixo manualmente pra um server com o id informado (útil para botlists)",
-        usage="{prefix}{cmd} [server id] <prefixo>\nEx: {prefix}{cmd} 1155223334455667788 >>\nNota: Use o comando sem especificar um prefix para removê-lo."
+        description="Set a prefix manually for a server with the given ID (useful for botlists)",
+        usage="{prefix}{cmd} [server id] <prefix>\nEx: {prefix}{cmd} 1155223334455667788 >>\nNote: Use the command without specifying a prefix to remove it."
     )
     async def setguildprefix(self, ctx: CustomContext, server_id: int, prefix: str = None):
 
         if not 17 < len(str(server_id)) < 24:
-            raise GenericError("**A quantidade de caracteres do id do servidor tem que estar entre 18 a 23.**")
+            raise GenericError("**The number of characters in the server ID must be between 18 to 23.**")
 
         guild_data = await self.bot.get_global_data(server_id, db_name=DBModel.guilds)
 
@@ -702,12 +701,12 @@ class Owner(commands.Cog):
         if not prefix:
             guild_data["prefix"] = ""
             await ctx.bot.update_global_data(server_id, guild_data, db_name=DBModel.guilds)
-            embed.description = "**O prefixo antecipado do servidor com o id informado foi resetado com sucesso.**"
+            embed.description = "**The prefix for the specified server ID has been successfully reset.**"
 
         else:
             guild_data["prefix"] = prefix
             await self.bot.update_global_data(server_id, guild_data, db_name=DBModel.guilds)
-            embed.description = f"**O prefixo para o servidor com o id informado agora é:** {disnake.utils.escape_markdown(prefix)}"
+            embed.description = f"**The prefix for the server with the specified ID is now:** {disnake.utils.escape_markdown(prefix)}"
 
         self.bot.pool.guild_prefix_cache[ctx.guild.id] = prefix
 
@@ -715,9 +714,9 @@ class Owner(commands.Cog):
 
     @commands.is_owner()
     @panel_command(aliases=["expsource", "export", "exs"],
-                   description="Exportar minha source para um arquivo zip.", emoji="💾",
-                   alt_name="Exportar source/código-fonte.")
-    async def exportsource(self, ctx:Union[CustomContext, disnake.MessageInteraction], *, flags: str = ""):
+                description="Export my source code to a zip file.", emoji="💾",
+                alt_name="Export source code.")
+    async def exportsource(self, ctx: Union[CustomContext, disnake.MessageInteraction], *, flags: str = ""):
 
         if not os.path.isdir("./.git"):
             await self.cleanup_git(force=True)
@@ -804,15 +803,15 @@ class Owner(commands.Cog):
                 os.remove("./source.zip")
             except:
                 pass
-            raise GenericError(f"**O tamanho do arquivo ultrapassou do limite de 25MB (tamanho atual: {humanize.naturalsize(filesize)})**")
+            raise GenericError(f"**The file size exceeded the limit of 25MB (current size: {humanize.naturalsize(filesize)})**")
 
         try:
             embed = disnake.Embed(
-                description="**Não envie o arquivo source.zip ou o arquivo .env pra ninguém e muito cuidado ao postar "
-                            "print's do conteudo do arquivo .env e não adicione esse arquivo em locais públicos como "
-                            "github, repl.it, glitch.com, etc.**",
+                description="**Do not send the source.zip file or the .env file to anyone and be very careful when posting "
+                            "screenshots of the contents of the .env file. Do not add this file to public locations such as "
+                            "GitHub, Repl.it, Glitch.com, etc.**",
                 color=self.bot.get_color(ctx.guild.me))
-            embed.set_footer(text="Por medida de segurança, esta mensagem será deletada em 2 minutos.")
+            embed.set_footer(text="For security reasons, this message will be deleted in 2 minutes.")
 
             msg = await ctx.author.send(
                 embed=embed,
@@ -824,18 +823,18 @@ class Owner(commands.Cog):
 
         except disnake.Forbidden:
             os.remove("./source.zip")
-            raise GenericError("Seu DM está desativado!")
+            raise GenericError("Your DMs are disabled!")
 
         if isinstance(ctx, CustomContext):
             await ctx.send(
                 embed=disnake.Embed(
-                    description=f"**O arquivo [source.zip]({msg.jump_url}) foi enviado no seu privado.**",
+                    description=f"**The file [source.zip]({msg.jump_url}) has been sent to your DMs.**",
                     color=self.bot.get_color(ctx.guild.me)
                 )
             )
         else:
-            return f"Arquivo [source.zip]({msg.jump_url}) foi enviado com sucesso no seu DM."
-
+            return f"The file [source.zip]({msg.jump_url}) has been successfully sent to your DMs."
+            
     def zip_dir(self, filelist: list):
 
         try:
@@ -871,12 +870,12 @@ class Owner(commands.Cog):
                     counter += 1
 
         if not counter:
-            raise GenericError(f"**Nenhuma mensagem foi deletada de {amount} verificada(s)...**")
+            raise GenericError(f"**No message was deleted from {amount} checked message(s)...**")
 
         if counter == 1:
-            txt = "**Uma mensagem foi deletada do seu DM.**"
+            txt = "**One message was deleted from your DM.**"
         else:
-            txt = f"**{counter} mensagens foram deletadas do seu DM.**"
+            txt = f"**{counter} messages were deleted from your DM.**"
 
         await ctx.send(embed=disnake.Embed(description=txt, colour=self.bot.get_color(ctx.guild.me)))
 
@@ -887,10 +886,10 @@ class Owner(commands.Cog):
             return
 
         if not await self.bot.is_owner(inter.author):
-            return await inter.send("**Apenas meu dono pode usar este botão!**", ephemeral=True)
+            return await inter.send("**Only my owner can use this button!**", ephemeral=True)
 
         await inter.response.edit_message(
-            content="```ini\n🔒 - [Shell Fechado!] - 🔒```",
+            content="```ini\n🔒 - [Shell Closed!] - 🔒```",
             attachments=None,
             view=None,
             embed=None
@@ -925,8 +924,8 @@ class Owner(commands.Cog):
             except disnake.Forbidden:
                 traceback.print_exc()
                 raise GenericError(
-                    "**Ocorreu um erro (verifique os logs/terminal ou libere seu DM para o próximo "
-                    "resultado ser enviado diretamente no seu DM).**"
+                    "**An error occurred (check logs/terminal or enable your DMs for the next "
+                    "result to be sent directly to your DMs).**"
                 )
 
         else:
@@ -939,7 +938,7 @@ class Owner(commands.Cog):
 
             await ctx.reply(
                 components=[
-                    disnake.ui.Button(label="Fechar Shell", custom_id="close_shell_result", emoji="♻️")
+                    disnake.ui.Button(label="Close Shell", custom_id="close_shell_result", emoji="♻️")
                 ],
                 mention_author=False, fail_if_not_exists=False,
                 **kwargs
@@ -947,19 +946,19 @@ class Owner(commands.Cog):
 
     @check_voice()
     @commands.cooldown(1, 15, commands.BucketType.guild)
-    @commands.command(description='inicializar um player no servidor.', aliases=["spawn", "sp", "spw", "smn"])
+    @commands.command(description='Initialize a player on the server.', aliases=["spawn", "sp", "spw", "smn"])
     async def summon(self, ctx: CustomContext):
 
         try:
             self.bot.music.players[ctx.guild.id]  # type ignore
-            raise GenericError("**Já há um player iniciado no servidor.**")
+            raise GenericError("**A player is already initiated on the server.**")
         except KeyError:
             pass
 
         node: wavelink.Node = self.bot.music.get_best_node()
 
         if not node:
-            raise GenericError("**Não há servidores de música disponível!**")
+            raise GenericError("**No music servers available!**")
 
         try:
             guild_data = ctx.guild_data
