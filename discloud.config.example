@@ -1,14 +1,14 @@
-###################################################################
-### Aviso: Caso use este arquivo, renomeie para discloud.config ###
-###################################################################
+#################################################################
+### Warning: If using this file, rename it to discloud.config ###
+#################################################################
 
-##################################################################################################################
-### Atenção: A RAM você pode alterar de acordo com o plano contratado (ou quantidade desejada).                ###
-### Caso use um plano pago que forneça no mínimo 512MB + 0.5vcpu recomendo que edite o arquivo .env e no campo ###
-### AUTO_DOWNLOAD_LAVALINK_SERVERLIST mude o valor true para false                                             ###
-###                                                                                                            ###
-### Caso queira, você pode alterar o NAME e link do AVATAR.                                                    ###
-##################################################################################################################
+##############################################################################################################
+### Attention: The RAM can be changed according to the contracted plan (or desired amount).                ###
+### If using a paid plan that provides a minimum of 512MB + 0.5vcpu, I recommend editing the .env file and ###
+### changing the value of AUTO_DOWNLOAD_LAVALINK_SERVERLIST from true to false.                            ###
+###                                                                                                        ###
+### If desired, you can change the NAME and AVATAR link.                                                   ###
+##############################################################################################################
 
 ID=1234567890
 NAME=Muse Heart Music Source

@@ -4,7 +4,7 @@ export PYTHONIOENCODING=utf8
 
 trap 'kill $(jobs -pr)' SIGINT SIGTERM EXIT
 
-echo "Criando VENV (por favor aguarde...)"
+echo "Creating VENV (please wait...)"
 
 rm -rf venv
 
@@ -15,7 +15,7 @@ else
 fi
 
 if [ ! -d "venv" ]; then
-  echo "Pasta venv não foi criada! Verifique se instalou o python corretamente (e que esteja configurado no PATH/env)"
+  echo "Venv folder was not created! Check that you have installed python correctly (and that it is configured in PATH/env)"
   sleep 45
   exit 1
 fi
@@ -38,7 +38,7 @@ pip install -r ./requirements.txt 2>&1 | tee "./.logs/setup.log"
 
 if [ ! -f ".env" ] && [ ! -f "config.json" ]; then
   cp .example.env .env
-  echo 'Não esqueça de adicionar os tokens necessários no arquivo .env'
+  echo 'Dont forget to add the necessary tokens in the .env file'
 fi
 
 sleep 60s

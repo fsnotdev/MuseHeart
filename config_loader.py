@@ -39,9 +39,9 @@ DEFAULT_CONFIG = {
     "MONGO": "",
     "SENSITIVE_INFO_WARN": True,
 
-    #########################
-    ### Sistema de música ###
-    #########################
+    ####################
+    ### Music System ###
+    ####################
     "AUTO_DOWNLOAD_LAVALINK_SERVERLIST": False,
     "LAVALINK_SERVER_LIST": "https://gist.githubusercontent.com/zRitsu/c3511e1da0440b94c126769dd40c9d91/raw/lavalink.ini",
     "LAVALINK_RECONNECT_RETRIES": 30,
@@ -68,16 +68,16 @@ DEFAULT_CONFIG = {
     "QUEUE_MAX_ENTRIES": 0,
     "ENABLE_DEFER_TYPING": True,
 
-    ##############################################
-    ### Sistema de música - Suporte ao spotify ###
-    ##############################################
+    ######################################
+    ### Music System - Spotify Support ###
+    ######################################
     "SPOTIFY_CLIENT_ID": '',
     "SPOTIFY_CLIENT_SECRET": '',
     "SEARCH_PROVIDER": "ytsearch",
 
-    ################################################
-    ### Sistema de música - RPC (Rich Presence): ###
-    ################################################
+    ###########################################
+    ### Music System - RPC (Rich Presence): ###
+    ###########################################
     "RUN_RPC_SERVER": True,
     "RPC_SERVER": "ws://localhost:$PORT/ws",
     "PORT": None,
@@ -85,9 +85,9 @@ DEFAULT_CONFIG = {
     "ENABLE_RPC_COMMAND": False,
     "ENABLE_RPC_AUTH": False,
 
-    ##################################################
-    ### Sistema de música - Local lavalink stuffs: ###
-    ##################################################
+    #############################################
+    ### Music System - Local Lavalink Stuffs: ###
+    #############################################
     "RUN_LOCAL_LAVALINK": False,
     "CONNECT_LOCAL_LAVALINK": True,
     "USE_JABBA": True,
@@ -98,7 +98,7 @@ DEFAULT_CONFIG = {
     "LAVALINK_FILE_URL": "https://github.com/zRitsu/LL-binaries/releases/download/0.0.1/Lavalink.jar",
 
     ##########################
-    ##### Bot presences: #####
+    ##### Bot Presences: #####
     ##########################
     "LISTENING_PRESENCES": "",
     "WATCHING_PRESENCES": "",
@@ -138,7 +138,6 @@ DEFAULT_CONFIG = {
     "SILENT_PUBLICBOT_WARNING": False
 }
 
-
 def load_config():
 
     CONFIG = dict(DEFAULT_CONFIG)
@@ -169,7 +168,7 @@ def load_config():
     except:
         CONFIG["EMBED_COLOR"] = None
 
-    # converter strings que requer número int.
+    # Convert strings requiring an integer.
     for i in [
         "MAX_USER_FAVS",
         "IDLE_TIMEOUT",
@@ -194,9 +193,9 @@ def load_config():
         try:
             CONFIG[i] = int(CONFIG[i])
         except ValueError:
-            raise Exception(f"Você usou uma configuração inválida! {i}: {CONFIG[i]}")
+            raise Exception(f"You used an invalid configuration! {i}: {CONFIG[i]}")
 
-    # converter strings que requer valor bool/nulo.
+    # Convert strings requiring a boolean/null value.
     for i in [
         "AUTO_SYNC_COMMANDS",
         "INTERACTION_COMMAND_ONLY",
@@ -244,7 +243,7 @@ def load_config():
         try:
             CONFIG[i] = bools[CONFIG[i]]
         except KeyError:
-            raise Exception(f"Você usou uma configuração inválida! {i}: {CONFIG[i]}")
+            raise Exception(f"You used an invalid configuration! {i}: {CONFIG[i]}")
 
     CONFIG["RPC_SERVER"] = CONFIG["RPC_SERVER"].replace("$PORT", CONFIG.get("PORT") or environ.get("PORT", "80"))
 
