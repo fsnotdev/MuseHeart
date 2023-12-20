@@ -489,7 +489,7 @@ class Player:
                         except:
                             data = await resp.text()
 
-                        raise WavelinkException(f"Ocorreu um erro ao destruir player: {resp.status} | {data}")
+                        raise WavelinkException(f"An error occurred while destroying the player: {resp.status} | {data}")
 
         try:
             del self.node.players[self.guild_id]
@@ -512,7 +512,7 @@ class Player:
         if self.node.version == 3:
             await self.node._send(op='equalizer', guildId=str(self.guild_id), bands=equalizer.eq)
         else:
-            raise Exception("Não implementado para lavalink v4 (ainda)")
+            raise Exception("Not implemented for Lavalink v4 yet")
         self._equalizer = equalizer
 
     async def set_equalizer(self, equalizer: Equalizer) -> None:
@@ -623,7 +623,7 @@ class Player:
                                 data = await resp.json()
                             except:
                                 data = await resp.text()
-                            print(f"Ocorreu um erro ao finalizar player: {data}")
+                            print(f"An error occurred while finalizing player: {data}")
                 except Exception:
                     traceback.print_exc()
 
