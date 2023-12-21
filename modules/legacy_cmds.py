@@ -186,7 +186,7 @@ class Owner(commands.Cog):
             return txt
 
     @commands.is_owner()
-    @panel_command(aliases=["rd", "reload"], description="Reload modules.", emoji="🔄",
+    @panel_command(aliases=["rd"], description="Reload modules.", emoji="🔄",
                    alt_name="Load/Reload modules.")
     async def reload(self, ctx: Union[CustomContext, disnake.MessageInteraction]):
 
@@ -241,7 +241,7 @@ class Owner(commands.Cog):
 
     @commands.is_owner()
     @commands.max_concurrency(1, commands.BucketType.default)
-    @panel_command(aliases=["up", "update"], description="Update my code using git.",
+    @panel_command(aliases=["up"], description="Update my code using git.",
                    emoji="<:git:944873798166020116>", alt_name="Update Bot", extras={"flags": update_flags})
     async def update(self, ctx: Union[CustomContext, disnake.MessageInteraction], *,
                      opts: str = ""):

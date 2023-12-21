@@ -419,7 +419,7 @@ class Misc(commands.Cog):
 
     about_cd = commands.CooldownMapping.from_cooldown(1, 5, commands.BucketType.member)
 
-    @commands.command(name="about", aliases=["about", "info", "botinfo"], description="Display information about me.",
+    @commands.command(name="about", aliases=["info", "botinfo"], description="Display information about me.",
                     cooldown=about_cd)
     async def about_legacy(self, ctx: CustomContext):
         await self.about.callback(self=self, interaction=ctx)
