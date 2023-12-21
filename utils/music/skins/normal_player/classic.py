@@ -51,12 +51,12 @@ class ClassicSkin:
 
         if not player.paused:
             (embed_top or embed).set_author(
-                name="Tocando Agora:",
+                name="Currently Playing:",
                 icon_url=music_source_image(player.current.info["sourceName"])
             )
         else:
             (embed_top or embed).set_author(
-                name="Em Pausa:",
+                name="Paused:",
                 icon_url="https://cdn.discordapp.com/attachments/480195401543188483/896013933197013002/pause.png"
             )
 
@@ -77,31 +77,31 @@ class ClassicSkin:
         if qsize := len(player.queue):
 
             if not player.mini_queue_enabled:
-                txt += f"🎶 **⠂** `{qsize} música(s) na fila`\n"
+                txt += f"🎶 **⠂** `{qsize} song(s) in queue`\n"
             else:
-                queue_txt += "```ansi\n[0;33mPróximas Músicas:[0m```" + "\n".join(
+                queue_txt += "```ansi\n[0;33mUpcoming Songs:[0m```" + "\n".join(
                     f"`{(n + 1):02}) [{time_format(t.duration) if t.duration else '🔴 Livestream'}]` "
                     f"[`{fix_characters(t.title, 29)}`]({t.uri})" for n, t in
                     enumerate(itertools.islice(player.queue, 3))
                 )
 
                 if qsize > 3:
-                    queue_txt += f"\n`╚══════ E mais {qsize - 3} música(s) ══════╝`"
+                    queue_txt += f"\n`╚══════ And {qsize - 3} more song(s) ══════╝`"
 
         if player.command_log:
-            txt += f"{player.command_log_emoji} **⠂Última Interação:** {player.command_log}\n"
+            txt += f"{player.command_log_emoji} **⠂Last Interaction:** {player.command_log}\n"
 
         if player.current.autoplay:
             try:
-                mode = f" [`reprodução automática`]({player.current.info['extra']['related']['uri']})"
+                mode = f" [`autoplay`]({player.current.info['extra']['related']['uri']})"
             except:
-                mode = "`reprodução automática`"
-            txt += f"\n`No momento estou usando a` {mode} `enquanto aguardo algum membro do canal` {player.guild.me.voice.channel.mention} `adicionar novas músicas.`\n\n"
+                mode = "`autoplay`"
+            txt += f"\n`I am currently using` {mode} `while waiting for someone in the channel` {player.guild.me.voice.channel.mention} `to add new songs.`\n\n"
 
         embed.description += txt + queue_txt
 
         if player.current_hint:
-            embed.set_footer(text=f"💡 Dica: {player.current_hint}")
+            embed.set_footer(text=f"💡 Hint: {player.current_hint}")
         else:
             embed.set_footer(
                 text=str(player),
@@ -117,64 +117,64 @@ class ClassicSkin:
             disnake.ui.Button(emoji="⏭️", custom_id=PlayerControls.skip),
             disnake.ui.Button(emoji="<:music_queue:703761160679194734>", custom_id=PlayerControls.queue, disabled=not player.queue),
             disnake.ui.Select(
-                placeholder="Mais opções:",
+                placeholder="More options:",
                 custom_id="musicplayer_dropdown_inter",
                 min_values=0, max_values=1,
                 options=[
                     disnake.SelectOption(
-                        label="Adicionar música", emoji="<:add_music:588172015760965654>",
+                        label="Add Song", emoji="<:add_music:588172015760965654>",
                         value=PlayerControls.add_song,
-                        description="Adicionar uma música/playlist na fila."
+                        description="Add a song/playlist to the queue."
                     ),
                     disnake.SelectOption(
-                        label="Adicionar favorito na fila", emoji="⭐",
+                        label="Add Favorite to Queue", emoji="⭐",
                         value=PlayerControls.enqueue_fav,
-                        description="Adicionar um de seus favoritos na fila."
+                        description="Add one of your favorites to the queue."
                     ),
                     disnake.SelectOption(
-                        label="Adicionar nos seus favoritos", emoji="💗",
+                        label="Add to Your Favorites", emoji="💗",
                         value=PlayerControls.add_favorite,
-                        description="Adicionar a música atual nos seus favoritos."
+                        description="Add the current song to your favorites."
                     ),
                     disnake.SelectOption(
-                        label="Tocar do inicio", emoji="⏪",
+                        label="Restart Song", emoji="⏪",
                         value=PlayerControls.seek_to_start,
-                        description="Voltar o tempo da música atual para o inicio."
+                        description="Go back to the start of the current song."
                     ),
                     disnake.SelectOption(
                         label=f"Volume: {player.volume}%", emoji="🔊",
                         value=PlayerControls.volume,
-                        description="Ajustar volume."
+                        description="Adjust volume."
                     ),
                     disnake.SelectOption(
-                        label="Misturar", emoji="🔀",
+                        label="Shuffle", emoji="🔀",
                         value=PlayerControls.shuffle,
-                        description="Misturar as músicas da fila."
+                        description="Shuffle the queue songs."
                     ),
                     disnake.SelectOption(
-                        label="Readicionar", emoji="🎶",
+                        label="Re-add", emoji="🎶",
                         value=PlayerControls.readd,
-                        description="Readicionar as músicas tocadas de volta na fila."
+                        description="Re-add played songs back to the queue."
                     ),
                     disnake.SelectOption(
-                        label="Repetição", emoji="🔁",
+                        label="Repeat", emoji="🔁",
                         value=PlayerControls.loop_mode,
-                        description="Ativar/Desativar repetição da música/fila."
+                        description="Toggle song/queue repeat."
                     ),
                     disnake.SelectOption(
-                        label=("Desativar" if player.nightcore else "Ativar") + " o efeito nightcore", emoji="🇳",
+                        label=("Disable" if player.nightcore else "Enable") + " nightcore effect", emoji="🇳",
                         value=PlayerControls.nightcore,
-                        description="Efeito que aumenta velocidade e tom da música."
+                        description="Effect that increases the speed and pitch of the music."
                     ),
                     disnake.SelectOption(
-                        label=("Desativar" if player.autoplay else "Ativar") + " a reprodução automática", emoji="🔄",
+                        label=("Disable" if player.autoplay else "Enable") + " autoplay", emoji="🔄",
                         value=PlayerControls.autoplay,
-                        description="Sistema de adição de música automática quando a fila estiver vazia."
+                        description="Automatically add music when the queue is empty."
                     ),
                     disnake.SelectOption(
-                        label= ("Desativar" if player.restrict_mode else "Ativar") + " o modo restrito", emoji="🔐",
+                        label= ("Disable" if player.restrict_mode else "Enable") + " restrict mode", emoji="🔐",
                         value=PlayerControls.restrict_mode,
-                        description="Apenas DJ's/Staff's podem usar comandos restritos."
+                        description="Only DJ's/Staff can use restricted commands."
                     ),
                 ]
             ),
@@ -183,19 +183,19 @@ class ClassicSkin:
         if player.mini_queue_feature:
             data["components"][5].options.append(
                 disnake.SelectOption(
-                    label="Mini-fila do player", emoji="<:music_queue:703761160679194734>",
+                    label="Player Mini-queue", emoji="<:music_queue:703761160679194734>",
                     value=PlayerControls.miniqueue,
-                    description="Ativar/Desativar a mini-fila do player."
+                    description="Toggle the player's mini-queue."
                 )
             )
 
         if isinstance(player.last_channel, disnake.VoiceChannel):
-            txt = "Desativar" if player.stage_title_event else "Ativar"
+            txt = "Disable" if player.stage_title_event else "Enable"
             data["components"][5].options.append(
                 disnake.SelectOption(
-                    label= f"{txt} status automático", emoji="📢",
+                    label= f"{txt} automatic status", emoji="📢",
                     value=PlayerControls.stage_announce,
-                    description=f"{txt} o status automático do canal de voz."
+                    description=f"{txt} the automatic status of the voice channel."
                 )
             )
 
@@ -204,7 +204,7 @@ class ClassicSkin:
                 disnake.SelectOption(
                     label="Song-Request Thread", emoji="💬",
                     value=PlayerControls.song_request_thread,
-                    description="Criar uma thread/conversa temporária para pedir músicas usando apenas o nome/link."
+                    description="Create a temporary thread/chat to request songs using just the name/link."
                 )
             )
 

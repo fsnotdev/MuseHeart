@@ -6,7 +6,6 @@ import disnake
 from utils.music.converters import fix_characters, time_format
 from utils.music.models import LavalinkPlayer
 
-
 class LiteSkin:
 
     __slots__ = ("name", "preview")
@@ -38,7 +37,7 @@ class LiteSkin:
                             f"> ℹ️ **┃**`{duration}`┃`{fix_characters(player.current.author, 18)}`┃"
 
         if player.current.autoplay:
-            embed.description += " `[Música automática]`"
+            embed.description += " `[Auto-play]`"
         else:
             embed.description += f"<@{player.current.requester}>"
 
@@ -48,7 +47,7 @@ class LiteSkin:
         data["embeds"].append(embed)
 
         if player.current_hint:
-            data["embeds"].append(disnake.Embed(color=player.bot.get_color(player.guild.me)).set_footer(text=f"💡 Dica: {player.current_hint}"))
+            data["embeds"].append(disnake.Embed(color=player.bot.get_color(player.guild.me)).set_footer(text=f"💡 Hint: {player.current_hint}"))
 
         return data
 

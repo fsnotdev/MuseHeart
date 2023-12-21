@@ -111,15 +111,15 @@ class BotPool:
                         return
 
                     self.killing_state = "ratelimit"
-                    print("Aplicação com ratelimit do discord!")
+                    print("Application being rate-limited by discord!")
                     return
 
                 if self.killing_state is True:
                     return
 
                 print(
-                    "Aplicação com ratelimit do discord!\n"
-                    "Finalizando/Reiniciando o processo em 5 segundos..."
+                    "Application being rate-limited by discord!\n"
+                    "Finishing/restarting the process in 5 seconds..."
                 )
 
                 self.killing_state = True
@@ -136,26 +136,25 @@ class BotPool:
             e = error
 
         if e:
-
             if isinstance(e, disnake.PrivilegedIntentsRequired):
-                e = "Você não ativou as Privileged Intents na sua aplicação<br>" \
-                    "Acesse o discord developer portal:<br>" \
+                e = "You haven't enabled Privileged Intents for your application.<br>" \
+                    "Access the Discord Developer Portal:<br>" \
                     "https://discord.com/developers/applications/<br>" \
-                    "e clique na sua aplicação e depois clique no menu \"bot\"<br>" \
-                    "e em seguida ative todas as intents.<br>" \
-                    "Print de exemplo: https://i.imgur.com/a9c1DHT.png<br>" \
-                    "Após corrigir, reinicie a aplicação."
-
-                print(("=" * 30) + f"\nFalha ao iniciar o bot configurado no: {bot.identifier}\n" + e.replace('<br>', '\n') + "\n" + ("=" * 30))
+                    "and click on your application, then on the 'bot' tab<br>" \
+                    "and enable all intents.<br>" \
+                    "Example screenshot: https://i.imgur.com/a9c1DHT.png<br>" \
+                    "After fixing, restart the application."
+                
+                print(("=" * 30) + f"\nFailed to start the bot configured in: {bot.identifier}\n" + e.replace('<br>', '\n') + "\n" + ("=" * 30))
 
             elif isinstance(e, disnake.LoginFailure) and "Improper token" in str(e):
-                e = "Foi utilizado um token inválido.<br>" \
-                    "Revise se o token informado está correto<br>" \
-                    "ou se o token foi resetado<br>" \
-                    "ou copiado do local correto ( ex: https://i.imgur.com/k894c1q.png )<br>" \
-                    "Após corrigir, reinicie a aplicação."
-
-                print(("=" * 30) + f"\nFalha ao iniciar o bot configurado no: {bot.identifier}\n" + e.replace('<br>', '\n') + "\n" + ( "=" * 30))
+                e = "An invalid token was used.<br>" \
+                    "Review if the provided token is correct<br>" \
+                    "or if the token has been reset<br>" \
+                    "or copied from the correct location (e.g., https://i.imgur.com/k894c1q.png)<br>" \
+                    "After fixing, restart the application."
+                
+                print(("=" * 30) + f"\nFailed to start the bot configured in: {bot.identifier}\n" + e.replace('<br>', '\n') + "\n" + ("=" * 30))
 
             else:
                 traceback.print_tb(e.__traceback__)
@@ -210,7 +209,7 @@ class BotPool:
 
         if self.config["AUTO_DOWNLOAD_LAVALINK_SERVERLIST"]:
             ini_file = "auto_lavalink.ini"
-            print(f"Baixando lista de servidores lavalink (arquivo: {ini_file})")
+            print(f"Downloading List of Lavalink Servers (File: {ini_file})")
             r = requests.get(self.config["LAVALINK_SERVER_LIST"], allow_redirects=True)
             with open("auto_lavalink.ini", 'wb') as f:
                 f.write(r.content)
@@ -224,7 +223,7 @@ class BotPool:
                 try:
                     LAVALINK_SERVERS[key] = json.loads(value)
                 except Exception as e:
-                    print(f"Falha ao adicionar node: {key}, erro: {repr(e)}")
+                    print(f"Failure when adding node: {key}, error: {repr(e)}")
 
         config = ConfigParser()
         try:
@@ -260,12 +259,12 @@ class BotPool:
                         self.config['USE_JABBA'] = False
                         if not square_cfg.get("SUBDOMAIN"):
                             self.config["RUN_RPC_SERVER"] = False
-                        print("Usando a configuração automática na squarecloud\n"
+                        print("Using the automatic configuration at Squarecloud\n"
                               f"Lavalink local: {start_local}\n"
                               f"YTDL: {self.config['USE_YTDL']}\n"
-                              f"Memória: {square_cfg['MEMORY']}\n"
+                              f"Memory: {square_cfg['MEMORY']}\n"
                               f"Run RPC Server: {self.config['RUN_RPC_SERVER']}\n"
-                              f"Usando JABBA: {self.config['USE_JABBA']}")
+                              f"Using Jabba: {self.config['USE_JABBA']}")
                     break
 
         if start_local is None:
@@ -283,9 +282,9 @@ class BotPool:
 
         if mongo_key:
             self.mongo_database = MongoDatabase(mongo_key)
-            print("Database em uso: MongoDB")
+            print("Database in use: MongoDB")
         else:
-            print("Database em uso: TinyMongo | Nota: Os arquivos da database serão salvos localmente na pasta: local_database")
+            print("Database in use: TinyMongo | Note: Database files will be saved locally in the folder: local_database")
 
         self.local_database = LocalDatabase()
 
@@ -348,7 +347,7 @@ class BotPool:
                 pass
 
             if not token:
-                print(f"{bot_name} Ignorado (token não informado)...")
+                print(f"{bot_name} Ignored (uninfined token)...")
                 return
 
             try:
@@ -387,8 +386,8 @@ class BotPool:
                 async def check_commands(ctx: CustomContext):
 
                     if not (await bot.is_owner(ctx.author)):
-                        raise GenericError("**Os comandos de texto estão desativados!\n"
-                                           "Use os comandos de barra /**", self_delete=True, delete_original=15)
+                        raise GenericError("**Text commands are deactivated!\n"
+                                           "Use slash commands /**", self_delete=True, delete_original=15)
 
                     return True
 
@@ -480,7 +479,7 @@ class BotPool:
 
                                 @bot.slash_command(
                                     name=disnake.Localized("register_commands",data={disnake.Locale.pt_BR: "registrar_comandos"}),
-                                    description="Use este comando caso meus outros comandos de barra (/) não estejam disponíveis..."
+                                    description="Use this command if my other slash commands (/) are not available..."
                                 )
                                 async def register_commands(
                                         inter: disnake.AppCmdInter,
@@ -495,19 +494,19 @@ class BotPool:
                                         interaction_invites += f"[`{disnake.utils.escape_markdown(str(b.user.name))}`]({disnake.utils.oauth_url(b.user.id, scopes=['applications.commands'])}) "
 
                                     embed = disnake.Embed(
-                                        description="**Atenção!** Todos os meus comandos de barra (/) funcionam através da aplicação "
-                                                    f"com um dos nomes abaixo:**\n{interaction_invites}\n\n"
-                                                    "**Caso os comandos da aplicação acima não sejam exibidos ao digitar barra (/), "
-                                                    "clique no nome acima para integrar os comandos de barra no seu "
-                                                    "servidor.",
+                                        description="**Attention!** All my slash (/) commands work through the application "
+                                                    f"with one of the names below:**\n{interaction_invites}\n\n"
+                                                    "**If the above application commands are not displayed when typing the slash (/), "
+                                                    "click on the name above to integrate slash commands into your "
+                                                    "server.",
                                         color=bot.get_color()
                                     )
 
                                     if not inter.author.guild_permissions.manage_guild:
-                                        embed.description += "\n\n**Nota:** Será necessário ter a permissão de **Gerenciar " \
-                                                             "Servidor** para integrar os comandos no servidor atual."
+                                        embed.description += "\n\n**Note:** It will be necessary to have the **Manage Server** permission to integrate commands into the current server."
 
                                     await inter.send(embed=embed, ephemeral=True)
+
 
                             if bot.config["AUTO_SYNC_COMMANDS"]:
                                 await bot.sync_app_commands(force=True)
@@ -545,20 +544,19 @@ class BotPool:
         message = ""
 
         if not self.bots:
-
             os.system('cls' if os.name == 'nt' else 'clear')
 
-            message = "O token do bot não foi configurado devidamente!\n\n"
+            message = "The bot token has not been properly configured!\n\n"
 
             if os.environ.get("REPL_SLUG"):
-                message += f"Confira se o token foi adicionado nas secrets da replit"
+                message += f"Check if the token has been added to the Replit secrets."
 
-                print(message + ": Guia de como configurar: https://gist.github.com/zRitsu/70737984cbe163f890dae05a80a3ddbe#2---com-o-projeto-j%C3%A1-criado-prossiga-as-etapas-abaixo")
+                print(message + ": Guide on how to configure: https://gist.github.com/zRitsu/70737984cbe163f890dae05a80a3ddbe#2---com-o-projeto-j%C3%A1-criado-prossiga-as-etapas-abaixo")
 
-                message += f'. <a href="https://gist.github.com/zRitsu/70737984cbe163f890dae05a80a3ddbe#2---com-o-projeto-j%C3%A1-criado-prossiga-as-etapas-abaixo" target="_blank">Clique aqui</a> para ver o guia de como configurar.'
+                message += f'. <a href="https://gist.github.com/zRitsu/70737984cbe163f890dae05a80a3ddbe#2---com-o-projeto-j%C3%A1-criado-prossiga-as-etapas-abaixo" target="_blank">Click here</a> to view the guide on how to configure.'
 
             else:
-                message += "Confira se o token foi configurado na ENV/ENVIRONMENT ou no arquivo .env"
+                message += "Check if the token has been configured in ENV/ENVIRONMENT or in the .env file."
 
                 print(message)
 
@@ -633,7 +631,7 @@ class BotCore(commands.AutoShardedBot):
             try:
                 self.env_owner_ids.add(int(i))
             except ValueError:
-                print(f"Owner_ID inválido: {i}")
+                print(f"Owner_ID invalid {i}")
 
     def load_skins(self):
 
@@ -644,17 +642,17 @@ class BotCore(commands.AutoShardedBot):
             skin = skin[:-3]
 
             if skin in self.config["IGNORE_SKINS"].split() and skin != "default":
-                print(f"{self.user} | Skin {skin}.py ignorada")
+                print(f"{self.user} | Skin {skin}.py ignored")
                 continue
 
             try:
                 skin_file = import_module(f"utils.music.skins.normal_player.{skin}")
                 if not hasattr(skin_file, "load"):
-                    print(f"Skin ignorada: {skin}.py | Função load() não configurada/encontrada...")
+                    print(f"Skin ignored: {skin}.py | load() function not configured/found...")
                     continue
                 self.player_skins[skin] = skin_file.load()
             except Exception:
-                print(f"Falha ao carregar skin [normal_player]: {traceback.format_exc()}")
+                print(f"Failure when loading skin [normal_player]: {traceback.format_exc()}")
         if self.default_skin not in self.player_skins:
             self.default_skin = "default"
 
@@ -665,17 +663,17 @@ class BotCore(commands.AutoShardedBot):
             skin = skin[:-3]
 
             if skin in self.config["IGNORE_STATIC_SKINS"].split() and skin != "default":
-                print(f"{self.user} | Skin {skin}.py ignorada")
+                print(f"{self.user} | Skin {skin}.py ignored")
                 continue
 
             try:
                 skin_file = import_module(f"utils.music.skins.static_player.{skin}")
                 if not hasattr(skin_file, "load"):
-                    print(f"Skin ignorada: {skin}.py | Função load() não configurada/encontrada...")
+                    print(f"Skin ignored: {skin}.py | load() function not configured/found...")
                     continue
                 self.player_static_skins[skin] = skin_file.load()
             except Exception:
-                print(f"Falha ao carregar skin [static_player]: {traceback.format_exc()}")
+                print(f"Failure when loading skin [static_player]: {traceback.format_exc()}")
         if self.default_static_skin not in self.player_static_skins:
             self.default_static_skin = "default"
 
@@ -773,7 +771,7 @@ class BotCore(commands.AutoShardedBot):
 
         if current_cmds == synced_cmds:
             if current_cmds:
-                print(f"{self.user} - Os comandos já estão sincronizados.")
+                print(f"{self.user} - The commands are already synchronized.")
             return
 
         self._command_sync_flags = self.pool.command_sync_config
@@ -839,7 +837,7 @@ class BotCore(commands.AutoShardedBot):
                 return
 
             try:
-                await message.author.send(f"Não tenho permissão para enviar mensagens no canal {message.channel.mention}...")
+                await message.author.send(f"I am not allowed to send messages on the channel {message.channel.mention}...")
             except disnake.HTTPException:
                 pass
 
@@ -883,11 +881,11 @@ class BotCore(commands.AutoShardedBot):
             if not isinstance(prefix, str):
                 prefix = prefix[-1]
 
-            embed.description = f"**Olá {message.author.mention}.**"
+            embed.description = f"**Hello {message.author.mention}.**"
 
             if not self.config["INTERACTION_COMMAND_ONLY"]:
-                embed.description += f"\n\nMeu prefixo no servidor é: **{prefix}** `(minha menção também funciona como prefixo).`\n"\
-                                    f"Pra ver todos os meus comandos use **{prefix}help**"
+                embed.description += f"\n\nMy prefix on this server is: **{prefix}** `(my mention also works as a prefix).`\n"\
+                                    f"To see all my commands use **{prefix}help**"
 
             bot_count = 0
 
@@ -909,30 +907,30 @@ class BotCore(commands.AutoShardedBot):
                     interaction_invites.append(f"[`{disnake.utils.escape_markdown(str(b.user.name))}`]({disnake.utils.oauth_url(b.user.id, scopes=['applications.commands'])}) ")
 
                 if interaction_invites:
-                    embed.description += f"\n\nMeus comandos de barra (/) funcionam através " \
-                                         f"das seguintes aplicações abaixo:\n" \
+                    embed.description += f"\n\nMy slash (/) commands work through " \
+                                         f"the following applications below:\n" \
                                          f"{' **|** '.join(interaction_invites)}\n\n" \
-                                         f"Caso os comandos da aplicação acima não sejam exibidos ao digitar " \
-                                         f"barra (/), clique no nome acima para integrar os comandos de barra no " \
-                                         f"seu servidor."
+                                         f"If the commands from the above application are not displayed " \
+                                         f"when typing the slash (/) command, click on the name above to " \
+                                         f"integrate the slash commands into your server."
 
                 else:
-                    embed.description += "\n\n**Pra ver todos os meus comandos use: /**"
+                    embed.description += "\n\n**To see all my commands use: /**"
 
             else:
-                embed.description += "\n\n**Pra ver todos os meus comandos use: /**"
+                embed.description += "\n\n**To see all my commands use: /**"
 
             if bot_count:
 
                 if message.author.guild and message.author.guild_permissions.manage_guild:
-                    embed.description += "\n\n`Caso precise de mais bots de música neste servidor ou queira adicionar bots " \
-                                         "de música em outro servidor, clique no botão abaixo.`"
+                    embed.description += "\n\n`If you need more music bots on this server or want to add music bots on another server, " \
+                                         "click the button below.`"
 
                 kwargs = {
                     "components": [
                         disnake.ui.Button(
                             custom_id="bot_invite",
-                            label="Me adicione no seu servidor."
+                            label="Add me to your server."
                         )
                     ]
                 }
@@ -941,7 +939,7 @@ class BotCore(commands.AutoShardedBot):
                 kwargs = {
                     "components": [
                         disnake.ui.Button(
-                            label="Me adicione no seu servidor.",
+                            label="Add me to your server.",
                             url=disnake.utils.oauth_url(self.user.id, permissions=disnake.Permissions(self.config['INVITE_PERMISSIONS']), scopes=('bot', 'applications.commands'))
                         )
                     ]
@@ -999,8 +997,8 @@ class BotCore(commands.AutoShardedBot):
                     if raise_error is False:
                         return False
 
-                    raise GenericError("**Você não pode usar comandos prefixed na postagem atual...**\n"
-                                       "`Use comando de barra (/) aqui.`", self_delete=True)
+                    raise GenericError("**You cannot use prefixed commands in the current post...**\n"
+                                       "`Use slash command (/) here.`", self_delete=True)
         except AttributeError:
             pass
 
@@ -1043,21 +1041,21 @@ class BotCore(commands.AutoShardedBot):
                 if not [dev for dev in owners if check_member(dev, guild)]:
                     guilds.add(guild)
 
-            warn_msg = f"Atenção: O bot [{self.user}] (ID: {self.user.id}) foi configurado no portal do desenvolvedor " \
-                  "como bot público\n" \
-                  "lembrando que se caso o bot seja divulgado pra ser adicionado publicamente o mesmo terá que " \
-                  "estar sob as condições da licença GPL-2: " \
+            warn_msg = f"Attention: Bot [{self.user}] (ID: {self.user.id}) as been configured in the developer portal " \
+                  "as a public bot\n" \
+                  "remember that if the bot is released to be added publicly, it will have to " \
+                  "be under the conditions of the GPL-2 license: " \
                   "https://github.com/zRitsu/MuseHeart-MusicBot/blob/main/LICENSE\n" \
-                  "Caso não queira seguir as condições da licença no seu bot, você pode deixar o bot privado desmarcando a " \
-                  f"opção public bot acessando o link: https://discord.com/developers/applications/{self.user.id}/bot"
+                  "If you do not want to follow the license conditions in your bot, you can make the bot private by unchecking the " \
+                  f"public bot option by accessing the link: https://discord.com/developers/applications/{self.user.id}/bot"
 
             if guilds:
-                warn_msg += "\n\nAtualmente o bot se encontra em servidores no qual o dono do bot (ou membro da equipe) não "\
-                            f"estão ou que não possuem permissão de gerenciar servidor pra adicionar o próprio bot " \
-                             f"[{self.user}] nos servidores abaixo:\n\n" + "\n".join(f"{g.name} [ID: {g.id}]" for g in list(guilds)[:10])
+                warn_msg += "\n\nCurrently the bot is located on servers where the bot owner (or team member) does not "\
+                            f"have permission to manage the server to add their own bot " \
+                             f"[{self.user}] in the servers below:\n\n" + "\n".join(f"{g.name} [ID: {g.id}]" for g in list(guilds)[:10])
 
                 if (gcount:=len(guilds)) > 10:
-                    warn_msg += F"\ne em mais {gcount-10} servidor(es)."
+                    warn_msg += F"\nand in {gcount-10} more server (s)."
 
             print(("="*50) + f"\n{warn_msg}\n" + ("="*50))
 
@@ -1071,12 +1069,12 @@ class BotCore(commands.AutoShardedBot):
     async def on_application_command(self, inter: disnake.ApplicationCommandInteraction):
 
         if not inter.guild_id:
-            await inter.send("Meus comandos não podem ser usados no DM.\n"
-                             "Use em algum servidor que estou presente.")
+            await inter.send("My commands cannot be used in DM.\n"
+                             "Use on servers that I am in.")
             return
 
         if not self.bot_ready:
-            await inter.send("Ainda estou inicializando...\nPor favor aguarde mais um pouco...", ephemeral=True)
+            await inter.send("I'm still booting ...\nPlease wait a little longer...", ephemeral=True)
             return
 
         if self.config["COMMAND_LOG"] and inter.guild and not (await self.is_owner(inter.author)):
@@ -1107,22 +1105,22 @@ class BotCore(commands.AutoShardedBot):
                 try:
                     self.reload_extension(module_filename)
                     if self.pool.controller_bot == self and not self.bot_ready:
-                        print(f"{'=' * 48}\n[OK] {bot_name} - {filename}.py Recarregado.")
+                        print(f"{'=' * 48}\n[OK] {bot_name} - {filename}.py Reloaded.")
                     load_status["reloaded"].append(f"{filename}.py")
                 except (commands.ExtensionAlreadyLoaded, commands.ExtensionNotLoaded):
                     try:
                         self.load_extension(module_filename)
                         if self.pool.controller_bot == self and not self.bot_ready:
-                            print(f"{'=' * 48}\n[OK] {bot_name} - {filename}.py Carregado.")
+                            print(f"{'=' * 48}\n[OK] {bot_name} - {filename}.py Loaded.")
                         load_status["loaded"].append(f"{filename}.py")
                     except Exception as e:
                         if self.pool.controller_bot == self and not self.bot_ready:
-                            print(f"{'=' * 48}\n[ERRO] {bot_name} - Falha ao carregar/recarregar o módulo: {filename}")
+                            print(f"{'=' * 48}\n[ERROR] {bot_name} - Failed to load/reload the module: {filename}")
                             raise e
                         return load_status
                 except Exception as e:
                     if self.pool.controller_bot == self and not self.bot_ready:
-                        print(f"{'=' * 48}\n[ERRO] {bot_name} - Falha ao carregar/recarregar o módulo: {filename}")
+                        print(f"{'=' * 48}\n[ERROR] {bot_name} - Failed to load/reload the module: {filename}")
                         raise e
                     return load_status
 
@@ -1134,7 +1132,7 @@ class BotCore(commands.AutoShardedBot):
 
         for c in self.slash_commands:
             if (desc:=len(c.description)) > 100:
-                raise Exception(f"A descrição do comando {c.name} excedeu a quantidade de caracteres permitido "
-                                f"no discord (100), quantidade atual: {desc}")
+                raise Exception(f"The command description {c.name} exceeded the allowed number of characters "
+                                f"discord limit(100), current length: {desc}")
 
         return load_status

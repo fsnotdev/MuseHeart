@@ -106,7 +106,7 @@ class Owner(commands.Cog):
         hidden=True, aliases=["gls", "lavalink", "lllist", "lavalinkservers"],
         description="Download a file with a list of Lavalink servers to use them in the music system."
     )
-    async def get_lava_servers(self, ctx: CustomContext):
+    async def getlavaservers(self, ctx: CustomContext):
 
         await ctx.defer()
 
@@ -626,6 +626,7 @@ class Owner(commands.Cog):
 
     @commands.cooldown(1, 10, commands.BucketType.guild)
     @commands.command(
+        aliases=["uprefix", "spu", "setmyprefix", "spm", "setcustomprefix", "scp", "customprefix", "myprefix"],
         description="Change your user prefix (the prefix I will respond to you with regardless "
                     "of the prefix configured in the server).",
         usage="{prefix}{cmd} [prefix]\nEx: {prefix}{cmd} >>"

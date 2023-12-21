@@ -42,21 +42,21 @@ class MiniPlayer:
             embed.set_thumbnail(url=player.current.thumb)
 
         if not player.current.autoplay:
-            embed.description += f"**Pedido por:** <@{player.current.requester}>\n"
+            embed.description += f"**Requested by:** <@{player.current.requester}>\n"
         else:
-            embed.description += "**Tocando via:** `autoplay (repr. automática)`\n"
+            embed.description += "**Playing via:** `autoplay (auto-playback)`\n"
 
         embed.set_author(
-            name="Tocando Agora:",
+            name="Currently Playing:",
             icon_url=music_source_image(player.current.info["sourceName"])
         )
 
         if player.command_log:
-            embed.description += f"\n{player.command_log_emoji} ⠂**Última Interação:** {player.command_log}"
+            embed.description += f"\n{player.command_log_emoji} ⠂**Last Interaction:** {player.command_log}"
 
         if player.current_hint:
             embed_hint = disnake.Embed(colour=embed_color)
-            embed_hint.set_footer(text=f"💡 Dica: {player.current_hint}")
+            embed_hint.set_footer(text=f"💡 Hint: {player.current_hint}")
             data["embeds"].append(embed_hint)
 
         data["embeds"].append(embed)

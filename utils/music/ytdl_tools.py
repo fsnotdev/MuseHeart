@@ -69,7 +69,7 @@ class YTDLTools:
                 continue
 
             if e["age_limit"] > 17 and e["ie_key"] != "Twitter":
-                raise GenericError("**Este link contém conteúdo para maiores de 18 anos!**")
+                raise GenericError("**This link contains content for over 18!**")
 
             if not loop:
                 loop = asyncio.get_event_loop()
@@ -78,7 +78,7 @@ class YTDLTools:
 
             try:
                 if data["_type"] == "playlist":
-                    raise GenericError("**No momento não há suporte para playlists com o link fornecido...**")
+                    raise GenericError("**There is currently no support for playlists with the link provided...**")
             except KeyError:
                 pass
 
@@ -89,7 +89,7 @@ class YTDLTools:
 
             try:
                 if entrie["age_limit"] > 17:
-                    raise GenericError("**Este link contém conteúdo para maiores de 18 anos!**")
+                    raise GenericError("**This link contains content for over 18!**")
             except KeyError:
                 pass
 

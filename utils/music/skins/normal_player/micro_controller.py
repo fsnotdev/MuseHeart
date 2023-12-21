@@ -7,7 +7,6 @@ from utils.music.converters import fix_characters, get_button_style, music_sourc
 from utils.music.models import LavalinkPlayer
 from utils.others import PlayerControls
 
-
 class MicroController:
 
     __slots__ = ("name", "preview")
@@ -42,31 +41,31 @@ class MicroController:
             embed.description += f"<@{player.current.requester}>"
 
         embed.set_author(
-            name="Tocando Agora:",
+            name="Currently Playing:",
             icon_url=music_source_image(player.current.info["sourceName"])
         )
 
         if player.command_log:
-            embed.description += f"\n\n{player.command_log_emoji} ⠂**Última Interação:** {player.command_log}"
+            embed.description += f"\n\n{player.command_log_emoji} **Last Interaction:** {player.command_log}"
 
         if player.current_hint:
             embed_hint = disnake.Embed(colour=embed_color)
-            embed_hint.set_footer(text=f"💡 Dica: {player.current_hint}")
+            embed_hint.set_footer(text=f"💡 Hint: {player.current_hint}")
             data["embeds"].append(embed_hint)
 
         data["embeds"].append(embed)
 
         if player.current.autoplay:
-            data["embeds"].append(disnake.Embed(color=embed_color).set_footer(text=f"No momento estou usando a reprodução automática enquanto aguardo algum membro do canal #{player.guild.me.voice.channel.name} adicionar novas músicas."))
+            data["embeds"].append(disnake.Embed(color=embed_color).set_footer(text=f"I'm currently using autoplay while waiting for someone from the #{player.guild.me.voice.channel.name} voice channel to add new songs."))
 
         data["components"] = [
-            disnake.ui.Button(emoji="⏯️", label="Retomar" if player.paused else "Pausar", custom_id=PlayerControls.pause_resume, style=get_button_style(player.paused)),
-            disnake.ui.Button(emoji="⏮️", label="Voltar", custom_id=PlayerControls.back),
-            disnake.ui.Button(emoji="⏹️", label="Parar", custom_id=PlayerControls.stop, style=disnake.ButtonStyle.red),
-            disnake.ui.Button(emoji="⏭️", label="Pular", custom_id=PlayerControls.skip),
-            disnake.ui.Button(emoji="<:music_queue:703761160679194734>", label="Fila", custom_id=PlayerControls.queue,disabled=not player.queue),
-            disnake.ui.Button(emoji="💗", label="Adicionar nos seus favoritos", custom_id=PlayerControls.add_favorite),
-            disnake.ui.Button(emoji="⭐", label="Tocar favorito", custom_id=PlayerControls.enqueue_fav),
+            disnake.ui.Button(emoji="⏯️", label="Resume" if player.paused else "Pause", custom_id=PlayerControls.pause_resume, style=get_button_style(player.paused)),
+            disnake.ui.Button(emoji="⏮️", label="Back", custom_id=PlayerControls.back),
+            disnake.ui.Button(emoji="⏹️", label="Stop", custom_id=PlayerControls.stop, style=disnake.ButtonStyle.red),
+            disnake.ui.Button(emoji="⏭️", label="Skip", custom_id=PlayerControls.skip),
+            disnake.ui.Button(emoji="<:music_queue:703761160679194734>", label="Queue", custom_id=PlayerControls.queue,disabled=not player.queue),
+            disnake.ui.Button(emoji="💗", label="Add to your favorites", custom_id=PlayerControls.add_favorite),
+            disnake.ui.Button(emoji="⭐", label="Play favorite", custom_id=PlayerControls.enqueue_fav),
         ]
 
         return data

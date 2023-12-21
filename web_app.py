@@ -100,7 +100,7 @@ class IndexHandler(tornado.web.RequestHandler):
         if pending_bots:
             msg += f"\n<p style=\"font-size:20px\">Bots initializing:</p>" \
                    f"{style}\n<table cellpadding=\"10\">{''.join(pending_bots)}</table>\n" \
-                   f"Note: Reload the page to check if the bot is available."
+                   f"Note: Refresh the page to check if the bots are available."
 
         if failed_bots:
 

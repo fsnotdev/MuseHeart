@@ -37,7 +37,7 @@ class MicroNC:
         data["embeds"].append(embed)
 
         if player.current_hint:
-            data["embeds"].append(disnake.Embed(color=player.bot.get_color(player.guild.me)).set_footer(text=f"💡 Dica: {player.current_hint}"))
+            data["embeds"].append(disnake.Embed(color=player.bot.get_color(player.guild.me)).set_footer(text=f"💡 Hint: {player.current_hint}"))
 
         return data
 

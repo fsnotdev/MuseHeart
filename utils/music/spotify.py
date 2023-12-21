@@ -114,7 +114,7 @@ async def process_spotify(bot: BotCore, requester: int, query: str):
 
         result = await bot.loop.run_in_executor(None, lambda: bot.spotify.artist_top_tracks(url_id))
 
-        data["playlistInfo"]["name"] = "As mais tocadas de: " + \
+        data["playlistInfo"]["name"] = "The most played of: " + \
                                        [a["name"] for a in result["tracks"][0]["artists"] if a["id"] == url_id][0]
         tracks_data = result["tracks"]
 
@@ -123,17 +123,17 @@ async def process_spotify(bot: BotCore, requester: int, query: str):
         try:
             result = await bot.loop.run_in_executor(None, lambda: bot.spotify.playlist(url_id))
         except spotipy.SpotifyException as e:
-            raise GenericError("**Ocorreu um erro ao processar a playlist:** ```py"
+            raise GenericError("**An error occurred when processing the playlist:** ```py"
                                f"{repr(e)}```")
         data["playlistInfo"]["name"] = result["name"]
         data["playlistInfo"]["thumb"] = result["images"][0]["url"]
         tracks_data = [t["track"] for t in result["tracks"]["items"]]
 
     else:
-        raise GenericError(f"**Link do spotify não reconhecido/suportado:**\n{query}")
+        raise GenericError(f"**Spotify link not recognized/supported:**\n{query}")
 
     if not tracks_data:
-        raise GenericError(f"**Não houve resultados no link do spotify informado...**")
+        raise GenericError(f"**There were no results in the Spotify link informed...**")
 
     data["playlistInfo"]["selectedTrack"] = -1
 
@@ -184,14 +184,14 @@ async def process_spotify(bot: BotCore, requester: int, query: str):
 def spotify_client(config: dict) -> Optional[spotipy.Spotify]:
     if not config['SPOTIFY_CLIENT_ID']:
         print(
-            f"[IGNORADO] - Spotify Support: SPOTIFY_CLIENT_ID não foi configurado na ENV da host (ou no arquivo .env)."
+            f"[Ignored] - Spotify Support: Spotify_Client_id was not configured in the host ENV (or .env file)."
             f"\n{'-' * 30}")
         return
 
     if not config['SPOTIFY_CLIENT_SECRET']:
         print(
-            F"[IGNORADO] - Spotify Support: SPOTIFY_CLIENT_SECRET não foi configurado nas ENV da host "
-            F"(ou no arquivo .env).\n{'-' * 30}")
+            F"[Ignored] - Spotify Support: Spotify_Client_Secret was not configured in the host ENV "
+            F"(or in the .env file).\n{'-' * 30}")
         return
 
     try:
@@ -204,6 +204,6 @@ def spotify_client(config: dict) -> Optional[spotipy.Spotify]:
 
     except Exception as e:
         print(
-            f"A APIKEY do spotify não foi configurada devidamente na ENV da host (ou no arquivo .env), "
-            f"verifique e tente novamente caso queira o suporte a músicas do spotify (Erro: {repr(e)}).\n{'-' * 30}")
+            f"Spotify's Apikey was not properly configured in the host ENV (or .env file), "
+            f"Check and try again if you want to support Spotify songs (error: {repr(e)}).\n{'-' * 30}")
         return

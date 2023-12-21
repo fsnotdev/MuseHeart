@@ -182,7 +182,7 @@ class EmbedPaginator(disnake.ui.View):
 
         if interaction.author != self.ctx.author:
             await interaction.send(
-                f"Apenas o membro {self.ctx.author.mention} pode usar os botões dessa mensagem...",
+                f"Only {self.ctx.author.mention} can use the buttons of this message...",
                 ephemeral=True
             )
             return False
@@ -207,7 +207,7 @@ class EmbedPaginator(disnake.ui.View):
             self.current += 1
         await interaction.response.edit_message(embed=self.embeds[self.current])
 
-    @disnake.ui.button(emoji='⏹️', style=disnake.ButtonStyle.red, label="Fechar")
+    @disnake.ui.button(emoji='⏹️', style=disnake.ButtonStyle.red, label="Close")
     async def close(self, button, interaction: disnake.MessageInteraction):
 
         await interaction.message.delete()
@@ -224,8 +224,8 @@ class EmbedPaginator(disnake.ui.View):
 
 
 song_request_buttons = [
-    disnake.ui.Button(label="Pedir uma música", emoji="🎶", custom_id=PlayerControls.add_song),
-    disnake.ui.Button(label="Tocar favorito/integração", emoji="⭐", custom_id=PlayerControls.enqueue_fav)
+    disnake.ui.Button(label="Request a song", emoji="🎶", custom_id=PlayerControls.add_song),
+    disnake.ui.Button(label="Favorite/Save", emoji="⭐", custom_id=PlayerControls.enqueue_fav)
 ]
 
 
@@ -237,11 +237,11 @@ def sync_message(bot: BotCore):
     app_commands_invite = f"https://discord.com/api/oauth2/authorize?client_id={bot.user.id}&scope=applications.commands"
     bot_invite = disnake.utils.oauth_url(bot.user.id, permissions=disnake.Permissions(bot.config['INVITE_PERMISSIONS']), scopes=('bot', 'applications.commands'), redirect_uri=bot.config['INVITE_REDIRECT_URL'])
 
-    return f"`Caso os comandos de barra não apareçam,` [`clique aqui`]({app_commands_invite}) `para me permitir " \
-           "criar comandos de barra no servidor.`\n\n" \
-           "`Nota: Em alguns casos os comandos de barra podem demorar até uma hora pra aparecer/atualizar em todos " \
-           "os servidores. Caso queira usar os comandos de barra imediatamente no servidor você terá que " \
-           f"me expulsar do servidor e em seguida me adicionar novamente através deste` [`link`]({bot_invite})..."
+    return f"`If slash commands do not appear,` [`click here`]({app_commands_invite}) `to allow me " \
+       "to create slash commands in the server.`\n\n" \
+       "`Note: In some cases, slash commands may take up to an hour to appear/update in all " \
+       "servers. If you want to use slash commands immediately in the server, you'll have to " \
+       f"kick me from the server and then re-add me through this` [`link`]({bot_invite})..."
 
 
 def chunk_list(lst: list, amount: int):
@@ -384,15 +384,17 @@ async def send_idle_embed(
     except AttributeError:
         cmd = "/play"
 
-    embed = disnake.Embed(description="**Entre em um canal de voz e peça uma música aqui " +
-                                      ("no post" if is_forum else "no canal ou na conversa abaixo") +
-                                      f" (ou clique no botão abaixo ou use o comando {cmd} aqui ou em algum outro canal)**\n\n"
-                                      "**Você pode usar um nome ou um link de site compatível:**"
-                                      " ```ansi\n[31;1mYoutube[0m, [33;1mSoundcloud[0m, [32;1mSpotify[0m, [34;1mTwitch[0m```\n",
-                          color=bot.get_color(target.guild.me))
+    embed = disnake.Embed(
+        description="**Join a voice channel and request a song here " +
+        ("in the post" if is_forum else "in the channel or conversation below") +
+        f" (or click the button below or use the {cmd} command here or in another channel)**\n\n"
+        "**You can use a name or a compatible website link:**"
+        " ```ansi\n[31;1mYoutube[0m, [33;1mSoundcloud[0m, [32;1mSpotify[0m, [34;1mTwitch[0m```\n",
+        color=bot.get_color(target.guild.me)
+    )
 
     if text:
-        embed.description += f"**ÚLTIMA AÇÃO:** {text.replace('**', '')}\n"
+        embed.description += f"**Last action:** {text.replace('**', '')}\n"
 
     embed.set_thumbnail(target.guild.me.display_avatar.replace(size=256).url)
 
@@ -403,7 +405,7 @@ async def send_idle_embed(
     if opts:
         components.append(
             disnake.ui.Select(
-                placeholder="Músicas/Playlists do servidor.",
+                placeholder="Server Songs/Playlists.",
                 options=opts, custom_id="player_guild_pin",
                 min_values=0, max_values=1
             )
@@ -412,7 +414,7 @@ async def send_idle_embed(
     components.extend(song_request_buttons)
 
     if is_forum:
-        content = "🎶 Peça sua música aqui."
+        content = "🎶 Request your music here."
     else:
         content = None
 
@@ -597,18 +599,18 @@ async def select_bot_pool(inter: Union[CustomContext, disnake.MessageInteraction
 
         if [b for b in inter.bot.pool.bots if b.appinfo and b.appinfo.bot_public]:
             raise GenericError(
-                f"**Será necessário adicionar no servidor pelo menos um bot compatível clicando no botão abaixo:**",
-                components=[disnake.ui.Button(custom_id="bot_invite", label="Adicionar bot(s)")]
+                f"**You will need to add to the server at least one compatible bot by clicking the button below:**",
+                components=[disnake.ui.Button(custom_id="bot_invite", label="Add Bot(s)")]
             )
         else:
-            raise GenericError("**Não há bots compatíveis com meus comandos no servidor...**")
+            raise GenericError("**There are no bots compatible with my commands on the server...**")
 
     if len(bots) == 1 or first:
         return inter, list(bots.values())[0]
     else:
         opts = [disnake.SelectOption(label=f"{b.user}", value=f"{b.user.id}", emoji="🎶") for b in bots.values()]
 
-        opts.append(disnake.SelectOption(label="Cancelar", value="cancel", emoji="❌"))
+        opts.append(disnake.SelectOption(label="Cancel", value="cancel", emoji="❌"))
 
         try:
             add_id = f"_{inter.id}"
@@ -617,8 +619,8 @@ async def select_bot_pool(inter: Union[CustomContext, disnake.MessageInteraction
 
         embed = disnake.Embed(
             color=inter.bot.get_color(),
-            description="**Selecione um bot abaixo:**\n"
-                        f'Nota: você tem apenas <t:{int((disnake.utils.utcnow() + datetime.timedelta(seconds=45)).timestamp())}:R> para escolher!'
+            description="**Select a bot below:**\n"
+                        f'Note: you have only <t:{int((disnake.utils.utcnow() + datetime.timedelta(seconds=45)).timestamp())}:R> to choose!'
         )
 
         components = [
@@ -646,7 +648,7 @@ async def select_bot_pool(inter: Union[CustomContext, disnake.MessageInteraction
             )
         except asyncio.TimeoutError:
             try:
-                await msg.edit(conent="Tempo de seleção esgotado!", embed=None, view=None)
+                await msg.edit(conent="Selection timed out!", embed=None, view=None)
             except:
                 pass
             return None, None
@@ -661,7 +663,7 @@ async def select_bot_pool(inter: Union[CustomContext, disnake.MessageInteraction
         if new_inter.data.values[0] == "cancel":
             await func(
                 embed=disnake.Embed(
-                    description="**Seleção cancelada!**",
+                    description="**Canceled Selection!**",
                     color=inter.bot.get_color()
                 ),
                 components=None
@@ -677,7 +679,7 @@ async def select_bot_pool(inter: Union[CustomContext, disnake.MessageInteraction
         try:
             return inter, bots[int(new_inter.data.values[0])]
         except KeyError:
-            raise GenericError("**O bot selecionado foi removido do servidor antes de sua seleção...**")
+            raise GenericError("**The selected bot was removed from the server before its selection...**")
 
 def queue_track_index(inter: disnake.AppCmdInter, bot: BotCore, query: str, match_count: int = 1,
                       case_sensitive: bool = False):
