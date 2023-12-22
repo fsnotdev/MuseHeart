@@ -81,10 +81,10 @@ def time_format(milliseconds: Union[int, float], use_names: bool = False) -> str
         times = []
 
         for time_, name in (
-                (days, "dia"),
-                (hours, "hora"),
-                (minutes, "minuto"),
-                (seconds, "segundo")
+                (days, "day"),
+                (hours, "hour"),
+                (minutes, "minute"),
+                (seconds, "second")
         ):
             if not time_:
                 continue
@@ -95,12 +95,12 @@ def time_format(milliseconds: Union[int, float], use_names: bool = False) -> str
             last_time = times.pop()
         except IndexError:
             last_time = None
-            times = ["1 segundo"]
+            times = ["1 second"]
 
         strings = ", ".join(t for t in times)
 
         if last_time:
-            strings += f" e {last_time}" if strings else last_time
+            strings += f" and {last_time}" if strings else last_time
 
     else:
 
@@ -110,7 +110,7 @@ def time_format(milliseconds: Union[int, float], use_names: bool = False) -> str
             strings = f"{hours}:{strings}"
 
         if days:
-            strings = (f"{days} dias" if days > 1 else f"{days} dia") + (f", {strings}" if strings != "00:00" else "")
+            strings = (f"{days} days" if days > 1 else f"{days} day") + (f", {strings}" if strings != "00:00" else "")
 
     return strings
 
@@ -152,46 +152,46 @@ def music_source_image(sourcename):
 
 
 perms_translations = {
-    "add_reactions": "Adicionar Reações",
-    "administrator": "Administrador",
-    "attach_files": "Anexar Arquivos",
-    "ban_members": "Banir Membros",
-    "change_nickname": "Alterar apelido",
-    "connect": "Conectar em canal de voz",
-    "create_instant_invite": "Criar convite instantâneo",
-    "create_private_threads": "Criar Tópicos Privado",
-    "create_public_threads": "Criar Tópicos Públicos",
-    "deafen_members": "Ensurdecer membros",
-    "embed_links": "Inserir links",
-    "kick_members": "Expulsar Membros",
-    "manage_channels": "Gerenciar Canais",
-    "manage_emojis_and_stickers": "Gerenciar Emojis e Figurinhas",
-    "manage_events": "Gerenciar Eventos",
-    "manage_guild": "Gerenciar Servidor",
-    "manage_messages": "Gerenciar Mensagens",
-    "manage_nicknames": "Gerenciar Apelidos",
-    "manage_roles": "Gerenciar Cargos",
-    "manage_threads": "Gerenciar Tópicos",
-    "manage_webhooks": "Gerenciar Webhooks",
-    "mention_everyone": "Marcar @everyone e @here",
-    "moderate_members": "Moderar membros",
-    "move_members": "Mover membros",
-    "mute_members": "Silenciar membros",
-    "priority_speaker": "Prioridade para falar",
-    "read_message_history": "Mostrar histórico de mensagens",
-    "read_messages": "Ler mensagens",
-    "request_to_speak": "Pedir para falar",
-    "send_messages": "Enviar mensagem",
-    "send_messages_in_threads": "Enviar mensagem em tópicos",
-    "send_tts_messages": "Enviar mensagens de texto-a-voz",
-    "speak": "Falar em canal de voz",
-    "stream": "Transmitir",
-    "use_application_commands": "Usar comandos de aplicações/bots",
-    "use_embedded_activities": "Usar atividades ",
-    "use_external_emojis": "Usar Emojis Externos",
-    "use_external_stickers": "Usar Figurinhas Externas",
-    "use_voice_activation": "Usar detecção de voz automática",
-    "view_audit_log": "Visualizar registro de auditória",
-    "view_channel": "Ver canal",
-    "view_guild_insights": "Ver análises do servidor"
+    "add_reactions": "Add Reactions",
+    "administrator": "Administrator",
+    "attach_files": "Attach Files",
+    "ban_members": "Ban Members",
+    "change_nickname": "Change Nickname",
+    "connect": "Connect to Voice Channel",
+    "create_instant_invite": "Create Instant Invite",
+    "create_private_threads": "Create Private Threads",
+    "create_public_threads": "Create Public Threads",
+    "deafen_members": "Deafen Members",
+    "embed_links": "Embed Links",
+    "kick_members": "Kick Members",
+    "manage_channels": "Manage Channels",
+    "manage_emojis_and_stickers": "Manage Emojis and Stickers",
+    "manage_events": "Manage Events",
+    "manage_guild": "Manage Server",
+    "manage_messages": "Manage Messages",
+    "manage_nicknames": "Manage Nicknames",
+    "manage_roles": "Manage Roles",
+    "manage_threads": "Manage Threads",
+    "manage_webhooks": "Manage Webhooks",
+    "mention_everyone": "Mention @everyone and @here",
+    "moderate_members": "Moderate Members",
+    "move_members": "Move Members",
+    "mute_members": "Mute Members",
+    "priority_speaker": "Priority Speaker",
+    "read_message_history": "Read Message History",
+    "read_messages": "Read Messages",
+    "request_to_speak": "Request to Speak",
+    "send_messages": "Send Messages",
+    "send_messages_in_threads": "Send Messages in Threads",
+    "send_tts_messages": "Send Text-to-Speech Messages",
+    "speak": "Speak in Voice Channel",
+    "stream": "Stream",
+    "use_application_commands": "Use Application/Bot Commands",
+    "use_embedded_activities": "Use Embedded Activities",
+    "use_external_emojis": "Use External Emojis",
+    "use_external_stickers": "Use External Stickers",
+    "use_voice_activation": "Use Voice Activation Detection",
+    "view_audit_log": "View Audit Log",
+    "view_channel": "View Channel",
+    "view_guild_insights": "View Server Insights"
 }

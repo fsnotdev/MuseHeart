@@ -42,7 +42,7 @@ def download_file(url, filename):
                     speed_txt = "MB/s"
                 else:
                     speed_txt = "KB/s"
-                print(f"Download do arquivo {filename} {current_progress}% concluído ({download_speed:.2f} {speed_txt} / {total_txt})")
+                print(f"Download of file {filename} {current_progress}% completed ({download_speed:.2f} {speed_txt} / {total_txt})")
 
     r.close()
 
@@ -56,8 +56,8 @@ def validate_java(cmd: str, debug: bool = False):
             return cmd
     except Exception as e:
         if debug:
-            print(f"\nFalha ao obter versão do java...\n"
-                  f"Path: {cmd} | Erro: {repr(e)}\n")
+            print(f"\nFailed to get Java version...\n"
+                  f"Path: {cmd} | Error: {repr(e)}\n")
 
 def run_lavalink(
         lavalink_file_url: str = None,
@@ -202,13 +202,13 @@ def run_lavalink(
         except:
             pass
 
-    print(f"Iniciando o servidor Lavalink (dependendo da hospedagem o lavalink pode demorar iniciar, "
-          f"o que pode ocorrer falhas em algumas tentativas de conexão até ele iniciar totalmente).\n{'-' * 30}")
+    print(f"Starting Lavalink server (depending on the hosting, Lavalink may take a while to start, "
+          f"which may cause failures in some connection attempts until it fully starts).\n{'-' * 30}")
 
     lavalink_process = subprocess.Popen(java_cmd.split(), stdout=subprocess.DEVNULL)
 
     if lavalink_additional_sleep:
-        print(f"Aguarde {lavalink_additional_sleep} segundos...\n{'-' * 30}")
+        print(f"Waiting for {lavalink_additional_sleep} seconds...\n{'-' * 30}")
         time.sleep(lavalink_additional_sleep)
 
     return lavalink_process

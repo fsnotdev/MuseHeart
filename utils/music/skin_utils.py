@@ -46,8 +46,8 @@ def replaces(
             requester_display_name = requester.display_name
             requester_avatar = requester.display_avatar.replace(static_format="png", size=512).url
         except:
-            requester_global_name = "Desconhecido..."
-            requester_display_name = "Desconhecido..."
+            requester_global_name = "Unknown..."
+            requester_display_name = "Unknown..."
             requester_avatar = "https://i.ibb.co/LNpG5TM/unknown.png"
 
         txt = track_title_format(
@@ -58,15 +58,15 @@ def replaces(
             data=txt
         ). \
             replace('{track.thumb}', player.current.thumb). \
-            replace('{playlist.name}', player.current.playlist_name or "Nenhuma"). \
+            replace('{playlist.name}', player.current.playlist_name or "None"). \
             replace('{playlist.url}', player.current.playlist_url). \
-            replace('{player.loop.mode}', 'Desativado' if not player.loop else 'Música atual' if player.loop == "current" else "Fila"). \
+            replace('{player.loop.mode}', 'Disabled' if not player.loop else 'Current Music' if player.loop == "current" else "Queue"). \
             replace('{player.queue.size}', str(len(player.queue))). \
             replace('{player.volume}', str(player.volume)). \
-            replace('{player.autoplay}', "Ativado" if player.autoplay else "Desativado"). \
-            replace('{player.nightcore}', "Ativado" if player.nightcore else "Desativado"). \
+            replace('{player.autoplay}', "Enabled" if player.autoplay else "Disabled"). \
+            replace('{player.nightcore}', "Enabled" if player.nightcore else "Disabled"). \
             replace('{player.hint}', player.current_hint). \
-            replace('{player.log.text}', player.command_log or "Sem registro."). \
+            replace('{player.log.text}', player.command_log or "No record."). \
             replace('{player.log.emoji}', player.command_log_emoji or ""). \
             replace('{requester.global_name}', requester_global_name). \
             replace('{requester.display_name}', requester_display_name). \
@@ -76,7 +76,7 @@ def replaces(
             replace('{guild.icon}', player.guild.icon.with_static_format("png").url if player.guild.icon else ""). \
             replace('{guild.name}', player.guild.name). \
             replace('{guild.id}', str(player.guild.id)). \
-            replace('{queue_format}', queue_text or "Sem músicas.")
+            replace('{queue_format}', queue_text or "No songs.")
 
     else:
 
@@ -99,13 +99,13 @@ def replaces(
             replace('{track.thumb}', "https://img.youtube.com/vi/2vFA0HL9kTk/mqdefault.jpg"). \
             replace('{playlist.name}', "🎵 DV 🎶"). \
             replace('{playlist.url}', "https://www.youtube.com/playlist?list=PLKlXSJdWVVAD3iztmL2vFVrwA81sRkV7n"). \
-            replace('{player.loop.mode}', "Música Atual"). \
+            replace('{player.loop.mode}', "Current Music"). \
             replace('{player.queue.size}', f"{queue_max_entries}"). \
             replace('{player.volume}', "100"). \
-            replace('{player.autoplay}', "Ativado"). \
-            replace('{player.nightcore}', "Ativado"). \
+            replace('{player.autoplay}', "Enabled"). \
+            replace('{player.nightcore}', "Enabled"). \
             replace('{player.log.emoji}', "⏭️"). \
-            replace('{player.log.text}', f"{random.choice(ctx.guild.members)} pulou a música."). \
+            replace('{player.log.text}', f"{random.choice(ctx.guild.members)} skipped the song."). \
             replace('{requester.global_name}', ctx.author.global_name). \
             replace('{requester.display_name}', ctx.author.display_name). \
             replace('{requester.mention}', ctx.author.mention). \
@@ -114,7 +114,7 @@ def replaces(
             replace('{guild.icon}', ctx.guild.icon.with_static_format("png").url if ctx.guild.icon else ""). \
             replace('{guild.name}', ctx.guild.name). \
             replace('{guild.id}', str(ctx.guild.id)). \
-            replace('{queue_format}', queue_text or "Sem músicas.")
+            replace('{queue_format}', queue_text or "No songs.")
 
     return txt
 

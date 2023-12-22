@@ -41,17 +41,17 @@ class VolumeInteraction(disnake.ui.View):
         for l in [5, 20, 40, 60, 80, 100, 120, 150]:
 
             if l > 100:
-                description = "Acima de 100% o audio pode ficar bem ruim."
+                description = "Above 100%, the audio can become very bad.."
             else:
                 description = None
             opts.append(disnake.SelectOption(label=f"{l}%", value=f"vol_{l}", description=description))
 
-        select = disnake.ui.Select(placeholder='Nível:', options=opts)
+        select = disnake.ui.Select(placeholder='Level:', options=opts)
         select.callback = self.callback
         self.add_item(select)
 
     async def callback(self, interaction: disnake.MessageInteraction):
-        await interaction.response.edit_message(content=f"Volume alterado!",embed=None, view=None)
+        await interaction.response.edit_message(content=f"Volume changed!",embed=None, view=None)
         self.volume = int(interaction.data.values[0][4:])
         self.stop()
 
@@ -92,7 +92,7 @@ class QueueInteraction(disnake.ui.View):
                 duration = time_format(t.duration) if not t.is_stream else '🔴 Livestream'
 
                 txt += f"`┌ {counter})` [`{fix_characters(t.title, limit=50)}`]({t.uri})\n" \
-                       f"`└ ⏲️ {duration}`" + (f" - `Repetições: {t.track_loops}`" if t.track_loops else  "") + \
+                       f"`└ ⏲️ {duration}`" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else  "") + \
                        f" **|** `✋` <@{t.requester}>\n"
 
                 opts.append(
@@ -108,7 +108,7 @@ class QueueInteraction(disnake.ui.View):
             self.select_pages.append(opts)
 
         track_select = disnake.ui.Select(
-            placeholder="Tocar uma música específica da página:",
+            placeholder="Play a specific song from the page.:",
             options=self.select_pages[self.current],
             custom_id="queue_track_selection",
             max_values=1
@@ -151,7 +151,7 @@ class QueueInteraction(disnake.ui.View):
             return
 
         embed = self.message.embeds[0]
-        embed.set_footer(text="Tempo para interagir esgotado!")
+        embed.set_footer(text="Time to interact has expired!")
 
         for c in self.children:
             c.disabled = True
@@ -160,7 +160,7 @@ class QueueInteraction(disnake.ui.View):
 
 
     def update_embed(self):
-        self.embed.title = f"**Músicas da fila [{self.current+1} / {self.max_page+1}]**"
+        self.embed.title = f"**Queue Songs [{self.current+1} / {self.max_page+1}]**"
         self.embed.description = self.pages[self.current]
         self.children[0].options = self.select_pages[self.current]
 
@@ -180,7 +180,7 @@ class QueueInteraction(disnake.ui.View):
                 break
 
         if not track:
-            await interaction.send(f"Música com id \"{track_id}\" não encontrada na fila do player...", ephemeral=True)
+            await interaction.send(f"Music with id \"{track_id}\" not found in the player's queue...", ephemeral=True)
             return
 
         command = self.bot.get_slash_command("skip")
@@ -228,7 +228,7 @@ class QueueInteraction(disnake.ui.View):
 
     async def stop_interaction(self, interaction: disnake.MessageInteraction):
 
-        await interaction.response.edit_message(content="Queue fechada", embed=None, view=None)
+        await interaction.response.edit_message(content="Closed queue", embed=None, view=None)
         self.stop()
 
     async def update_q(self, interaction: disnake.MessageInteraction):
@@ -257,7 +257,7 @@ class SelectInteraction(disnake.ui.View):
 
         self.clear_items()
 
-        select_menu = disnake.ui.Select(placeholder='Selecione uma opção:', options=self.item_pages[self.current_page])
+        select_menu = disnake.ui.Select(placeholder='Select an option:', options=self.item_pages[self.current_page])
         select_menu.callback = self.callback
         self.add_item(select_menu)
         self.selected = self.item_pages[self.current_page][0].value
@@ -272,7 +272,7 @@ class SelectInteraction(disnake.ui.View):
             next_button.callback = self.next_callback
             self.add_item(next_button)
 
-        button = disnake.ui.Button(label="Cancelar", emoji="❌")
+        button = disnake.ui.Button(label="Cancel", emoji="❌")
         button.callback = self.cancel_callback
         self.add_item(button)
 
@@ -281,7 +281,7 @@ class SelectInteraction(disnake.ui.View):
         if interaction.user.id == self.user.id:
             return True
 
-        await interaction.send(f"Apenas {self.user.mention} pode interagir aqui.", ephemeral = True)
+        await interaction.send(f"Only {self.user.mention} can interact here.", ephemeral = True)
 
     async def back_callback(self, interaction: disnake.MessageInteraction):
         if self.current_page == 0:
@@ -321,18 +321,18 @@ class AskView(disnake.ui.View):
     async def interaction_check(self, interaction: disnake.MessageInteraction) -> bool:
 
         if interaction.user != self.ctx.author:
-            await interaction.send("Você não pode usar este botão!", ephemeral=True)
+            await interaction.send("You cannot use this button!", ephemeral=True)
             return False
 
         return True
 
-    @disnake.ui.button(label="Sim", emoji="✅")
+    @disnake.ui.button(label="Yes", emoji="✅")
     async def allow(self, button, interaction: disnake.MessageInteraction):
         self.selected = True
         self.interaction_resp = interaction
         self.stop()
 
-    @disnake.ui.button(label="Não", emoji="❌")
+    @disnake.ui.button(label="No", emoji="❌")
     async def deny(self, button, interaction: disnake.MessageInteraction):
         self.selected = False
         self.interaction_resp = interaction
@@ -374,11 +374,11 @@ class FavModalImport(disnake.ui.Modal):
 
         if self.view.mode == ViewMode.fav_manager:
             super().__init__(
-                title="Importar Favoritos",
+                title="Import Favorites",
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.long,
-                        label="Inserir dados (em formato json)",
+                        label="Insert data (in JSON format)",
                         custom_id="json_data",
                         min_length=20,
                         required=True
@@ -389,11 +389,11 @@ class FavModalImport(disnake.ui.Modal):
 
         if self.view.mode == ViewMode.guild_fav_manager:
             super().__init__(
-                title="Importar Playlists para o Servidor",
+                title="Import Playlists to the Server",
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.long,
-                        label="Inserir dados (em formato json)",
+                        label="Insert data (in JSON format)",
                         custom_id="json_data",
                         min_length=20,
                         required=True
@@ -404,11 +404,11 @@ class FavModalImport(disnake.ui.Modal):
 
         if self.view.mode == ViewMode.integrations_manager:
             super().__init__(
-                title="Importar integração",
+                title="Import integration",
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.long,
-                        label="Inserir dados (em formato json)",
+                        label="Insert data (in JSON format)",
                         custom_id="json_data",
                         min_length=20,
                         required=True
@@ -417,15 +417,15 @@ class FavModalImport(disnake.ui.Modal):
             )
             return
 
-        raise GenericError(f"Modo atual ainda não implementado: {self.view.mode} | {type(self.view.mode)}")
+        raise GenericError(f"Current mode not yet implemented: {self.view.mode} | {type(self.view.mode)}")
 
     async def callback(self, inter: disnake.ModalInteraction, /) -> None:
 
         try:
             json_data = json.loads(inter.text_values["json_data"])
         except Exception as e:
-            await inter.send("**Ocorreu um erro ao analisar os dados ou foi enviado dados inválidos/não-formatado "
-                               f"em formato json.**\n\n`{repr(e)}`", ephemeral=True)
+            await inter.send("**An error occurred while parsing the data or invalid/unformatted data was sent "
+                               f"in JSON format.**\n\n`{repr(e)}`", ephemeral=True)
             return
 
         if self.view.mode == ViewMode.fav_manager:
@@ -433,7 +433,7 @@ class FavModalImport(disnake.ui.Modal):
             if retry_after := self.view.bot.get_cog("Music").fav_import_export_cd.get_bucket(inter).update_rate_limit():
                 if retry_after < 1:
                     retry_after = 1
-                await inter.send("**Você deve aguardar {} para importar.**".format(
+                await inter.send("**You should wait {} to import.**".format(
                     time_format(int(retry_after) * 1000, use_names=True)), ephemeral=True)
                 return
 
@@ -444,12 +444,12 @@ class FavModalImport(disnake.ui.Modal):
 
                 if len(url) > (max_url_chars := self.view.bot.config["USER_FAV_MAX_URL_LENGTH"]):
                     await inter.send(
-                        f"**Um item de seu arquivo {url} ultrapassa a quantidade de caracteres permitido:{max_url_chars}**",
+                        f"**An item from your file {url} exceeds the allowed character limit:{max_url_chars}**",
                         ephemeral=True)
                     return
 
                 if not isinstance(url, str) or not URL_REG.match(url):
-                    await inter.send(f"O seu arquivo contém link inválido: ```ldif\n{url}```", ephemeral=True)
+                    await inter.send(f"Your file contains an invalid link: ```ldif\n{url}```", ephemeral=True)
                     return
 
             await inter.response.defer(ephemeral=True)
@@ -459,7 +459,7 @@ class FavModalImport(disnake.ui.Modal):
             for name in json_data.keys():
                 if len(name) > (max_name_chars := self.view.bot.config["USER_FAV_MAX_NAME_LENGTH"]):
                     await inter.edit_original_message(
-                        f"**Um item de seu arquivo ({name}) ultrapassa a quantidade de caracteres permitido:{max_name_chars}**")
+                        f"**An item from your file ({name}) exceeds the allowed character limit:{max_name_chars}**")
                     return
                 try:
                     del self.view.data["fav_links"][name.lower()]
@@ -469,30 +469,29 @@ class FavModalImport(disnake.ui.Modal):
             if self.view.bot.config["MAX_USER_FAVS"] > 0 and not (await self.view.bot.is_owner(inter.author)):
 
                 if (json_size := len(json_data)) > self.view.bot.config["MAX_USER_FAVS"]:
-                    await inter.edit_original_message(f"A quantidade de itens no seu arquivo de favorito excede "
-                                                      f"a quantidade máxima permitida ({self.view.bot.config['MAX_USER_FAVS']}).")
+                    await inter.edit_original_message(f"The number of items in your favorite file exceeds the maximum allowed ({self.view.bot.config['MAX_USER_FAVS']}).")
                     return
 
                 if (json_size + (user_favs := len(self.view.data["fav_links"]))) > self.view.bot.config[
                     "MAX_USER_FAVS"]:
                     await inter.edit_original_message(
-                        "Você não possui espaço suficiente para adicionar todos os favoritos de seu arquivo...\n"
-                        f"Limite atual: {self.view.bot.config['MAX_USER_FAVS']}\n"
-                        f"Quantidade de favoritos salvos: {user_favs}\n"
-                        f"Você precisa de: {(json_size + user_favs) - self.view.bot.config['MAX_USER_FAVS']}")
+                        "You don't have enough space to add all the favorites from your file...\n"
+                        f"Current limit: {self.view.bot.config['MAX_USER_FAVS']}\n"
+                        f"Number of saved favorites: {user_favs}\n"
+                        f"You need: {(json_size + user_favs) - self.view.bot.config['MAX_USER_FAVS']}")
                     return
 
             self.view.data["fav_links"].update(json_data)
 
             await self.view.bot.update_global_data(inter.author.id, self.view.data, db_name=DBModel.users)
 
-            await inter.edit_original_message(content="**Favoritos importados com sucesso!**")
+            await inter.edit_original_message(content="**Imported favorites successfully!**")
 
             if (s := len(json_data)) > 1:
-                self.view.log = f"{s} favoritos foram importados com sucesso."
+                self.view.log = f"{s} Favorites have been successfully imported.."
             else:
                 name = next(iter(json_data))
-                self.view.log = f"O favorito [`{name}`]({json_data[name]}) foi importado com sucesso."
+                self.view.log = f"The favorite [`{name}`]({json_data[name]}) was successfully imported.."
 
 
         elif self.view.mode == ViewMode.guild_fav_manager:
@@ -500,7 +499,7 @@ class FavModalImport(disnake.ui.Modal):
             if retry_after := self.view.bot.get_cog("Music").fav_import_export_cd.get_bucket(inter).update_rate_limit():
                 if retry_after < 1:
                     retry_after = 1
-                await inter.send("**Você deve aguardar {} para importar.**".format(
+                await inter.send("**You should wait {} to import.**".format(
                     time_format(int(retry_after) * 1000, use_names=True)), ephemeral=True)
                 return
 
@@ -511,18 +510,18 @@ class FavModalImport(disnake.ui.Modal):
 
                 if len(data['url']) > (max_url_chars := self.view.bot.config["USER_FAV_MAX_URL_LENGTH"]):
                     await inter.send(
-                        f"**Um item de seu arquivo ultrapassa a quantidade de caracteres permitido:{max_url_chars}\nURL:** {data['url']}",
+                        f"**One item from your file exceeds the allowed character limit.:{max_url_chars}\nURL:** {data['url']}",
                         ephemeral=True)
                     return
 
                 if len(data['description']) > 50:
                     await inter.send(
-                        f"**Um item de seu arquivo ultrapassa a quantidade de caracteres permitido:{max_url_chars}\nDescrição:** {data['description']}",
+                        f"**One item from your file exceeds the allowed character limit:{max_url_chars}\nDescription:** {data['description']}",
                         ephemeral=True)
                     return
 
                 if not isinstance(data['url'], str) or not URL_REG.match(data['url']):
-                    await inter.send(f"O seu arquivo contém link inválido: ```ldif\n{data['url']}```", ephemeral=True)
+                    await inter.send(f"Your file contains an invalid link.: ```ldif\n{data['url']}```", ephemeral=True)
                     return
 
             await inter.response.defer(ephemeral=True)
@@ -531,13 +530,13 @@ class FavModalImport(disnake.ui.Modal):
 
             if not self.view.guild_data["player_controller"]["channel"] or not self.view.bot.get_channel(
                     int(self.view.guild_data["player_controller"]["channel"])):
-                await inter.edit_original_message("**Não há player configurado no servidor! Use o comando /setup**")
+                await inter.edit_original_message("**There is no player configured on the server! Use the command /setup**")
                 return
 
             for name in json_data.keys():
                 if len(name) > (max_name_chars := 25):
                     await inter.edit_original_message(
-                        f"**Um item de seu arquivo ({name}) ultrapassa a quantidade de caracteres permitido:{max_name_chars}**")
+                        f"**An item from your file ({name}) exceeds the allowed character limit.:{max_name_chars}**")
                     return
                 try:
                     del self.view.guild_data["player_controller"]["fav_links"][name]
@@ -546,15 +545,15 @@ class FavModalImport(disnake.ui.Modal):
 
             if (json_size := len(json_data)) > 25:
                 await inter.edit_original_message(
-                    f"A quantidade de itens no arquivo excede a quantidade máxima permitida (25).")
+                    f"The number of items in the file exceeds the maximum allowed quantity. (25).")
                 return
 
             if (json_size + (user_favs := len(self.view.guild_data["player_controller"]["fav_links"]))) > 25:
                 await inter.edit_original_message(
-                    "A lista de músicas/playlist do servidor não possui espaço suficiente para adicionar todos os itens de seu arquivo...\n"
-                    f"Limite atual: 25\n"
-                    f"Quantidade de links salvos: {user_favs}\n"
-                    f"Você precisa de: {(json_size + user_favs) - 25}")
+                    "The server's music playlist does not have enough space to add all the items from your file....\n"
+                    f"Current limit: 25\n"
+                    f"Current count of saved links: {user_favs}\n"
+                    f"You need: {(json_size + user_favs) - 25}")
                 return
 
             self.view.guild_data["player_controller"]["fav_links"].update(json_data)
@@ -563,13 +562,13 @@ class FavModalImport(disnake.ui.Modal):
 
             guild = self.view.bot.get_guild(inter.guild_id)
 
-            await inter.edit_original_message(content="**Links fixos do servidor foram importados com sucesso!**")
+            await inter.edit_original_message(content="**Fixed server links have been successfully imported.!**")
 
             if (s := len(json_data)) > 1:
-                self.view.log = f"{s} links foram importados com sucesso para a lista de favoritos do servidor."
+                self.view.log = f"{s} Links have been successfully imported to the server's favorites list.."
             else:
                 name = next(iter(json_data))
-                self.view.log = f"O link [`{name}`]({json_data[name]}) foi importado com sucesso para a lista de links do servidor.."
+                self.view.log = f"The link [`{name}`]({json_data[name]}) was successfully imported to the server's list of links..."
 
             await process_idle_embed(self.view.bot, guild, guild_data=self.view.guild_data)
 
@@ -578,7 +577,7 @@ class FavModalImport(disnake.ui.Modal):
             if retry_after := self.view.bot.get_cog("Music").fav_import_export_cd.get_bucket(inter).update_rate_limit():
                 if retry_after < 1:
                     retry_after = 1
-                await inter.send("**Você deve aguardar {} para importar.**".format(
+                await inter.send("**You should wait {} to import..**".format(
                     time_format(int(retry_after) * 1000, use_names=True)), ephemeral=True)
                 return
 
@@ -589,11 +588,11 @@ class FavModalImport(disnake.ui.Modal):
 
                 if len(url) > (max_url_chars := 150):
                     await inter.edit_original_message(
-                        f"**Um item de seu arquivo {url} ultrapassa a quantidade de caracteres permitido:{max_url_chars}**")
+                        f"**An item from your file {url} exceeds the allowed character limit.:{max_url_chars}**")
                     return
 
                 if not isinstance(url, str) or not URL_REG.match(url):
-                    await inter.edit_original_message(f"O seu arquivo contém link inválido: ```ldif\n{url}```")
+                    await inter.edit_original_message(f"Your file contains an invalid link.: ```ldif\n{url}```")
                     return
 
             await inter.response.defer(ephemeral=True)
@@ -609,17 +608,17 @@ class FavModalImport(disnake.ui.Modal):
             if self.view.bot.config["MAX_USER_INTEGRATIONS"] > 0 and not (await self.view.bot.is_owner(inter.author)):
 
                 if (json_size := len(json_data)) > self.view.bot.config["MAX_USER_INTEGRATIONS"]:
-                    await inter.edit_original_message(f"A quantidade de itens no seu arquivo de integrações excede "
-                                       f"a quantidade máxima permitida ({self.view.bot.config['MAX_USER_INTEGRATIONS']}).")
+                    await inter.edit_original_message(f"The number of items in your integration file exceeds "
+                                       f"the maximum quantity allowed ({self.view.bot.config['MAX_USER_INTEGRATIONS']}).")
                     return
 
                 if (json_size + (user_integrations := len(self.view.data["integration_links"]))) > self.view.bot.config[
                     "MAX_USER_INTEGRATIONS"]:
                     await inter.edit_original_message(
-                        "Você não possui espaço suficiente para adicionar todos as integrações de seu arquivo...\n"
-                        f"Limite atual: {self.view.bot.config['MAX_USER_INTEGRATIONS']}\n"
-                        f"Quantidade de integrações salvas: {user_integrations}\n"
-                        f"Você precisa de: {(json_size + user_integrations) - self.view.bot.config['MAX_USER_INTEGRATIONS']}")
+                        "You do not have enough space to add all the integrations to your file....\n"
+                        f"Current limit: {self.view.bot.config['MAX_USER_INTEGRATIONS']}\n"
+                        f"Number of saved integrations: {user_integrations}\n"
+                        f"You need: {(json_size + user_integrations) - self.view.bot.config['MAX_USER_INTEGRATIONS']}")
                     return
 
             self.view.data["integration_links"].update(json_data)
@@ -627,17 +626,17 @@ class FavModalImport(disnake.ui.Modal):
             await self.view.bot.update_global_data(inter.author.id, self.view.data, db_name=DBModel.users)
 
             await inter.edit_original_message(
-                content="**Integrações importadas com sucesso!**"
+                content="**Successful imports of integrations!**"
             )
 
             if (s := len(json_data)) > 1:
-                self.view.log = f"{s} integrações foram importadas com sucesso."
+                self.view.log = f"{s} Integrations have been successfully imported.."
             else:
                 name = next(iter(json_data))
-                self.view.log = f"A integração [`{name}`]({json_data[name]}) foi importada com sucesso."
+                self.view.log = f"The integration [`{name}`]({json_data[name]}) was successfully imported.."
 
         else:
-            raise GenericError(f"**Modo ainda não implementado: {self.view.mode} | {type(self.view.mode)}**")
+            raise GenericError(f"**The feature is not yet implemented: {self.view.mode} | {type(self.view.mode)}**")
 
         if not isinstance(self.view.ctx, CustomContext):
             await self.view.ctx.edit_original_message(embed=self.view.build_embed(), view=self.view)
@@ -653,19 +652,19 @@ class FavModalAdd(disnake.ui.Modal):
 
         if self.view.mode == ViewMode.fav_manager:
             super().__init__(
-                title="Adicionar/Editar playlist/favorito",
+                title="Add/Edit playlist/favorite",
                 custom_id="user_fav_edit",
                 timeout=180,
                 components=[
                     disnake.ui.TextInput(
-                        label="Nome da playlist/favorito:",
+                        label="Playlist/Favorite Name:",
                         custom_id="user_fav_name",
                         min_length=2,
                         max_length=25,
                         value=name or None
                     ),
                     disnake.ui.TextInput(
-                        label="Link/Url:",
+                        label="Link/URL:",
                         custom_id="user_fav_url",
                         min_length=10,
                         max_length=200,
@@ -677,19 +676,19 @@ class FavModalAdd(disnake.ui.Modal):
 
         if self.view.mode == ViewMode.guild_fav_manager:
             super().__init__(
-                title="Adicionar/Editar playlist/favorito",
+                title="Add/Edit playlist/favorite",
                 custom_id="guild_fav_edit",
                 timeout=180,
                 components=[
                     disnake.ui.TextInput(
-                        label="Nome do favorito/playlist:",
+                        label="Favorite/playlist name:",
                         custom_id="guild_fav_name",
                         min_length=2,
                         max_length=25,
                         value=name or None
                     ),
                     disnake.ui.TextInput(
-                        label="Descrição:",
+                        label="Description:",
                         custom_id="guild_fav_description",
                         min_length=3,
                         max_length=50,
@@ -697,7 +696,7 @@ class FavModalAdd(disnake.ui.Modal):
                         required=False
                     ),
                     disnake.ui.TextInput(
-                        label="Link/Url:",
+                        label="Link/URL:",
                         custom_id="guild_fav_url",
                         min_length=10,
                         max_length=250,
@@ -709,7 +708,7 @@ class FavModalAdd(disnake.ui.Modal):
 
         if self.view.mode == ViewMode.integrations_manager:
             super().__init__(
-                title="Adicionar integração",
+                title="Add integration",
                 custom_id="user_integration_add",
                 timeout=180,
                 components=[
@@ -724,7 +723,7 @@ class FavModalAdd(disnake.ui.Modal):
             )
             return
 
-        raise GenericError(f"**Modo ainda não implementado: {self.view.mode} | {type(self.view.mode)}**")
+        raise GenericError(f"**Mode not yet implemented: {self.view.mode} | {type(self.view.mode)}**")
 
 
     async def callback(self, inter: disnake.ModalInteraction):
@@ -738,7 +737,7 @@ class FavModalAdd(disnake.ui.Modal):
             except IndexError:
                 await inter.send(
                     embed=disnake.Embed(
-                        description=f"**Nenhum link válido encontrado:** {url}",
+                        description=f"**No valid link found.:** {url}",
                         color=disnake.Color.red()
                     ), ephemeral=True
                 )
@@ -767,11 +766,11 @@ class FavModalAdd(disnake.ui.Modal):
 
             await inter.edit_original_message(
                 embed=disnake.Embed(
-                    description="**Link salvo/atualizado com sucesso nos seus favoritos!\n"
-                                "Ele vai aparecer nas seguintes ocasições:** ```\n"
-                                "- Ao usar o comando /play (selecionando no preenchimento automático da busca)\n"
-                                "- Ao clicar no botão de tocar favorito do player.\n"
-                                "- Ao usar o comando play (prefixed) sem nome ou link.```",
+                    description="**Link saved/updated successfully in your favorites!\n"
+                                "It will appear in the following occasions:** ```\n"
+                                "- When using the /play command (selecting from the search autocomplete)\n"
+                                "- When clicking the favorite play button on the player.\n"
+                                "- When using the play command (prefixed) without a name or link.```",
                     color=self.view.bot.get_color(me)
                 )
             )
@@ -784,7 +783,7 @@ class FavModalAdd(disnake.ui.Modal):
             except IndexError:
                 await inter.send(
                     embed=disnake.Embed(
-                        description=f"**Nenhum link válido encontrado:** {url}",
+                        description=f"**No valid link found.:** {url}",
                         color=disnake.Color.red()
                     ), ephemeral=True
                 )
@@ -796,7 +795,7 @@ class FavModalAdd(disnake.ui.Modal):
 
             if not self.view.guild_data["player_controller"]["channel"] or not self.view.bot.get_channel(
                     int(self.view.guild_data["player_controller"]["channel"])):
-                await inter.edit_original_message("**Não há player configurado no servidor! Use o comando /setup**")
+                await inter.edit_original_message("**There is no player configured on the server! Use the command /setup**")
                 return
 
             name = inter.text_values["guild_fav_name"].strip()
@@ -804,7 +803,7 @@ class FavModalAdd(disnake.ui.Modal):
 
             if not self.view.guild_data["player_controller"]["channel"] or not self.view.bot.get_channel(
                     int(self.view.guild_data["player_controller"]["channel"])):
-                await inter.edit_original_message("**Não há player configurado no servidor! Use o comando /setup**")
+                await inter.edit_original_message("**There is no player configured on the server! Use the command /setup**")
                 return
 
             try:
@@ -820,8 +819,8 @@ class FavModalAdd(disnake.ui.Modal):
             guild = inter.guild or self.view.bot.get_guild(inter.guild_id)
 
             await inter.edit_original_message(
-                embed=disnake.Embed(description="**Link adicionado/atualizado com sucesso nos fixos do player!\n"
-                                                "Membros podem usá-lo diretamente no player-controller quando não estiver em uso.**",
+                embed=disnake.Embed(description="**Link added/updated successfully in player's pinned messages!\n"
+                                                "Members can use it directly in the player-controller when not in use.**",
                                     color=self.view.bot.get_color(guild.me)), view=None)
 
             await process_idle_embed(self.view.bot, guild, guild_data=self.view.guild_data)
@@ -834,7 +833,7 @@ class FavModalAdd(disnake.ui.Modal):
             except IndexError:
                 await inter.send(
                     embed=disnake.Embed(
-                        description=f"**Nenhum link válido encontrado:** {url}",
+                        description=f"**No valid link found:** {url}",
                         color=disnake.Color.red()
                     ), ephemeral=True
                 )
@@ -845,7 +844,7 @@ class FavModalAdd(disnake.ui.Modal):
                 if not self.view.bot.spotify:
                     await inter.send(
                         embed=disnake.Embed(
-                            description="**O suporte ao spotify não está disponível no momento...**",
+                            description="**Spotify support is currently unavailable...**",
                             color=disnake.Color.red()
                         ), ephemeral=True
                     )
@@ -856,7 +855,7 @@ class FavModalAdd(disnake.ui.Modal):
                 if url_type != "user":
                     await inter.send(
                         embed=disnake.Embed(
-                            description=f"**Você deve usar link de um perfil de usuário do spotify.** {url}",
+                            description=f"**You must use a link to a Spotify user profile.** {url}",
                             color=disnake.Color.red()
                         ), ephemeral=True
                     )
@@ -872,7 +871,7 @@ class FavModalAdd(disnake.ui.Modal):
                 except Exception as e:
                     await inter.send(
                         embed=disnake.Embed(
-                            description="**Ocorreu um erro ao obter informações do spotify:** ```py\n"
+                            description="**An error occurred while retrieving Spotify information:** ```py\n"
                                         f"{repr(e)}```",
                             color=self.view.bot.get_color()
                         )
@@ -883,7 +882,7 @@ class FavModalAdd(disnake.ui.Modal):
                 if not result:
                     await inter.send(
                         embed=disnake.Embed(
-                            description="**O usuário do link informado não possui playlists públicas...**",
+                            description="**The user from the provided link does not have any public playlists...**",
                             color=self.view.bot.get_color()
                         )
                     )
@@ -896,7 +895,7 @@ class FavModalAdd(disnake.ui.Modal):
                 if not self.view.bot.config["USE_YTDL"]:
                     await inter.send(
                         embed=disnake.Embed(
-                            description="**Não há suporte a esse tipo de link no momento...**",
+                            description="**There is no support for that type of link at the moment...**",
                             color=self.view.bot.get_color()
                         )
                     )
@@ -915,7 +914,7 @@ class FavModalAdd(disnake.ui.Modal):
                     else:
                         await inter.send(
                             embed=disnake.Embed(
-                                description=f"**Link informado não é suportado:** {url}",
+                                description=f"**The provided link is not supported:** {url}",
                                 color=disnake.Color.red()
                             ), ephemeral=True
                         )
@@ -934,15 +933,15 @@ class FavModalAdd(disnake.ui.Modal):
                     info = await loop.run_in_executor(None, lambda: self.view.bot.pool.ytdl.extract_info(base_url, download=False))
                 except Exception as e:
                     traceback.print_exc()
-                    await inter.edit_original_message(f"**Ocorreu um erro ao obter informação da url:** ```py\n{repr(e)}```")
+                    await inter.edit_original_message(f"**An error occurred while retrieving information from the URL:** ```py\n{repr(e)}```")
                     return
 
                 if not info:
 
-                    msg = f"**O usuário/canal do link informado não existe:**\n{url}"
+                    msg = f"**The user/channel from the provided link does not exist:**\n{url}"
 
                     if source == "[YT]:":
-                        msg += f"\n\n`Nota: Confira se no link contém usuário com @, ex: @ytchannel`"
+                        msg += f"\n\n`Note: Check if the link contains a user with @, ex: @ytchannel`"
 
                     await inter.edit_original_message(
                         embed=disnake.Embed(
@@ -955,7 +954,7 @@ class FavModalAdd(disnake.ui.Modal):
                 if not info['entries']:
                     await inter.edit_original_message(
                         embed=disnake.Embed(
-                            description=f"**O usuário/canal do link informado não possui playlists públicas...**",
+                            description=f"**The user/channel of the provided link does not have public playlists...**",
                             color=disnake.Color.red()
                         )
                     )
@@ -978,16 +977,16 @@ class FavModalAdd(disnake.ui.Modal):
 
             await inter.edit_original_message(
                 embed=disnake.Embed(
-                    description=f"**Integração adicionada/editada com sucesso:** [`{title}`]({data['url']})\n"
-                                "**Ela vai aparecer nas seguintes ocasições:** ```\n"
-                                "- Ao usar o comando /play (selecionando a integração no preenchimento automático da busca)\n"
-                                "- Ao clicar no botão de tocar favorito do player.\n"
-                                "- Ao usar o comando play (prefixed) sem nome ou link.```",
+                    description=f"**Integration added/edited successfully:** [`{title}`]({data['url']})\n"
+                                "**It will appear in the following occasions:** ```\n"
+                                "- When using the /play command (selecting the integration from the search autocomplete)\n"
+                                "- When clicking on the favorite play button of the player.\n"
+                                "- When using the play command (prefixed) without a name or link.```",
                     color=self.view.bot.get_color(me)
                 ), view=None
             )
 
-            self.view.log = f"[`{data['title']}`]({data['url']}) foi adicionado nas suas integrações."
+            self.view.log = f"[`{data['title']}`]({data['url']}) it has been added to your integrations."
 
         if not isinstance(self.view.ctx, CustomContext):
             await self.view.ctx.edit_original_message(embed=self.view.build_embed(), view=self.view)
@@ -1016,19 +1015,19 @@ class FavMenuView(disnake.ui.View):
 
         mode_select = disnake.ui.Select(
             options=[
-                disnake.SelectOption(label="Gerenciador de Favoritos", value=f"fav_view_mode_{ViewMode.fav_manager}", emoji="⭐",
+                disnake.SelectOption(label="Favorites Manager", value=f"fav_view_mode_{ViewMode.fav_manager}", emoji="⭐",
                                      default=self.mode == ViewMode.fav_manager)
             ], min_values=1, max_values=1
         )
 
         if self.bot.config["USE_YTDL"] or self.bot.spotify:
             mode_select.append_option(
-                disnake.SelectOption(label="Gerenciador de Integrações", value=f"fav_view_mode_{ViewMode.integrations_manager}", emoji="💠",
+                disnake.SelectOption(label="Integrations Manager", value=f"fav_view_mode_{ViewMode.integrations_manager}", emoji="💠",
                                      default=self.mode == ViewMode.integrations_manager)
             )
 
         if self.ctx.author.guild_permissions.manage_guild:
-            mode_select.options.insert(1, disnake.SelectOption(label="Gerenciador de Playlists do Servidor",
+            mode_select.options.insert(1, disnake.SelectOption(label="Server Playlists Manager",
                                                                value=f"fav_view_mode_{ViewMode.guild_fav_manager}", emoji="📌",
                                                                default=self.mode == ViewMode.guild_fav_manager))
 
@@ -1089,73 +1088,73 @@ class FavMenuView(disnake.ui.View):
                 integration_select.callback = self.select_callback
                 self.add_item(integration_select)
 
-        add_button = disnake.ui.Button(label="Adicionar", emoji="<:add_music:588172015760965654>")
+        add_button = disnake.ui.Button(label="Add", emoji="<:add_music:588172015760965654>")
         add_button.callback = self.add_callback
         self.add_item(add_button)
 
         if self.mode == ViewMode.fav_manager:
-            edit_button = disnake.ui.Button(label="Editar", emoji="✍️", disabled=not self.data["fav_links"])
+            edit_button = disnake.ui.Button(label="Edit", emoji="✍️", disabled=not self.data["fav_links"])
             edit_button.callback = self.edit_callback
             self.add_item(edit_button)
 
-            remove_button = disnake.ui.Button(label="Remover", emoji="♻️", disabled=not self.data["fav_links"])
+            remove_button = disnake.ui.Button(label="Remove", emoji="♻️", disabled=not self.data["fav_links"])
             remove_button.callback = self.remove_callback
             self.add_item(remove_button)
 
-            clear_button = disnake.ui.Button(label="Limpar favoritos", emoji="🚮", disabled=not self.data["fav_links"])
+            clear_button = disnake.ui.Button(label="Clean favorites", emoji="🚮", disabled=not self.data["fav_links"])
             clear_button.callback = self.clear_callback
             self.add_item(clear_button)
 
-            export_button = disnake.ui.Button(label="Exportar", emoji="📤", disabled=not self.data["fav_links"])
+            export_button = disnake.ui.Button(label="Export", emoji="📤", disabled=not self.data["fav_links"])
             export_button.callback = self.export_callback
             self.add_item(export_button)
 
         elif self.mode == ViewMode.guild_fav_manager:
-            edit_button = disnake.ui.Button(label="Editar", emoji="✍️", disabled=not self.guild_data["player_controller"]["fav_links"])
+            edit_button = disnake.ui.Button(label="Edit", emoji="✍️", disabled=not self.guild_data["player_controller"]["fav_links"])
             edit_button.callback = self.edit_callback
             self.add_item(edit_button)
 
-            remove_button = disnake.ui.Button(label="Remover", emoji="♻️", disabled=not self.guild_data["player_controller"]["fav_links"])
+            remove_button = disnake.ui.Button(label="Remove", emoji="♻️", disabled=not self.guild_data["player_controller"]["fav_links"])
             remove_button.callback = self.remove_callback
             self.add_item(remove_button)
 
-            clear_button = disnake.ui.Button(label="Limpar favoritos", emoji="🚮", disabled=not self.guild_data["player_controller"]["fav_links"])
+            clear_button = disnake.ui.Button(label="Clean favorites", emoji="🚮", disabled=not self.guild_data["player_controller"]["fav_links"])
             clear_button.callback = self.clear_callback
             self.add_item(clear_button)
 
-            export_button = disnake.ui.Button(label="Exportar", emoji="📤", disabled=not self.guild_data["player_controller"]["fav_links"])
+            export_button = disnake.ui.Button(label="Export", emoji="📤", disabled=not self.guild_data["player_controller"]["fav_links"])
             export_button.callback = self.export_callback
             self.add_item(export_button)
 
         elif self.mode == ViewMode.integrations_manager:
-            remove_button = disnake.ui.Button(label="Remover", emoji="♻️", disabled=not self.data["integration_links"])
+            remove_button = disnake.ui.Button(label="Remove", emoji="♻️", disabled=not self.data["integration_links"])
             remove_button.callback = self.remove_callback
             self.add_item(remove_button)
 
-            clear_button = disnake.ui.Button(label="Limpar Integrações", emoji="🚮", disabled=not self.data["integration_links"])
+            clear_button = disnake.ui.Button(label="Clean Integrations", emoji="🚮", disabled=not self.data["integration_links"])
             clear_button.callback = self.clear_callback
             self.add_item(clear_button)
 
-            export_button = disnake.ui.Button(label="Exportar", emoji="📤", disabled=not self.data["integration_links"])
+            export_button = disnake.ui.Button(label="Export", emoji="📤", disabled=not self.data["integration_links"])
             export_button.callback = self.export_callback
             self.add_item(export_button)
 
-        import_button = disnake.ui.Button(label="Importar", emoji="📥")
+        import_button = disnake.ui.Button(label="Import", emoji="📥")
         import_button.callback = self.import_callback
         self.add_item(import_button)
 
         if self.mode == ViewMode.fav_manager:
-            play_button = disnake.ui.Button(label="Tocar o favorito selecionado", emoji="▶", custom_id="favmanager_play_button")
+            play_button = disnake.ui.Button(label="Play selected favorite", emoji="▶", custom_id="favmanager_play_button")
             play_button.callback = self.play_callback
             self.add_item(play_button)
 
         elif self.mode == ViewMode.integrations_manager:
             if self.data["integration_links"]:
-                play_button = disnake.ui.Button(label="Tocar uma playlist da integração selecionada", emoji="▶", custom_id="favmanager_play_button")
+                play_button = disnake.ui.Button(label="Play a playlist from selected integration", emoji="▶", custom_id="favmanager_play_button")
                 play_button.callback = self.play_callback
                 self.add_item(play_button)
 
-        cancel_button = disnake.ui.Button(label="Fechar", emoji="❌")
+        cancel_button = disnake.ui.Button(label="Close", emoji="❌")
         cancel_button.callback = self.cancel_callback
         self.add_item(cancel_button)
 
@@ -1168,7 +1167,7 @@ class FavMenuView(disnake.ui.View):
 
             user, data, url = await self.bot.wait_for("fav_add", check=lambda user, data, url: user.id == self.ctx.author.id)
 
-            self.log = f"{url} foi adicionado nos seus favoritos."
+            self.log = f"{url} has been added to your favorites."
 
             if not isinstance(self.ctx, CustomContext):
                 await self.ctx.edit_original_message(embed=self.build_embed(), view=self)
@@ -1229,70 +1228,70 @@ class FavMenuView(disnake.ui.View):
 
         if self.mode == ViewMode.fav_manager:
             embed = disnake.Embed(
-                title="Gerenciador de favoritos.",
+                title="Favorites Manager.",
                 colour=self.bot.get_color(),
             )
 
             if not self.data["fav_links"]:
-                embed.description = "Você não possui favoritos (clique no botão de adicionar abaixo)."
+                embed.description = "You have no favorites (click the add button below)."
 
             else:
-                embed.description = f"**Seus favoritos atuais:**\n\n" + "\n".join(
+                embed.description = f"**Your current favorites:**\n\n" + "\n".join(
                     f"> ` {n + 1} ` [`{f[0]}`]({f[1]})" for n, f in enumerate(self.data["fav_links"].items())
                 )
 
-            embed.add_field(name="**Como usá-los?**", inline=False,
-                            value=f"* Usando o comando {cmd} (selecionando o favorito no preenchimento automático da busca)\n"
-                                  "* Clicando no botão/select de tocar favorito/integração do player.\n"
-                                  f"* Usando o comando {self.prefix}{self.bot.get_cog('Music').play_legacy.name} sem incluir um nome ou link de uma música/vídeo.\n"
-                                  "* Usando o botão de tocar favorito abaixo.")
+            embed.add_field(name="**How to use them?**", inline=False,
+                            value=f"* Using the {cmd} command (selecting the favorite from the search autocomplete)\n"
+                                  "* Clicking the play favorite/player integration button/select.\n"
+                                  f"* Using the {self.prefix}{self.bot.get_cog('Music').play_legacy.name} command without including a song/video name or link.\n"
+                                  "* Using the play favorite button below.")
 
         elif self.mode == ViewMode.guild_fav_manager:
             embed = disnake.Embed(
-                title="Gerenciador de favoritos do servidor.",
+                title="Server Favorites Manager.",
                 colour=self.bot.get_color(),
             )
-            embed.set_author(name=f"Bot selecionado: {self.bot.user.display_name}", icon_url=self.bot.user.display_avatar.url)
+            embed.set_author(name=f"Selected Bot: {self.bot.user.display_name}", icon_url=self.bot.user.display_avatar.url)
 
             if not self.guild_data["player_controller"]["fav_links"]:
-                embed.description = f"Não há links adicionados no bot {self.bot.user.mention} (clique no botão de adicionar abaixo)."
+                embed.description = f"No links added to {self.bot.user.mention} bot (click the add button below)."
 
             else:
-                embed.description = f"**Links atuais no bot {self.bot.user.mention}:**\n\n" + "\n".join(
+                embed.description = f"**Current links in {self.bot.user.mention} bot:**\n\n" + "\n".join(
                     f"> ` {n + 1} ` [`{f[0]}`]({f[1]['url']})" for n, f in enumerate(self.guild_data["player_controller"]["fav_links"].items())
                 )
 
-            embed.add_field(name="**Como usá-los?**", inline=False,
-                            value=f"* Usando o menu de seleção do player durante o modo de espera.")
+            embed.add_field(name="**How to use them?**", inline=False,
+                            value=f"* Using the player selection menu during the waiting mode.")
 
         elif self.mode == ViewMode.integrations_manager:
             embed = disnake.Embed(
-                title="Gerenciador de integrações de canais/perfis com playlists públicas.",
+                title="Channel/Profile Integrations Manager.",
                 colour=self.bot.get_color(),
             )
 
             if not self.data["integration_links"]:
-                embed.description = "**Você não possui integrações no momento (clique no botão de adicionar abaixo).**"
+                embed.description = "**You have no integrations at the moment (click the add button below).**"
 
             else:
-                embed.description = f"**Suas integrações atuais:**\n\n" + "\n".join(
+                embed.description = f"**Your current integrations:**\n\n" + "\n".join(
                     f"> ` {n + 1} ` [`{f[0]}`]({f[1]})" for n, f in enumerate(self.data["integration_links"].items()))
 
-                embed.add_field(name="**Como tocar a playlist de uma integração?**", inline=False,
-                                value=f"* Usando o comando {cmd} (selecionando a integração no preenchimento automático da busca)\n"
-                                      "* Clicando no botão/select de tocar favorito/integração do player.\n"
-                                      f"* Usando o comando {self.prefix}{self.bot.get_cog('Music').play_legacy.name} sem incluir um nome ou link de uma música/vídeo.\n"
-                                      "* Usando o botão de tocar integração abaixo.")
+                embed.add_field(name="**How to play a playlist from an integration?**", inline=False,
+                                value=f"* Using the {cmd} command (selecting the integration from the search autocomplete)\n"
+                                      "* Clicking the play favorite/player integration button/select.\n"
+                                      f"* Using the {self.prefix}{self.bot.get_cog('Music').play_legacy.name} command without including a song/video name or link.\n"
+                                      "* Using the play integration button below.")
 
         else:
-            raise GenericError(f"**Modo não implementado:** {self.mode} | {type(self.mode)}")
+            raise GenericError(f"**Mode not implemented:** {self.mode} | {type(self.mode)}")
 
         if self.log:
-            embed.add_field(name="Última interação:", value=self.log)
+            embed.add_field(name="Last interaction:", value=self.log)
 
         if self.mode == ViewMode.integrations_manager:
             embed.add_field(
-                name="Links de perfis/canais suportados:", inline=False,
+                name="Supported profile/channel links:", inline=False,
                 value=f"```ansi\n{', '.join(supported_platforms)}```"
             )
         return embed
@@ -1303,7 +1302,7 @@ class FavMenuView(disnake.ui.View):
     async def edit_callback(self, inter: disnake.MessageInteraction):
 
         if not self.current:
-            await inter.send("Você deve selecionar um item!", ephemeral=True)
+            await inter.send("You must select an item!", ephemeral=True)
             return
 
         if self.mode == ViewMode.fav_manager:
@@ -1312,13 +1311,13 @@ class FavMenuView(disnake.ui.View):
                     FavModalAdd(name=self.current, url=self.data["fav_links"][self.current], view=self)
                 )
             except KeyError:
-                await inter.send(f"**Não há favorito com o nome:** {self.current}", ephemeral=True)
+                await inter.send(f"**There is no favorite with the name:** {self.current}", ephemeral=True)
 
         elif self.mode == ViewMode.guild_fav_manager:
             guild = self.bot.get_guild(inter.guild_id) or inter.guild
 
             if not guild:
-                await inter.send("Você não pode executar essa ação fora de um servidor.", ephemeral=True)
+                await inter.send("You cannot perform this action outside of a server.", ephemeral=True)
                 return
             try:
                 await inter.response.send_modal(
@@ -1330,12 +1329,12 @@ class FavMenuView(disnake.ui.View):
                     )
                 )
             except KeyError:
-                await inter.send(f"**Não há favorito com nome:** {self.current}", ephemeral=True)
+                await inter.send(f"**There is no favorite with the name:** {self.current}", ephemeral=True)
 
     async def remove_callback(self, inter: disnake.MessageInteraction):
 
         if not self.current:
-            await inter.send("Você deve selecionar um item!", ephemeral=True)
+            await inter.send("You must select an item!", ephemeral=True)
             return
 
         await inter.response.defer(ephemeral=True)
@@ -1347,7 +1346,7 @@ class FavMenuView(disnake.ui.View):
             guild = self.bot.get_guild(inter.guild_id)
 
             if not guild:
-                await inter.send("Você não pode executar essa ação fora de um servidor.", ephemeral=True)
+                await inter.send("You cannot perform this action outside of a server.", ephemeral=True)
                 return
 
             if not self.guild_data:
@@ -1365,12 +1364,12 @@ class FavMenuView(disnake.ui.View):
                 url = f'[`{self.current}`]({self.data["fav_links"][self.current]})'
                 del self.data["fav_links"][self.current]
             except:
-                await inter.edit_original_message(f"**Não há favorito na lista com o nome:** {self.current}")
+                await inter.edit_original_message(f"**There is no favorite in the list with the name:** {self.current}")
                 return
 
             await self.bot.update_global_data(inter.author.id, self.data, db_name=DBModel.users)
 
-            self.log = f"Favorito {url} foi removido com sucesso!"
+            self.log = f"Favorite {url} has been successfully removed!"
 
         elif self.mode == ViewMode.guild_fav_manager:
             try:
@@ -1384,7 +1383,7 @@ class FavMenuView(disnake.ui.View):
 
                 await inter.edit_original_message(
                     embed=disnake.Embed(
-                        description=f"**Não há links da lista com o nome:** {self.current}",
+                        description=f"**There are no links in the list with the name:** {self.current}",
                         color=self.bot.get_color(guild.me)),
                     view=None
                 )
@@ -1392,19 +1391,19 @@ class FavMenuView(disnake.ui.View):
 
             await self.bot.update_data(inter.guild_id, self.guild_data, db_name=DBModel.guilds)
 
-            self.log = f"Link {url} foi removido com sucesso da lista de favoritos do servidor!"
+            self.log = f"Link {url} has been successfully removed from the server's favorites list!"
 
         elif self.mode == ViewMode.integrations_manager:
             try:
                 url = f'[`{self.current}`]({self.data["integration_links"][self.current]})'
                 del self.data["integration_links"][self.current]
             except:
-                await inter.send(f"**Não há integração na lista com o nome:** {self.current}", ephemeral=True)
+                await inter.send(f"**There is no integration in the list with the name:** {self.current}", ephemeral=True)
                 return
 
             await self.bot.update_global_data(inter.author.id, self.data, db_name=DBModel.users)
 
-            self.log = f"Integração {url} foi removida com sucesso!"
+            self.log = f"Integration {url} has been successfully removed!"
 
         await inter.edit_original_message(embed=self.build_embed(), view=self)
 
@@ -1432,7 +1431,7 @@ class FavMenuView(disnake.ui.View):
             guild = self.bot.get_guild(inter.guild_id) or inter.guild
 
             if not guild:
-                await inter.send("Você não pode executar essa ação fora de um servidor.", ephemeral=True)
+                await inter.send("You cannot perform this action outside of a server.", ephemeral=True)
                 return
 
             await inter.response.defer(ephemeral=True)
@@ -1453,7 +1452,7 @@ class FavMenuView(disnake.ui.View):
 
         if self.mode == ViewMode.fav_manager:
             if not self.data["fav_links"]:
-                await inter.send("**Você não possui links favoritos!**", ephemeral=True)
+                await inter.send("**You don't have any favorite links!**", ephemeral=True)
                 return
 
             fp = BytesIO(bytes(json.dumps(self.data["fav_links"], indent=4), 'utf-8'))
@@ -1462,17 +1461,17 @@ class FavMenuView(disnake.ui.View):
 
             await self.bot.update_global_data(inter.author.id, self.data, db_name=DBModel.users)
 
-            self.log = "Sua lista de favoritos foi limpa com sucesso!"
+            self.log = "Your favorites list has been successfully cleared!"
 
-            await inter.send("### Seus favoritos foram excluídos com sucesso!\n"
-                             "`Um arquivo de backup foi gerado e caso queira reverter essa exclusão, copie o "
-                             "conteúdo do arquivo e clique no botão \"importar\" e cole o conteudo no campo indicado.`",
+            await inter.send("### Your favorites have been successfully deleted!\n"
+                             "`A backup file has been generated and if you want to revert this deletion, copy the "
+                             "content of the file and click the \"import\" button and paste the content in the indicated field.`",
                              ephemeral=True, file=disnake.File(fp, filename="favs.json"))
 
         elif self.mode == ViewMode.guild_fav_manager:
 
             if not self.guild_data["player_controller"]["fav_links"]:
-                await inter.send("**Não há links favoritos no servidor.**", ephemeral=True)
+                await inter.send("**There are no favorite links in the server.**", ephemeral=True)
                 return
 
             fp = BytesIO(bytes(json.dumps(self.guild_data["player_controller"]["fav_links"], indent=4), 'utf-8'))
@@ -1486,17 +1485,17 @@ class FavMenuView(disnake.ui.View):
             except:
                 traceback.print_exc()
 
-            self.log = "Lista de favoritos do server foi limpa com sucesso!"
+            self.log = "Server favorites list has been successfully cleared!"
 
-            await inter.send("### Os links de favoritos do server foram excluídos com sucesso!\n"
-                             "`um arquivo de backup foi gerado e caso queira reverter essa exclusão, copie o "
-                             "conteúdo do arquivo e clique no botão \"importar\" e cole o conteudo no campo indicado.`",
+            await inter.send("### The server's favorite links have been successfully deleted!\n"
+                             "`A backup file has been generated and if you want to revert this deletion, copy the "
+                             "content of the file and click the \"import\" button and paste the content in the indicated field.`",
                              ephemeral=True, file=disnake.File(fp, filename="guild_favs.json"))
 
         elif self.mode == ViewMode.integrations_manager:
 
             if not self.data["integration_links"]:
-                await inter.response.edit_message(content="**Você não possui integrações salvas!**", view=None)
+                await inter.response.edit_message(content="**You don't have any saved integrations!**", view=None)
                 return
 
             fp = BytesIO(bytes(json.dumps(self.data["integration_links"], indent=4), 'utf-8'))
@@ -1505,11 +1504,11 @@ class FavMenuView(disnake.ui.View):
 
             await self.bot.update_global_data(inter.author.id, self.data, db_name=DBModel.users)
 
-            self.log = "Sua lista de integrações foi limpa com sucesso!"
+            self.log = "Your integrations list has been successfully cleared!"
 
-            await inter.send("### Suas integrações foram excluídas com sucesso!\n"
-                             "`um arquivo de backup foi gerado e caso queira reverter essa exclusão, copie o "
-                             "conteúdo do arquivo e clique no botão \"importar\" e cole o conteudo no campo indicado.`",
+            await inter.send("### Your integrations have been successfully deleted!\n"
+                             "`A backup file has been generated and if you want to revert this deletion, copy the "
+                             "content of the file and click the \"import\" button and paste the content in the indicated field.`",
                              ephemeral=True, file=disnake.File(fp, filename="integrations.json"))
 
         if not isinstance(self.ctx, CustomContext):
@@ -1530,7 +1529,7 @@ class FavMenuView(disnake.ui.View):
         if retry_after := cog.fav_import_export_cd.get_bucket(inter).update_rate_limit():
             if retry_after < 1:
                 retry_after = 1
-            await inter.send("**Você deve aguardar {} para exportar.**".format(
+            await inter.send("**You must wait {} to export.**".format(
                 time_format(int(retry_after) * 1000, use_names=True)), ephemeral=True)
             return
 
@@ -1545,28 +1544,28 @@ class FavMenuView(disnake.ui.View):
 
         if self.mode == ViewMode.fav_manager:
             if not self.data["fav_links"]:
-                await inter.send(f"**Você não possui links favoritos..\n"
-                                 f"Você pode adicionar usando o comando: {cmd}**", ephemeral=True)
+                await inter.send(f"**You don't have any favorite links..\n"
+                                f"You can add them using the command: {cmd}**", ephemeral=True)
                 return
 
             fp = BytesIO(bytes(json.dumps(self.data["fav_links"], indent=4), 'utf-8'))
 
             await inter.send(embed=disnake.Embed(
-                description=f"Seus favoritos estão aqui.\nVocê pode importar usando o comando: {cmd}",
-                color=self.bot.get_color()), file=disnake.File(fp=fp, filename="favoritos.json"), ephemeral=True)
+                description=f"Your favorites are here.\nYou can import them using the command: {cmd}",
+                color=self.bot.get_color()), file=disnake.File(fp=fp, filename="favorites.json"), ephemeral=True)
 
         elif self.mode == ViewMode.guild_fav_manager:
             if not self.guild_data["player_controller"]["fav_links"]:
-                await inter.edit_original_message(content=f"**Não há músicas/playlists fixadas no servidor..\n"
-                                                          f"Você pode adicionar usando o comando: {cmd}**")
+                await inter.edit_original_message(content=f"**There are no pinned songs/playlists in the server..\n"
+                                                        f"You can add them using the command: {cmd}**")
 
             fp = BytesIO(bytes(json.dumps(self.guild_data["player_controller"]["fav_links"], indent=4), 'utf-8'))
 
             guild = self.bot.get_guild(inter.guild_id) or inter.guild
 
             embed = disnake.Embed(
-                description=f"**Os dados dos links de músicas/playlists fixas do servidor estão aqui.\n"
-                            f"Você pode importar usando o comando:** {cmd}",
+                description=f"**The data of the server's pinned songs/playlists links are here.\n"
+                            f"You can import them using the command:** {cmd}",
                 color=self.bot.get_color(guild.me))
 
             await inter.send(embed=embed, file=disnake.File(fp=fp, filename="guild_favs.json"), ephemeral=True)
@@ -1574,14 +1573,14 @@ class FavMenuView(disnake.ui.View):
         elif self.mode == ViewMode.integrations_manager:
 
             if not self.data["integration_links"]:
-                await inter.edit_original_message(f"**Você não possui integrações adicionadas...\n"
-                                                  f"Você pode adicionar usando o comando: {cmd}**")
+                await inter.edit_original_message(f"**You don't have any added integrations...\n"
+                                                f"You can add them using the command: {cmd}**")
                 return
 
             fp = BytesIO(bytes(json.dumps(self.data["integration_links"], indent=4), 'utf-8'))
 
             await inter.send(embed=disnake.Embed(
-                description=f"Suas integrações estão aqui.\nVocê pode importar usando o comando: {cmd}",
+                description=f"Your integrations are here.\nYou can import them using the command: {cmd}",
                 color=self.bot.get_color()), file=disnake.File(fp=fp, filename="integrations.json"), ephemeral=True)
 
     async def cancel_callback(self, inter: disnake.MessageInteraction):
@@ -1593,7 +1592,7 @@ class FavMenuView(disnake.ui.View):
 
         await inter.response.edit_message(
             embed=disnake.Embed(
-                description="**Gerenciador fechado.**",
+                description="**Manager closed.**",
                 color=self.bot.get_color(),
             ), view=None
         )
@@ -1629,7 +1628,7 @@ class FavMenuView(disnake.ui.View):
         if inter.author.id == self.ctx.author.id:
             return True
 
-        await inter.send(f"Apenas o membro {self.ctx.author.mention} pode interagir nessa mensagem.", ephemeral=True)
+        await inter.send(f"Only member {self.ctx.author.mention} can interact in this message.", ephemeral=True)
 
 
 
@@ -1638,18 +1637,18 @@ base_skin = {
     "queue_format": "`{track.number}) [{track.duration}]` [`{track.title_42}`]({track.url})",
     "embeds": [
         {
-            "title": "Próximas músicas:",
+            "title": "Upcoming songs:",
             "description": "{queue_format}",
             "color": "{guild.color}"
         },
         {
-            "description": "**Tocando agora:\n[{track.title}]({track.url})**\n\n**Duração:** `{track.duration}`\n**Pedido por:** {requester.mention}\n**Uploader**: `{track.author}`\n**Playlist de origem:** [`{playlist.name}`]({playlist.url})\n\n{player.log.emoji} **Última ação:** {player.log.text}",
+            "description": "**Now playing:\n[{track.title}]({track.url})**\n\n**Duration:** `{track.duration}`\n**Requested by:** {requester.mention}\n**Uploader**: `{track.author}`\n**Source playlist:** [`{playlist.name}`]({playlist.url})\n\n{player.log.emoji} **Last action:** {player.log.text}",
             "image": {
               "url": "{track.thumb}"
             },
             "color": "{guild.color}",
             "footer": {
-               "text": "Músicas na lista: {player.queue.size}"
+               "text": "Songs in queue: {player.queue.size}"
             }
         }
     ]
@@ -1672,9 +1671,9 @@ class SkinSettingsButton(disnake.ui.View):
 
         select_mode = disnake.ui.Select(
             min_values=1, max_values=1, options=[
-                disnake.SelectOption(label="Modo Normal", description="Aplicar skin ao modo normal do player",
+                disnake.SelectOption(label="Normal Mode", description="Apply skin to normal player mode",
                                      value="custom_skins", default=self.mode == "custom_skins"),
-                disnake.SelectOption(label="Song-Request", description="Aplicar skin no modo song-request do player",
+                disnake.SelectOption(label="Song-Request", description="Apply skin to song-request player mode",
                                      value="custom_skins_static", default=self.mode == "custom_skins_static"),
             ]
         )
@@ -1682,12 +1681,12 @@ class SkinSettingsButton(disnake.ui.View):
         self.add_item(select_mode)
 
         controller_btn = disnake.ui.Button(emoji="💠",
-            label="Ativar Player-Controller" if not self.controller_enabled else "Desativar Player-Controller"
+            label="Enable Player-Controller" if not self.controller_enabled else "Disable Player-Controller"
         )
         controller_btn.callback = self.controller_buttons
         self.add_item(controller_btn)
 
-        save_btn = disnake.ui.Button(label="Salvar", emoji="💾")
+        save_btn = disnake.ui.Button(label="Save", emoji="💾")
         save_btn.callback = self.save
         self.add_item(save_btn)
 
@@ -1708,7 +1707,7 @@ class SkinSettingsButton(disnake.ui.View):
     async def interaction_check(self, inter: disnake.MessageInteraction) -> bool:
 
         if inter.user.id != self.user.id:
-            await inter.send(f"Apenas o membro {self.user.mention} pode usar es botões da mensagem.", ephemeral=True)
+            await inter.send(f"Only member {self.user.mention} can use the buttons in this message.", ephemeral=True)
             return False
 
         return True
@@ -1776,7 +1775,7 @@ class SkinEditorMenu(disnake.ui.View):
 
         if self.mode == "select":
             add_skin_prefix = (lambda d: [f"> cs: {i}" for i in d.keys()])
-            skins_opts = [disnake.SelectOption(emoji="💠", label=f"Modo normal: {s.replace('> cs: ', '', 1)}", value=s) for s in add_skin_prefix(self.global_data["custom_skins"])]
+            skins_opts = [disnake.SelectOption(emoji="💠", label=f"Normal Mode: {s.replace('> cs: ', '', 1)}", value=s) for s in add_skin_prefix(self.global_data["custom_skins"])]
             add_skin_prefix = (lambda d: [f"> css: {i}" for i in d.keys()])
             static_skins_opts = [disnake.SelectOption(emoji="💠", label=f"Song-Request: {s.replace('> css: ', '', 1)}", value=s) for s in add_skin_prefix(self.global_data["custom_skins_static"])]
 
@@ -1784,26 +1783,26 @@ class SkinEditorMenu(disnake.ui.View):
 
             if skins_opts:
                 skin_select = disnake.ui.Select(min_values=1, max_values=1, options=skins_opts,
-                                                placeholder="Skins do modo normal do player")
+                                                placeholder="Normal mode skins")
                 skin_select.callback = self.load_skin
                 self.add_item(skin_select)
                 has_skins = True
 
             if static_skins_opts:
                 static_skin_select = disnake.ui.Select(min_values=1, max_values=1, options=static_skins_opts,
-                                                       placeholder="Skins do modo song-request do player")
+                                                       placeholder="Song-Request mode skins")
                 static_skin_select.callback = self.load_skin
                 self.add_item(static_skin_select)
                 has_skins = True
 
             if not has_skins:
-                self.message_data = {"embeds": [{"description": "**Não há skins salvas...\nClique no botão abaixo para criar uma nova skin/template.**", "color": self.ctx.guild.me.color.value}]}
-                new_skin_btn = disnake.ui.Button(label="Adicionar nova skin", custom_id="skin_editor_new_skin", disabled=len(static_skins_opts) > 2 and len(skins_opts) > 2)
+                self.message_data = {"embeds": [{"description": "**No saved skins...\nClick the button below to create a new skin/template.**", "color": self.ctx.guild.me.color.value}]}
+                new_skin_btn = disnake.ui.Button(label="Add new skin", custom_id="skin_editor_new_skin", disabled=len(static_skins_opts) > 2 and len(skins_opts) > 2)
                 new_skin_btn.callback = self.new_skin
                 self.add_item(new_skin_btn)
             else:
-                self.message_data = {"embeds": [{"description": "**Selecione uma skin abaixo para editá-la ou crie uma nova usando um modelo base clicando no botão de adicionar abaixo.**", "color": self.ctx.guild.me.color.value}]}
-                new_skin_btn = disnake.ui.Button(label="Adicionar nova skin", custom_id="skin_editor_new_skin", disabled=len(static_skins_opts) > 2 and len(skins_opts) > 2)
+                self.message_data = {"embeds": [{"description": "**Select a skin below to edit it or create a new one using a base template by clicking the add button below.**", "color": self.ctx.guild.me.color.value}]}
+                new_skin_btn = disnake.ui.Button(label="Add new skin", custom_id="skin_editor_new_skin", disabled=len(static_skins_opts) > 2 and len(skins_opts) > 2)
                 new_skin_btn.callback = self.new_skin
                 self.add_item(new_skin_btn)
 
@@ -1830,24 +1829,24 @@ class SkinEditorMenu(disnake.ui.View):
                     self.add_item(select_embed_field)
 
                 if len(fields) < 25:
-                    add_field_btn = disnake.ui.Button(label="Adicionar Field", emoji="🔖")
+                    add_field_btn = disnake.ui.Button(label="Add Field", emoji="🔖")
                     add_field_btn.callback = self.add_field
                     self.add_item(add_field_btn)
 
                 if fields:
-                    edit_field_btn = disnake.ui.Button(label="Editar Field", emoji="🔖")
+                    edit_field_btn = disnake.ui.Button(label="Edit Field", emoji="🔖")
                     edit_field_btn.callback = self.edit_embed_field_button
                     self.add_item(edit_field_btn)
 
-                    delete_field_btn = disnake.ui.Button(label="Remover Field", emoji="🔖")
+                    delete_field_btn = disnake.ui.Button(label="Remove Field", emoji="🔖")
                     delete_field_btn.callback = self.delete_embed_field_button
                     self.add_item(delete_field_btn)
 
-                edit_embed_btn = disnake.ui.Button(label="Editar Embed", emoji="📋")
+                edit_embed_btn = disnake.ui.Button(label="Edit Embed", emoji="📋")
                 edit_embed_btn.callback = self.edit_embed_button
                 self.add_item(edit_embed_btn)
 
-                remove_embed_btn = disnake.ui.Button(label="Remover Embed", emoji="📋")
+                remove_embed_btn = disnake.ui.Button(label="Remove Embed", emoji="📋")
                 remove_embed_btn.callback = self.remove_embed
                 self.add_item(remove_embed_btn)
 
@@ -1855,46 +1854,46 @@ class SkinEditorMenu(disnake.ui.View):
                 set_author_footer_btn.callback = self.set_author_footer
                 self.add_item(set_author_footer_btn)
 
-            edit_content_btn = disnake.ui.Button(label=("Adicionar" if not self.message_data.get("content") else "Editar") + " Mensagem", emoji="💬")
+            edit_content_btn = disnake.ui.Button(label=("Add" if not self.message_data.get("content") else "Edit") + " Message", emoji="💬")
             edit_content_btn.callback = self.edit_content
             self.add_item(edit_content_btn)
 
-            add_embed_btn = disnake.ui.Button(label="Adicionar Embed", disabled=len(embeds)>=8, emoji="📋")
+            add_embed_btn = disnake.ui.Button(label="Add Embed", disabled=len(embeds)>=8, emoji="📋")
             add_embed_btn.callback = self.add_embed
             self.add_item(add_embed_btn)
 
-            setup_queue_btn = disnake.ui.Button(label="Configurar placeholder da fila", emoji="<:music_queue:703761160679194734>")
+            setup_queue_btn = disnake.ui.Button(label="Setup Queue Placeholder", emoji="<:music_queue:703761160679194734>")
             setup_queue_btn.callback = self.setup_queue
             self.add_item(setup_queue_btn)
 
             save_disabled = not embeds and len(self.message_data.get("content", "")) < 15
 
-            export_btn = disnake.ui.Button(label="Exportar Skin", emoji="📤", disabled=save_disabled)
+            export_btn = disnake.ui.Button(label="Export Skin", emoji="📤", disabled=save_disabled)
             export_btn.callback = self.export
             self.add_item(export_btn)
 
-            import_btn = disnake.ui.Button(label="Importar Skin", emoji="📥")
+            import_btn = disnake.ui.Button(label="Import Skin", emoji="📥")
             import_btn.callback = self.import_
             self.add_item(import_btn)
 
             if self.skin_selected:
-                delete_skin_btn = disnake.ui.Button(label="Excluir Skin", emoji="🚮")
+                delete_skin_btn = disnake.ui.Button(label="Delete Skin", emoji="🚮")
                 delete_skin_btn.callback = self.delete_skin
                 self.add_item(delete_skin_btn)
 
-            back_btn = disnake.ui.Button(label="Voltar ao menu anterior", emoji="⬅️")
+            back_btn = disnake.ui.Button(label="Go back to previous menu", emoji="⬅️")
             back_btn.callback = self.back
             self.add_item(back_btn)
 
-            self.add_item(disnake.ui.Button(label="Lista de placeholders", emoji="<:help:947781412017279016>", custom_id="skin_editor_placeholders"))
+            self.add_item(disnake.ui.Button(label="List of placeholders", emoji="<:help:947781412017279016>", custom_id="skin_editor_placeholders"))
 
-            save_btn = disnake.ui.Button(label="Salvar Skin", emoji="💾", disabled=save_disabled)
+            save_btn = disnake.ui.Button(label="Save Skin", emoji="💾", disabled=save_disabled)
             save_btn.callback = self.save
             self.add_item(save_btn)
 
     async def interaction_check(self, inter: disnake.MessageInteraction) -> bool:
         if inter.author.id != self.ctx.author.id:
-            await inter.send(f"Apenas o membro {self.ctx.author.mention} pode interagir nessa mensagem.",
+            await inter.send(f"Only member {self.ctx.author.mention} can interact in this message.",
                              ephemeral=True)
             return False
         return True
@@ -1938,11 +1937,11 @@ class SkinEditorMenu(disnake.ui.View):
     async def edit_content(self, inter: disnake.MessageInteraction):
         await inter.response.send_modal(
             SkinEditorModal(
-                view=self, title="Editar/Adicionar conteúdo da mensagem", custom_id="skin_editor_message_content",
+                view=self, title="Edit/Add message content", custom_id="skin_editor_message_content",
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.long,
-                        label="Mensagem:",
+                        label="Message:",
                         custom_id="message_content",
                         value=self.message_data.get("content", ""),
                         max_length=1700,
@@ -1966,33 +1965,33 @@ class SkinEditorMenu(disnake.ui.View):
 
         await inter.response.send_modal(
             SkinEditorModal(
-                view=self, title="Adicionar Embed", custom_id="skin_editor_add_embed",
+                view=self, title="Add Embed", custom_id="skin_editor_add_embed",
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Título da embed:",
+                        label="Embed Title:",
                         custom_id="skin_embed_title",
                         max_length=170,
                         required=False
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.long,
-                        label="Descrição da embed:",
+                        label="Embed Description:",
                         custom_id="skin_embed_description",
                         max_length=1700,
                         required=True
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Cor da embed:",
-                        placeholder="Exemplo: #000fff ou {guild.color}",
+                        label="Embed Color:",
+                        placeholder="Example: #000fff or {guild.color}",
                         custom_id="skin_embed_color",
                         max_length=7,
                         required=False
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Link/Placeholder da imagem:",
+                        label="Image Link/Placeholder:",
                         custom_id="image_url",
                         value=image_url,
                         max_length=400,
@@ -2000,7 +1999,7 @@ class SkinEditorMenu(disnake.ui.View):
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Link/Placeholder da miniatura:",
+                        label="Thumbnail Link/Placeholder:",
                         custom_id="thumbnail_url",
                         value=thumb_url,
                         max_length=400,
@@ -2026,11 +2025,11 @@ class SkinEditorMenu(disnake.ui.View):
 
         await inter.response.send_modal(
             SkinEditorModal(
-                view=self, title="Edite os campos principais da embed", custom_id="skin_editor_edit_embed",
+                view=self, title="Edit Main Fields of Embed", custom_id="skin_editor_edit_embed",
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Título da embed:",
+                        label="Embed Title:",
                         custom_id="skin_embed_title",
                         value=embed.get("title", ""),
                         max_length=170,
@@ -2038,7 +2037,7 @@ class SkinEditorMenu(disnake.ui.View):
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.long,
-                        label="Descrição da embed:",
+                        label="Embed Description:",
                         custom_id="skin_embed_description",
                         value=embed.get("description", ""),
                         max_length=1700,
@@ -2046,8 +2045,8 @@ class SkinEditorMenu(disnake.ui.View):
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Cor da embed:",
-                        placeholder="Exemplo: #000fff ou {guild.color}",
+                        label="Embed Color:",
+                        placeholder="Example: #000fff or {guild.color}",
                         custom_id="skin_embed_color",
                         value=str(embed.get("color", "")),
                         max_length=14,
@@ -2055,7 +2054,7 @@ class SkinEditorMenu(disnake.ui.View):
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Link/Placeholder da imagem:",
+                        label="Image Link/Placeholder:",
                         custom_id="image_url",
                         value=image_url,
                         max_length=400,
@@ -2063,7 +2062,7 @@ class SkinEditorMenu(disnake.ui.View):
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Link/Placeholder da miniatura:",
+                        label="Thumbnail Link/Placeholder:",
                         custom_id="thumbnail_url",
                         value=thumb_url,
                         max_length=400,
@@ -2082,18 +2081,18 @@ class SkinEditorMenu(disnake.ui.View):
     async def add_field(self, inter: disnake.MessageInteraction):
         await inter.response.send_modal(
             SkinEditorModal(
-                view=self, title="Adicionar field na embed", custom_id="skin_editor_add_field",
+                view=self, title="Add field to embed", custom_id="skin_editor_add_field",
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Nome:",
+                        label="Name:",
                         custom_id="add_field_name",
                         max_length=170,
                         required=True
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.long,
-                        label="Valor/Texto:",
+                        label="Value/Text:",
                         custom_id="add_field_value",
                         max_length=1700,
                         required=True
@@ -2108,11 +2107,11 @@ class SkinEditorMenu(disnake.ui.View):
 
         await inter.response.send_modal(
             SkinEditorModal(
-                view=self, title="Edição dos campos principais da embed", custom_id="skin_editor_edit_field",
+                view=self, title="Edit main embed fields", custom_id="skin_editor_edit_field",
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Nome do campo:",
+                        label="Field name:",
                         custom_id="edit_field_name",
                         value=field["name"],
                         max_length=170,
@@ -2120,7 +2119,7 @@ class SkinEditorMenu(disnake.ui.View):
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.long,
-                        label="Valor/Texto do campo:",
+                        label="Field value/text:",
                         custom_id="edit_field_value",
                         value=field["value"],
                         max_length=1700,
@@ -2165,11 +2164,11 @@ class SkinEditorMenu(disnake.ui.View):
 
         await inter.response.send_modal(
             SkinEditorModal(
-                view=self, custom_id="skin_editor_set_authorfooter", title="Adicionar/editar autor/footer",
+                view=self, custom_id="skin_editor_set_authorfooter", title="Add/edit author/footer",
                 components = [
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Nome do author:",
+                        label="Author name:",
                         custom_id="set_author_name",
                         value=author_name,
                         max_length=170,
@@ -2177,7 +2176,7 @@ class SkinEditorMenu(disnake.ui.View):
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Link/Url do author:",
+                        label="Author link/URL:",
                         custom_id="set_author_url",
                         value=author_url,
                         max_length=400,
@@ -2185,7 +2184,7 @@ class SkinEditorMenu(disnake.ui.View):
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Link/Url da imagem do author:",
+                        label="Author image link/URL:",
                         custom_id="set_author_icon",
                         value=author_icon_url,
                         max_length=400,
@@ -2193,7 +2192,7 @@ class SkinEditorMenu(disnake.ui.View):
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.long,
-                        label="Texto do footer:",
+                        label="Footer text:",
                         custom_id="footer_text",
                         value=footer_text,
                         max_length=1700,
@@ -2201,7 +2200,7 @@ class SkinEditorMenu(disnake.ui.View):
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="URL/Link da imagem do footer:",
+                        label="Footer image link/URL:",
                         custom_id="footer_icon_url",
                         value=footer_icon_url,
                         max_length=400,
@@ -2214,11 +2213,11 @@ class SkinEditorMenu(disnake.ui.View):
     async def setup_queue(self, inter: disnake.MessageInteraction):
         await inter.response.send_modal(
             SkinEditorModal(
-                view=self, title="Placeholder da lista de músicas da fila", custom_id="skin_editor_setup_queue",
+                view=self, title="Placeholder for the queue music list", custom_id="skin_editor_setup_queue",
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Formatação de texto no nome das músicas:",
+                        label="Text formatting for the music names:",
                         custom_id="queue_format",
                         value=self.message_data["queue_format"],
                         max_length=120,
@@ -2226,7 +2225,7 @@ class SkinEditorMenu(disnake.ui.View):
                     ),
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Quantidade de músicas exibidas na lista:",
+                        label="Number of songs displayed in the list:",
                         custom_id="queue_max_entries",
                         value=str(self.message_data["queue_max_entries"]),
                         max_length=2,
@@ -2243,11 +2242,11 @@ class SkinEditorMenu(disnake.ui.View):
     async def import_(self, inter: disnake.MessageInteraction):
         await inter.response.send_modal(
             SkinEditorModal(
-                view=self, title="Importar skin", custom_id="skin_editor_import_skin",
+                view=self, title="Import skin", custom_id="skin_editor_import_skin",
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.long,
-                        label="Código da skin (json):",
+                        label="Skin code (json):",
                         custom_id="skin",
                         max_length=2000,
                         required=True
@@ -2260,11 +2259,11 @@ class SkinEditorMenu(disnake.ui.View):
 
         await inter.response.send_modal(
             SkinEditorModal(
-                view=self, title="Informe o nome da skin", custom_id="skin_editor_save",
+                view=self, title="Enter the skin name", custom_id="skin_editor_save",
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Nome:",
+                        label="Name:",
                         custom_id="skin_name",
                         value="" if self.skin_selected is None else self.skin_selected.replace("> css: ", "", 1).replace("> cs: ", "", 1),
                         max_length=15,
@@ -2284,14 +2283,14 @@ class SkinEditorMenu(disnake.ui.View):
             try:
                 del self.global_data["custom_skins"][self.skin_selected[6:]]
             except KeyError:
-                await inter.send(f'**A skin {self.skin_selected[6:]} não existe mais na database...**', ephemeral=True)
+                await inter.send(f'**The skin {self.skin_selected[6:]} no longer exists in the database...**', ephemeral=True)
                 return
 
         elif self.skin_selected.startswith("> css:"):
             try:
                 del self.global_data["custom_skins_static"][self.skin_selected[7:]]
             except KeyError:
-                await inter.send(f'**A skin {self.skin_selected[7:]} não existe mais na database...**', ephemeral=True)
+                await inter.send(f'**The skin {self.skin_selected[7:]} no longer exists in the database...**', ephemeral=True)
                 return
 
         await self.bot.update_global_data(id_=inter.guild_id, data=self.global_data, db_name=DBModel.guilds)
@@ -2319,7 +2318,7 @@ class SkinEditorMenu(disnake.ui.View):
                 await inter.edit_original_message(view=self, **self.build_embeds())
         except Exception as e:
             traceback.print_exc()
-            await inter.send(f"**Ocorreu um erro ao processar a mensagem:** ```py\n{repr(e)}```")
+            await inter.send(f"**An error occurred while processing the message:** ```py\n{repr(e)}```")
 
     async def modal_handler(self, inter: disnake.ModalInteraction):
 
@@ -2415,7 +2414,7 @@ class SkinEditorMenu(disnake.ui.View):
             try:
                 info = json.loads(inter.text_values["skin"])
             except Exception as e:
-                await inter.send(f"**Ocorreu um erro ao processar sua skin:** ```py\n{repr(e)}```", ephemeral=True)
+                await inter.send(f"**An error occurred while processing your skin:** ```py\n{repr(e)}```", ephemeral=True)
                 return
 
             try:
@@ -2454,11 +2453,11 @@ class SkinEditorMenu(disnake.ui.View):
 
             view = SkinSettingsButton(self.ctx.author, timeout=30)
             view.controller_enabled = self.message_data.get("controller_enabled", True)
-            await inter.send("**Selecione o modo de player que será aplicado na skin.**", view=view, ephemeral=True)
+            await inter.send("**Select the player mode that will be applied to the skin.**", view=view, ephemeral=True)
             await view.wait()
 
             if view.mode is None:
-                await inter.edit_original_message("Tempo esgotado!", components=[])
+                await inter.edit_original_message("Time expired!", components=[])
                 return
 
             self.message_data["controller_enabled"] = view.controller_enabled
@@ -2514,8 +2513,8 @@ class SkinEditorMenu(disnake.ui.View):
             if not guild_prefix:
                 guild_prefix = self.bot.config.get("DEFAULT_PREFIX") or "!!"
 
-            await view.inter.edit_original_message("**A skin foi salva/editada com sucesso!**\n"
-                                                   f"Você pode aplicá-la usando o comando {cmd} ou {guild_prefix}skin",
+            await view.inter.edit_original_message("**The skin has been saved/edited successfully!**\n"
+                                                   f"You can apply it using the command {cmd} or {guild_prefix}skin",
                                                    view=None)
 
             self.skin_selected = ("> cs: " if view.mode == "custom_skins" else "> css: ") + modal_skin_name
