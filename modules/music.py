@@ -4903,7 +4903,7 @@ class Music(commands.Cog):
                     if self.bot.config["MAX_USER_FAVS"] > 0 and not (await self.bot.is_owner(interaction.author)):
 
                         if len(user_data["fav_links"]) >= self.bot.config["MAX_USER_FAVS"]:
-                            await interaction.response.edit_message(
+                            await interaction.edit_original_message(
                                 embed=disnake.Embed(
                                     color=self.bot.get_color(interaction.guild.me),
                                     description="You don't have enough space to add all your favorites to your file...\n"
@@ -5145,12 +5145,22 @@ class Music(commands.Cog):
 
             channel_id = static_player['channel']
 
-            if not channel_id or str(message.channel.id) != channel_id:
+            if not channel_id:
                 return
 
-            text_channel = self.bot.get_channel(int(channel_id))
+            if isinstance(message.channel, disnake.Thread):
+                if isinstance(message.channel.parent, disnake.TextChannel):
+                    if str(message.channel.parent.id) != channel_id:
+                        return
+                elif str(message.channel.id) != channel_id:
+                    return
+            elif str(message.channel.id) != channel_id:
+                return
+
+            text_channel = self.bot.get_channel(int(channel_id)) or await self.bot.fetch_channel(int(channel_id))
 
             if not text_channel:
+                await self.reset_controller_db(message.guild.id, data)
                 return
 
             if isinstance(text_channel, disnake.Thread):
