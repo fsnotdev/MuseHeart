@@ -3,7 +3,7 @@ services:
     name: disnake_music
     env: python
     plan: free
-    repo: https://github.com/zRitsu/MuseHeart-MusicBot.git
+    repo: https://github.com/SeasonPhan/MuseHeart-MusicBot-EN.git
     buildCommand: pip3 install -r requirements.txt --no-cache-dir
     startCommand: python3 main.py
     envVars:

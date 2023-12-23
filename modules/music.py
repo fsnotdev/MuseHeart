@@ -703,7 +703,7 @@ class Music(commands.Cog):
             if not await check_deafen(me):
                 await text_channel.send(
                     embed=disnake.Embed(
-                        title="Aviso:",
+                        title="Advice:",
                         description="To maintain your privacy and help me save resources, "
                                     "I recommend disabling my audio channel "
                                     "by right-clicking on me and then selecting: disable "
