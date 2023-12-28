@@ -61,7 +61,13 @@ class ClassicStaticSkin:
               f"💠 **⠂Uploader:** `{player.current.author}`\n"
 
         if not player.current.autoplay:
-            f"🎧 **⠂Requested by:** <@{player.current.requester}>\n"
+            f"🎧 **⠂Pedido por:** <@{player.current.requester}>\n"
+        else:
+            try:
+                mode = f" [`Recommendation`]({player.current.info['extra']['related']['uri']})"
+            except:
+                mode = "`Recommendation`"
+            txt += f"👍 **⠂Added via:** {mode}\n"
 
         if player.current.playlist_name:
             txt += f"📑 **⠂Playlist:** [`{fix_characters(player.current.playlist_name, limit=20)}`]({player.current.playlist_url})\n"
@@ -89,13 +95,6 @@ class ClassicStaticSkin:
                 text=str(player),
                 icon_url="https://i.ibb.co/QXtk5VB/neon-circle.gif"
             )
-
-        if player.current.autoplay:
-            try:
-                mode = f" [`autoplay`]({player.current.info['extra']['related']['uri']})"
-            except:
-                mode = "`autoplay`"
-            txt += f"\n`Currently using` {mode} `while waiting for a member of the channel` {player.guild.me.voice.channel.mention} `to add new songs.`\n\n"
 
         data["embeds"] = [embed_top, embed] if embed_top else [embed]
 

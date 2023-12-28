@@ -17,7 +17,7 @@ from utils.music.skin_utils import skin_converter
 from utils.music.filters import AudioFilter
 from utils.db import DBModel
 from utils.others import music_source_emoji, send_idle_embed, PlayerControls, SongRequestPurgeMode, \
-    song_request_buttons, update_vc_status
+    song_request_buttons
 import traceback
 from collections import deque
 from typing import Optional, Union, TYPE_CHECKING, List
@@ -433,6 +433,7 @@ class LavalinkPlayer(wavelink.Player):
         self._rpc_update_task: Optional[asyncio.Task] = None
         self._new_node_task: Optional[asyncio.Task] = None
         self._queue_updater_task: Optional[asyncio.Task] = None
+        self.auto_skip_track_task: Optional[asyncio.Task] = None
 
         stage_template = kwargs.pop("stage_title_template", None)
 
@@ -633,6 +634,7 @@ class LavalinkPlayer(wavelink.Player):
             except:
                 traceback.print_exc()
 
+            await asyncio.sleep(2)
             await self.update_stage_topic()
             return
 
@@ -734,7 +736,7 @@ class LavalinkPlayer(wavelink.Player):
 
                 self.retries_403 = {"last_time": None, 'counter': 0}
 
-                if track.info["sourceName"] == "youtube" or (self.bot.config["SEARCH_PROVIDER"] == "ytsearch" and
+                if track.info["sourceName"] == "youtube" or (self.bot.config["PARTIALTRACK_SEARCH_PROVIDER"] == "ytsearch" and
                                                              track.info["sourceName"] == "spotify"):
 
                     await send_report()
@@ -1544,29 +1546,6 @@ class LavalinkPlayer(wavelink.Player):
 
     async def process_idle_message(self):
 
-        if not self.static and not self.controller_mode:
-
-            try:
-                cmds = " | ".join(f"{self.bot.get_slash_command(c).name}" for c in [
-                    'play', 'back', 'readd_songs', 'stop', 'autoplay'])
-
-                embed = disnake.Embed(
-                    description=f"**The songs have ended... Use one of the commands below to add songs or stop "
-                                f"the player.**\n\n`{cmds}`\n\n"
-                                f"**Note:** `The player will automatically turn off` "
-                                f"<t:{int((disnake.utils.utcnow() + datetime.timedelta(seconds=self.bot.config['IDLE_TIMEOUT'])).timestamp())}:R> "
-                                f"`if no command is used...`",
-                    color=self.bot.get_color(self.guild.me)
-                )
-
-                embed.set_thumbnail(
-                    url=self.guild.me.display_avatar.replace(size=256).url)
-
-                self.message = await self.text_channel.send(embed=embed)
-            except Exception:
-                traceback.print_exc()
-            return
-
         controller_opts = [
             disnake.SelectOption(
                 emoji="<:add_music:588172015760965654>", value=PlayerControls.add_song, label="Add song",
@@ -1579,16 +1558,22 @@ class LavalinkPlayer(wavelink.Player):
         ]
 
         if (played := len(self.played)) or self.last_track:
+
+            try:
+                play_txt = self.played[-1].title
+            except:
+                play_txt = self.last_track.title
+
             controller_opts.extend(
                 [
                     disnake.SelectOption(
                         emoji="⏮️", value=PlayerControls.back, label="Back",
-                        description=f"Listen again: {self.played[-1].title[:31]}"
+                        description=f"Listen again: {play_txt[:31]}"
                     ),
                     disnake.SelectOption(
                         label="Enable autoplay", emoji="🔄",
                         value=PlayerControls.autoplay,
-                        description=f"Play related songs to: {self.played[-1].title[:19]}"
+                        description=f"Play related song to: {play_txt[:19]}"
                     ),
                 ]
             )
@@ -1725,7 +1710,7 @@ class LavalinkPlayer(wavelink.Player):
 
         if clear:
             if isinstance(self.guild.me.voice.channel, disnake.VoiceChannel) and self.last_stage_title:
-                await update_vc_status(self.bot, self.guild.me.voice.channel)
+                await self.bot.edit_voice_channel_status(status=None, channel_id=self.guild.me.voice.channel.id)
             return
 
         msg = None
@@ -1757,9 +1742,6 @@ class LavalinkPlayer(wavelink.Player):
                 .replace("{requester.id}", str(self.current.requester))
 
         if isinstance(self.guild.me.voice.channel, disnake.StageChannel):
-
-            if not self.stage_title_event:
-                return
 
             if not self.guild.me.guild_permissions.manage_guild:
                 return
@@ -1793,23 +1775,10 @@ class LavalinkPlayer(wavelink.Player):
             if msg == self.last_stage_title:
                 return
 
-            retries = 3
-
-            while retries:
-
-                try:
-                    await update_vc_status(self.bot, self.guild.me.voice.channel, msg)
-                    break
-                except Exception as e:
-                    if str(e).startswith("403"):
-                        self.set_command_log(text=f"The automatic status has been deactivated due to an error: {e}", emoji="⚠️")
-                        self.stage_title_event = False
-                        self.update = True
-                        return
-                    else:
-                        print(repr(e))
-                        retries -= 1
-                        await asyncio.sleep(1)
+            try:
+                await self.bot.edit_voice_channel_status(status=msg, channel_id=self.guild.me.voice.channel.id)
+            except Exception:
+                print(traceback.format_exc())
 
         self.last_stage_title = msg
 
@@ -2238,10 +2207,7 @@ class LavalinkPlayer(wavelink.Player):
 
         if self.guild.me:
 
-            try:
-                await self.update_stage_topic(reconnect=False, clear=True)
-            except:
-                pass
+            self.bot.loop.create_task(self.update_stage_topic(reconnect=False, clear=True))
 
             if self.static:
 
@@ -2379,6 +2345,11 @@ class LavalinkPlayer(wavelink.Player):
                 except:
                     traceback.print_exc()
 
+                try:
+                    await self.update_stage_topic()
+                except Exception:
+                    traceback.print_exc()
+
             except asyncio.CancelledError:
                 return
 
@@ -2397,7 +2368,7 @@ class LavalinkPlayer(wavelink.Player):
                 to_search = track.info["search_uri"]
                 check_duration = False
             except KeyError:
-                to_search = f"{self.bot.config['SEARCH_PROVIDER']}:{track.single_title.replace(' - ', ' ')} - {track.authors_string}"
+                to_search = f"{self.bot.config['PARTIALTRACK_SEARCH_PROVIDER']}:{track.single_title.replace(' - ', ' ')} - {track.authors_string}"
                 check_duration = True
 
             try:
@@ -2405,7 +2376,7 @@ class LavalinkPlayer(wavelink.Player):
             except wavelink.TrackNotFound:
                 tracks = None
 
-            if not tracks and self.bot.config['SEARCH_PROVIDER'] not in ("ytsearch", "ytmsearch", "scsearch"):
+            if not tracks and self.bot.config['PARTIALTRACK_SEARCH_PROVIDER'] not in ("ytsearch", "ytmsearch", "scsearch"):
                 tracks = await self.node.get_tracks(
                     f"ytsearch:{track.single_title.replace(' - ', ' ')} - {track.authors_string}",
                     track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist)
@@ -2446,6 +2417,11 @@ class LavalinkPlayer(wavelink.Player):
     async def _wait_for_new_node(self, txt: str = None, ignore_node=None):
 
         self.locked = True
+
+        try:
+            self.auto_skip_track_task.cancel()
+        except:
+            pass
 
         original_log = self.command_log
         original_log_emoji = self.command_log_emoji

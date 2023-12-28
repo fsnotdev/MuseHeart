@@ -34,7 +34,7 @@ from utils.music.converters import time_format, fix_characters, string_to_second
 from utils.music.interactions import VolumeInteraction, QueueInteraction, SelectInteraction, FavMenuView, ViewMode
 from utils.others import check_cmd, send_idle_embed, CustomContext, PlayerControls, fav_list, queue_track_index, \
     pool_command, string_to_file, CommandArgparse, music_source_emoji_url, SongRequestPurgeMode, song_request_buttons, \
-    update_vc_status, select_bot_pool
+    select_bot_pool
 
 
 class Music(commands.Cog):
@@ -752,16 +752,16 @@ class Music(commands.Cog):
                                  source="ytsearch", repeat_amount=0, server=None)
 
     stage_flags = CommandArgparse()
-    stage_flags.add_argument('query', nargs='*', help="name or link of the song")
-    stage_flags.add_argument('-position', '-pos', '-p', type=int, default=0, help='Place the song at a specific position in the queue (will be ignored if using -next etc).\nEx: -p 10')
-    stage_flags.add_argument('-next', '-proximo', action='store_true', help='Add the song/playlist at the top of the queue (equivalent to: -pos 1)')
-    stage_flags.add_argument('-reverse', '-r', action='store_true', help='Reverse the order of the added songs (effective only when adding playlist).')
-    stage_flags.add_argument('-shuffle', '-sl', action='store_true', help='Shuffle the added songs (effective only when adding playlist).')
-    stage_flags.add_argument('-select', '-s', action='store_true', help='Choose the song from the search results.')
-    stage_flags.add_argument('-source', '-src', type=str, default="ytsearch", help='Search for the song using a specific source [youtube/soundcloud etc]')
-    stage_flags.add_argument('-force', '-now', '-n', '-f', action='store_true', help='Play the added song immediately (effective only if there is currently a song playing.)')
-    stage_flags.add_argument('-loop', '-lp', type=int, default=0, help="Set the number of times the chosen song will repeat.\nEx: -loop 5")
-    stage_flags.add_argument('-server', '-sv', type=str, default=None, help='Use a specific music server.')
+    stage_flags.add_argument('query', nargs='*', help="nome ou link da música")
+    stage_flags.add_argument('-position', '-pos', '-p', type=int, default=0, help='Colocar a música em uma posição específica da fila (será ignorado caso use -next etc).\nEx: -p 10')
+    stage_flags.add_argument('-next', '-proximo', action='store_true', help='Adicionar a música/playlist no topo da fila (equivalente ao: -pos 1)')
+    stage_flags.add_argument('-reverse', '-r', action='store_true', help='Inverter a ordem das músicas adicionadas (efetivo apenas ao adicionar playlist).')
+    stage_flags.add_argument('-shuffle', '-sl', action='store_true', help='Misturar as músicas adicionadas (efetivo apenas ao adicionar playlist).')
+    stage_flags.add_argument('-select', '-s', action='store_true', help='Escolher a música entre os resultados encontrados.')
+    stage_flags.add_argument('-source', '-src', type=str, default=None, help='Fazer a busca da música usando uma fonte específica [youtube/soundcloud etc]')
+    stage_flags.add_argument('-force', '-now', '-n', '-f', action='store_true', help='Tocar a música adicionada imediatamente (efetivo apenas se houver uma música tocando atualmente.)')
+    stage_flags.add_argument('-loop', '-lp', type=int, default=0, help="Definir a quantidade de repetições da música escolhida.\nEx: -loop 5")
+    stage_flags.add_argument('-server', '-sv', type=str, default=None, help='Usar um servidor de música específico.')
 
     @can_send_message_check()
     @check_voice()
@@ -782,7 +782,7 @@ class Music(commands.Cog):
             options = "shuffle" if args.shuffle else "reversed" if args.reverse else None,
             force_play = "yes" if args.force else "no",
             manual_selection = args.select,
-            source = self.sources.get(args.source, "ytsearch"),
+            source = self.sources.get(args.source),
             repeat_amount = args.loop,
             server = args.server
         )
@@ -897,8 +897,8 @@ class Music(commands.Cog):
             source: str = commands.Param(name="source",
                                          description="Select site for music search (not links)",
                                          choices=search_sources_opts,
-                                         default="ytsearch"),
-            repeat_amount: int = commands.Param(name="repetitions", description="Set the number of repetitions.",
+                                         default=None),
+            repeat_amount: int = commands.Param(name="repetitions", description="set the number of repetitions.",
                                                 default=0),
             server: str = commands.Param(name="server", desc="Use a specific music server in the search.",
                                          default=None),
@@ -912,6 +912,9 @@ class Music(commands.Cog):
             bot = inter.bot
             guild = inter.guild
             channel = inter.channel
+
+        if not source:
+            source = self.bot.pool.config["DEFAULT_SEARCH_PROVIDER"]
 
         can_send_message(channel, bot.user)
 
@@ -4558,7 +4561,7 @@ class Music(commands.Cog):
                     channel = bot.get_channel(inter.channel.id)
 
                     if isinstance(channel, disnake.Thread):
-                        send_message_perm = channel_db.parent.permissions_for(channel.guild.me).send_messages_in_threads
+                        send_message_perm = getattr(channel_db, "parent", channel_db).permissions_for(channel.guild.me).send_messages_in_threads
                     else:
                         send_message_perm = channel_db.permissions_for(channel.guild.me).send_messages
 
@@ -4971,7 +4974,7 @@ class Music(commands.Cog):
                             await self.player_interaction_concurrency.release(interaction)
                         except:
                             pass
-                        await interaction.send(f"**{not_found_msg}**", ephemeral=True)
+                        await interaction.edit_original_message(f"**{not_found_msg}**")
                         return
 
                     if not player.current.info["extra"]["lyrics"]:
@@ -4985,7 +4988,10 @@ class Music(commands.Cog):
 
                     player.current.info["extra"]["lyrics"]["track"]["albumArt"] = player.current.info["extra"]["lyrics"]["track"]["albumArt"][:-1]
 
-                    lyrics_string = "\n".join([d['line'] for d in  player.current.info["extra"]["lyrics"]['lines']])
+                    try:
+                        lyrics_string = "\n".join([d['line'] for d in  player.current.info["extra"]["lyrics"]['lines']])
+                    except KeyError:
+                        lyrics_string = player.current.info["extra"]["lyrics"]["text"]
 
                     try:
                         await self.player_interaction_concurrency.release(interaction)
@@ -5721,7 +5727,7 @@ class Music(commands.Cog):
             self.bot.loop.create_task(self.connect_node(v))
 
         if start_local:
-            self.bot.loop.create_task(self.connect_local_lavalink())
+            self.connect_local_lavalink()
 
     @commands.Cog.listener("on_wavelink_node_connection_closed")
     async def node_connection_closed(self, node: wavelink.Node):
@@ -5940,7 +5946,7 @@ class Music(commands.Cog):
 
         return tracks, node
 
-    async def connect_local_lavalink(self):
+    def connect_local_lavalink(self):
 
         if 'LOCAL' not in self.bot.music.nodes:
 
@@ -5952,7 +5958,6 @@ class Music(commands.Cog):
                 'region': 'us_central',
                 'retries': 25,
                 'retry_403': True,
-                'version': 3,
             }
 
             self.bot.loop.create_task(self.connect_node(localnode))
@@ -6037,12 +6042,12 @@ class Music(commands.Cog):
         except:
             check = None
 
-        if player.stage_title_event:
+        if player.stage_title_event and member.bot and not player.is_closing:
 
             try:
                 if isinstance(before.channel, disnake.StageChannel):
 
-                    if before.channel.instance and player.bot.user.id not in before.channel.voice_states:
+                    if before.channel.instance and member not in before.channel.members:
                         try:
                             await before.channel.instance.edit(topic="automatic update disabled")
                         except:
@@ -6050,13 +6055,10 @@ class Music(commands.Cog):
                         player.stage_title_event = False
 
                 else:
-                    if isinstance(before.channel, disnake.VoiceChannel) and player.bot.user.id not in before.channel.voice_states:
+                    if isinstance(before.channel, disnake.VoiceChannel) and member not in before.channel.members:
                         player.stage_title_event = False
                         if player.last_stage_title:
-                            await update_vc_status(player.bot, before.channel, status=None)
-
-                    if isinstance(after.channel, disnake.VoiceChannel) and before.channel and self.bot.user.id in before.channel.voice_states:
-                        await player.update_stage_topic()
+                            self.bot.loop.create_task(player.bot.edit_voice_channel_status(status=None, channel_id=before.channel.id))
             except Exception:
                 traceback.print_exc()
 
@@ -6072,9 +6074,9 @@ class Music(commands.Cog):
         if check:
             try:
                 player.auto_skip_track_task.cancel()
-                player.auto_skip_track_task = None
             except AttributeError:
                 pass
+            player.auto_skip_track_task = None
 
         if not member.guild.me.voice:
             await asyncio.sleep(1)

@@ -70,8 +70,10 @@ class CustomContext(commands.Context):
     async def defer(self, ephemeral: bool = False):
         if self.bot.config["ENABLE_DEFER_TYPING"]:
             await self.trigger_typing()
-        elif self.message.author.id != self.bot.user.id and self.channel.permissions_for(self.guild.me).add_reactions:
-            await self.message.add_reaction("⌛")
+        else:
+            perms = self.channel.permissions_for(self.guild.me)
+            if self.message.author.id != self.bot.user.id and perms.send_messages and perms.add_reactions:
+                await self.message.add_reaction("⌛")
         return
 
     async def send(self, content: Optional[str] = None, **kwargs):
@@ -743,19 +745,6 @@ def queue_track_index(inter: disnake.AppCmdInter, bot: BotCore, query: str, matc
                     break
 
     return tracklist
-
-async def update_vc_status(bot: BotCore, channel: disnake.VoiceChannel, status: str = ""):
-
-    headers = {"Authorization": f"Bot {bot.http.token}"}
-
-    url = f'https://discord.com/api/v9/channels/{channel.id}/voice-status'
-
-    params = {"status": status}
-
-    async with ClientSession() as session:
-        async with session.put(url, headers=headers, json=params) as resp:
-            if resp.status != 204:
-                raise Exception(f"{resp.status} - {await resp.text()}")
 
 def update_inter(old: Union[disnake.Interaction, CustomContext], new: disnake.Interaction):
 

@@ -66,6 +66,11 @@ class MiniStaticSkin:
 
         if not player.current.autoplay:
             embed.description += f" `[`<@{player.current.requester}>`]`"
+        else:
+            try:
+                embed.description = f" [`[Recomendada]`]({player.current.info['extra']['related']['uri']})"
+            except:
+                embed.description = "` [Recomendada]`"
 
         duration = "🔴 Livestream" if player.current.is_stream else \
             time_format(player.current.duration)
@@ -77,13 +82,6 @@ class MiniStaticSkin:
         if player.command_log:
             embed.add_field(name=f"{player.command_log_emoji} **Last Interaction:**",
                             value=f"{player.command_log}", inline=False)
-
-        if player.current.autoplay:
-            try:
-                mode = f" [`autoplay`]({player.current.info['extra']['related']['uri']})"
-            except:
-                mode = "`autoplay`"
-            embed.add_field(name="🔄 **Automatic Music:**", value=f"\n`Currently using {mode} while waiting for a member of the #{player.guild.me.voice.channel.name} channel to add new songs.`\n")
 
         embed.set_image(url=player.current.thumb or "https://media.discordapp.net/attachments/480195401543188483/987830071815471114/musicequalizer.gif")
 

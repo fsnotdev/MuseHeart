@@ -54,11 +54,17 @@ class EmbedLinkStaticSkin:
 
         if not player.current.autoplay:
             txt += f"\n> ✋ **⠂Requested by:** <@{player.current.requester}>\n"
-
+        else:
             try:
-                vc_txt += f"> *️⃣ **⠂Voice Channel:** {player.guild.me.voice.channel.mention}\n"
-            except AttributeError:
-                pass
+                mode = f" [`Recommended Music`]({player.current.info['extra']['related']['uri']})"
+            except:
+                mode = "`Recommended Music`"
+            txt += f"\n> 👍 **⠂Added via:** {mode}\n"
+
+        try:
+            vc_txt += f"> *️⃣ **⠂Voice Channel:** {player.guild.me.voice.channel.mention}\n"
+        except AttributeError:
+            pass
 
         if player.current.playlist_name:
             txt += f"> 📑 **⠂Playlist:** [`{replace_emoji(fix_characters(player.current.playlist_name)) or 'View'}`](<{player.current.playlist_url}>)\n"
@@ -79,9 +85,6 @@ class EmbedLinkStaticSkin:
             log = re.sub(r"\[(.+)]\(.+\)", r"\1", player.command_log.replace("`", ""))  # Remove links from command_log to avoid generating more than one preview.
 
             txt += f"> {player.command_log_emoji} **⠂Last Interaction:** {log}\n"
-
-        if player.current.autoplay:
-            txt += f"\n`Currently using autoplay while waiting for a member of the {player.guild.me.voice.channel.mention} channel to add new songs.`\n"
 
         if qsize := len(player.queue):
 

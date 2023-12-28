@@ -70,6 +70,12 @@ class ClassicSkin:
 
         if not player.current.autoplay:
             txt += f"🎧 **⠂** <@{player.current.requester}>\n"
+        else:
+            try:
+                mode = f" [`Recomendada`]({player.current.info['extra']['related']['uri']})"
+            except:
+                mode = "`Recomendada`"
+            txt += f"> 👍 **⠂** {mode}\n"
 
         if player.current.playlist_name:
             txt += f"📑 **⠂** [`{fix_characters(player.current.playlist_name, limit=19)}`]({player.current.playlist_url})\n"
@@ -90,13 +96,6 @@ class ClassicSkin:
 
         if player.command_log:
             txt += f"{player.command_log_emoji} **⠂Last Interaction:** {player.command_log}\n"
-
-        if player.current.autoplay:
-            try:
-                mode = f" [`autoplay`]({player.current.info['extra']['related']['uri']})"
-            except:
-                mode = "`autoplay`"
-            txt += f"\n`I am currently using` {mode} `while waiting for someone in the channel` {player.guild.me.voice.channel.mention} `to add new songs.`\n\n"
 
         embed.description += txt + queue_txt
 

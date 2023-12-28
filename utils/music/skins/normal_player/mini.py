@@ -62,6 +62,11 @@ class MiniSkin:
 
         if not player.current.autoplay:
             embed.description += f" `[`<@{player.current.requester}>`]`"
+        else:
+            try:
+                embed.description = f" [`[Recomendada]`]({player.current.info['extra']['related']['uri']})"
+            except:
+                embed.description = "` [Recomendada]`"
 
         duration = "🔴 Livestream" if player.current.is_stream else \
             time_format(player.current.duration)
@@ -73,13 +78,6 @@ class MiniSkin:
         if player.command_log:
             embed.add_field(name=f"{player.command_log_emoji} **⠂Last Interaction:**",
                             value=f"{player.command_log}", inline=False)
-
-        if player.current.autoplay:
-            try:
-                mode = f" [`autoplay`]({player.current.info['extra']['related']['uri']})"
-            except:
-                mode = "`autoplay`"
-            embed.add_field(name="🔄 **⠂Auto-play:**", value=f"\n`I'm currently using {mode} while waiting for someone from the {player.guild.me.voice.channel.mention} voice channel to add new songs.`\n")
 
         if queue_size:
 

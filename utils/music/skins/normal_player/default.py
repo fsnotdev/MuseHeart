@@ -71,6 +71,12 @@ class DefaultSkin:
 
         if not player.current.autoplay:
             txt += f"\n> ✋ **⠂** <@{player.current.requester}>"
+        else:
+            try:
+                mode = f" [`Recomendada`]({player.current.info['extra']['related']['uri']})"
+            except:
+                mode = "`Recomendada`"
+            txt += f"\n> 👍 **⠂** {mode}"
 
         if player.current.track_loops:
             txt += f"\n> 🔂 **⠂** `Remaining Loops: {player.current.track_loops}`"
@@ -100,13 +106,6 @@ class DefaultSkin:
 
         if player.command_log:
             txt += f"```ansi\n [34;1mLast Interaction[0m```**┕ {player.command_log_emoji} ⠂**{player.command_log}\n"
-
-        if player.current.autoplay:
-            try:
-                mode = f" [`autoplay`]({player.current.info['extra']['related']['uri']})"
-            except:
-                mode = "`autoplay`"
-            txt += f"\n`I am currently using` {mode} `while waiting for someone in the channel` {player.guild.me.voice.channel.mention} `to add new songs.`\n"
 
         if len(player.queue) and player.mini_queue_enabled:
 

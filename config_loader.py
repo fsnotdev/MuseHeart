@@ -67,13 +67,14 @@ DEFAULT_CONFIG = {
     "PLAYER_SESSIONS_MONGODB": False,
     "QUEUE_MAX_ENTRIES": 0,
     "ENABLE_DEFER_TYPING": True,
+    "DEFAULT_SEARCH_PROVIDER": "ytsearch",
 
     ######################################
     ### Music System - Spotify Support ###
     ######################################
     "SPOTIFY_CLIENT_ID": '',
     "SPOTIFY_CLIENT_SECRET": '',
-    "SEARCH_PROVIDER": "ytsearch",
+    "PARTIALTRACK_SEARCH_PROVIDER": "ytsearch",
 
     ###########################################
     ### Music System - RPC (Rich Presence): ###

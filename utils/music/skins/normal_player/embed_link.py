@@ -57,15 +57,17 @@ class EmbedLinkSkin:
 
         if not player.current.autoplay:
             txt += f" <@{player.current.requester}>\n"
+        else:
+            try:
+                txt += f" [`[Música Recomendada]`]({player.current.info['extra']['related']['uri']})"
+            except:
+                txt += " `[Música Recomendada]`"
 
         if player.command_log:
 
             log = re.sub(r"\[(.+)]\(.+\)", r"\1", player.command_log.replace("`", "")) # Remove links from command_log to avoid generating more than one preview.
 
             txt += f"> {player.command_log_emoji} **⠂Last Interaction:** {log}\n"
-
-        if player.current.autoplay:
-            txt += f"\n`Currently using autoplay while waiting for someone from the channel {player.guild.me.voice.channel.mention} to add new songs.`\n"
 
         data["content"] = txt
 

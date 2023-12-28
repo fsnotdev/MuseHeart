@@ -70,10 +70,17 @@ class DefaultStaticSkin:
 
         if not player.current.autoplay:
             txt += f"\n> ✋ **⠂Requested by:** <@{player.current.requester}>"
+        else:
             try:
-                vc_txt = f"\n> *️⃣ **⠂Voice Channel:** {player.guild.me.voice.channel.mention}"
-            except AttributeError:
-                pass
+                mode = f" [`Recommendation`]({player.current.info['extra']['related']['uri']})"
+            except:
+                mode = "`Recommendation`"
+            txt += f"\n> 👍 **⠂Added via:** {mode}"
+
+        try:
+            vc_txt = f"\n> *️⃣ **⠂Voice channel:** {player.guild.me.voice.channel.mention}"
+        except AttributeError:
+            pass
 
         if player.current.track_loops:
             txt += f"\n> 🔂 **⠂Remaining Loops:** `{player.current.track_loops}`"
@@ -98,13 +105,6 @@ class DefaultStaticSkin:
 
         if player.command_log:
             txt += f"```ansi\n [34;1mLast Interaction[0m```**┕ {player.command_log_emoji} ⠂**{player.command_log}\n"
-
-        if player.current.autoplay:
-            try:
-                mode = f" [`autoplay`]({player.current.info['extra']['related']['uri']})"
-            except:
-                mode = "`autoplay`"
-            txt += f"\n`Currently using` {mode} `while waiting for a member of the channel` {player.guild.me.voice.channel.mention} `to add new songs.`\n"
 
         if qlenght:=len(player.queue):
 

@@ -39,6 +39,11 @@ class MicroController:
 
         if not player.current.autoplay:
             embed.description += f"<@{player.current.requester}>"
+        else:
+            try:
+                embed.description = f"[`[Recomendada]`]({player.current.info['extra']['related']['uri']})"
+            except:
+                embed.description = "`[Recomendada]`"
 
         embed.set_author(
             name="Currently Playing:",
@@ -54,9 +59,6 @@ class MicroController:
             data["embeds"].append(embed_hint)
 
         data["embeds"].append(embed)
-
-        if player.current.autoplay:
-            data["embeds"].append(disnake.Embed(color=embed_color).set_footer(text=f"I'm currently using autoplay while waiting for someone from the #{player.guild.me.voice.channel.name} voice channel to add new songs."))
 
         data["components"] = [
             disnake.ui.Button(emoji="⏯️", label="Resume" if player.paused else "Pause", custom_id=PlayerControls.pause_resume, style=get_button_style(player.paused)),

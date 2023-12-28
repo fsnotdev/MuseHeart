@@ -44,7 +44,10 @@ class MiniPlayer:
         if not player.current.autoplay:
             embed.description += f"**Requested by:** <@{player.current.requester}>\n"
         else:
-            embed.description += "**Playing via:** `autoplay (auto-playback)`\n"
+            try:
+                embed.description = f"**Added via:** [`[Recommendation]`]({player.current.info['extra']['related']['uri']})"
+            except:
+                embed.description = "**Added via:** `[Recommendation]`"
 
         embed.set_author(
             name="Currently Playing:",

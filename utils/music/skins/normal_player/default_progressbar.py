@@ -74,6 +74,12 @@ class DefaultProgressbarSkin:
 
         if not player.current.autoplay:
             txt += f"\n> ✋ **⠂** <@{player.current.requester}>"
+        else:
+            try:
+                mode = f" [`Recomendada`]({player.current.info['extra']['related']['uri']})"
+            except:
+                mode = "`Recomendada`"
+            txt += f"\n> 👍 **⠂** {mode}"
 
         if player.current.track_loops:
             txt += f"\n> 🔂 **⠂** `Remaining Loops: {player.current.track_loops}`"
@@ -103,13 +109,6 @@ class DefaultProgressbarSkin:
 
         if player.command_log:
             txt += f"> {player.command_log_emoji} **⠂Last Interaction:** {player.command_log}\n"
-
-        if player.current.autoplay:
-            try:
-                mode = f" [`autoplay`]({player.current.info['extra']['related']['uri']})"
-            except:
-                mode = "`autoplay`"
-            txt += f"\n`I am currently using` {mode} `while waiting for someone in the channel` {player.guild.me.voice.channel.mention} `to add new songs.`\n"
 
         txt += duration
 
