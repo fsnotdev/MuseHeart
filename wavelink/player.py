@@ -512,7 +512,7 @@ class Player:
         if self.node.version == 3:
             await self.node._send(op='equalizer', guildId=str(self.guild_id), bands=equalizer.eq)
         else:
-            raise Exception("Not implemented for Lavalink v4 yet")
+            raise Exception("Not implemented for Lavalink v4 (yet)")
         self._equalizer = equalizer
 
     async def set_equalizer(self, equalizer: Equalizer) -> None:
@@ -623,7 +623,7 @@ class Player:
                                 data = await resp.json()
                             except:
                                 data = await resp.text()
-                            print(f"An error occurred while finalizing player: {data}")
+                            print(f"An error occurred while stopping Player: {data}")
                 except Exception:
                     traceback.print_exc()
 

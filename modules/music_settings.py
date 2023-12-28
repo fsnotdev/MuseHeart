@@ -1098,7 +1098,7 @@ class MusicSettings(commands.Cog):
     djrole_mc =commands.MaxConcurrency(1, per=commands.BucketType.guild, wait=False)
 
     @commands.has_guild_permissions(manage_guild=True)
-    @commands.command(name="adddjrole",description="Add a position to server DJ's list.",
+    @commands.command(name="adddjrole",description="Add a role to server's DJ list.",
                       usage="{prefix}{cmd} [id|name|@role]\nEx: {prefix}{cmd} @role", cooldown=djrole_cd, max_concurrency=djrole_mc)
     async def add_dj_role_legacy(self, ctx: CustomContext, *, role: disnake.Role):
         await self.add_dj_role.callback(self=self, interaction=ctx, role=role)
@@ -1137,24 +1137,24 @@ class MusicSettings(commands.Cog):
             guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
 
         if str(role.id) in guild_data['djroles']:
-            await inter.send(f"The role {role.mention} is already in DJ list", ephemeral=True)
+            await inter.send(f"The role {role.mention} is already in server's DJ list", ephemeral=True)
             return
 
         guild_data['djroles'].append(str(role.id))
 
         await bot.update_data(guild.id, guild_data, db_name=DBModel.guilds)
 
-        await inter.send(f"The role {role.mention} has been added to DJ list.", ephemeral=True)
+        await inter.send(f"The role {role.mention} has been added to server's DJ list.", ephemeral=True)
 
     @commands.has_guild_permissions(manage_guild=True)
-    @commands.command(name="removedjrole", description="Remove a role from DJ list.",
+    @commands.command(name="removedjrole", description="Remove a role from server's DJ list.",
                       usage="{prefix}{cmd} [id|name|@role]\nEx: {prefix}{cmd} @role",
                       cooldown=djrole_cd, max_concurrency=djrole_mc)
     async def remove_dj_role_legacy(self, ctx: CustomContext, *, role: disnake.Role):
         await self.remove_dj_role.callback(self=self, interaction=ctx, role=role)
 
     @commands.slash_command(
-        description=f"{desc_prefix}Remove a role from DJ list.", dm_permission=False,
+        description=f"{desc_prefix}Remove a role from server's DJ list.", dm_permission=False,
         default_member_permissions=disnake.Permissions(manage_guild=True), cooldown=djrole_cd, max_concurrency=djrole_mc
     )
     async def remove_dj_role(
@@ -1185,14 +1185,14 @@ class MusicSettings(commands.Cog):
 
         if not guild_data['djroles']:
 
-            await inter.send("There are no roles in DJ list.", ephemeral=True)
+            await inter.send("There are no roles in server's DJ list.", ephemeral=True)
             return
 
         guild = bot.get_guild(inter.guild_id) or inter.guild
         role = guild.get_role(role.id)
 
         if str(role.id) not in guild_data['djroles']:
-            await inter.send(f"The role {role.mention} is not in DJ list\n\n" + "Roles:\n" +
+            await inter.send(f"The role {role.mention} is not in server's DJ list\n\n" + "Roles:\n" +
                                               " ".join(f"<#{r}>" for r in guild_data['djroles']), ephemeral=True)
             return
 
@@ -1200,7 +1200,7 @@ class MusicSettings(commands.Cog):
 
         await bot.update_data(guild.id, guild_data, db_name=DBModel.guilds)
 
-        await inter.send(f"The role {role.mention} has been removed from DJ list.", ephemeral=True)
+        await inter.send(f"The role {role.mention} has been removed from server's DJ list.", ephemeral=True)
 
     skin_cd = commands.CooldownMapping.from_cooldown(1, 20, commands.BucketType.guild)
     skin_mc =commands.MaxConcurrency(1, per=commands.BucketType.member, wait=False)
@@ -1717,13 +1717,13 @@ class MusicSettings(commands.Cog):
 
     @commands.has_guild_permissions(administrator=True)
     @commands.command(name="customskin", aliases=["setskin", "cskin", "cs", "ss"],
-                      description="Create your own skins/templates to use on the music player.",
+                      description="Create your own skins/templates to use on the Player.",
                       cooldown=customskin_cd, max_concurrency=customskin__mc)
     async def customskin_legacy(self, ctx: CustomContext):
         await self.custom_skin.callback(self=self, inter=ctx)
 
     @commands.slash_command(cooldown=customskin_cd, max_concurrency=customskin__mc,
-                            description=f"{desc_prefix}Create your own skins/templates for the music player.",
+                            description=f"{desc_prefix}Create your own skins/templates for the Player.",
                             default_member_permissions=disnake.Permissions(administrator=True))
     async def custom_skin(self, inter: disnake.AppCmdInter):
 

@@ -1,14 +1,14 @@
-#################################################################
-### Warning: If using this file, rename it to discloud.config ###
-#################################################################
+################################################################
+### Note: If you use this file, rename it to discloud.config ###
+################################################################
 
-##############################################################################################################
-### Attention: The RAM can be changed according to the contracted plan (or desired amount).                ###
-### If using a paid plan that provides a minimum of 512MB + 0.5vcpu, I recommend editing the .env file and ###
-### changing the value of AUTO_DOWNLOAD_LAVALINK_SERVERLIST from true to false.                            ###
-###                                                                                                        ###
-### If desired, you can change the NAME and AVATAR link.                                                   ###
-##############################################################################################################
+#################################################################################################################
+### Attention: You can adjust the RAM according to the contracted plan (or desired amount).                   ###
+### If you use a paid plan that provides a minimum of 512MB + 0.5vcpu, it's recommended to edit the .env file ###
+### and changing the value of AUTO_DOWNLOAD_LAVALINK_SERVERLIST from true to false                            ###
+###                                                                                                           ###
+### If desired, you can also change the NAME and AVATAR link.                                                 ###
+#################################################################################################################
 
 ID=1234567890
 NAME=Muse Heart Music Source

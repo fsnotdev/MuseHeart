@@ -226,7 +226,7 @@ class EmbedPaginator(disnake.ui.View):
 
 song_request_buttons = [
     disnake.ui.Button(label="Request a song", emoji="🎶", custom_id=PlayerControls.add_song),
-    disnake.ui.Button(label="Favorite/Save", emoji="⭐", custom_id=PlayerControls.enqueue_fav)
+    disnake.ui.Button(label="Favorite/Integration", emoji="⭐", custom_id=PlayerControls.enqueue_fav)
 ]
 
 
@@ -386,9 +386,9 @@ async def send_idle_embed(
         cmd = "/play"
 
     embed = disnake.Embed(
-        description="**Join a voice channel and request a song here " +
-        ("in the post" if is_forum else "in the channel or conversation below") +
-        f" (or click the button below or use the {cmd} command here or in another channel)**\n\n"
+        description="**Join a voice channel and send a message to request a song " +
+        ("in the post" if is_forum else "in the channel or the thread below") +
+        f" (or use the buttons/use {cmd} command here or in another channel)**\n\n"
         "**You can use a name or a compatible website link:**"
         " ```ansi\n[31;1mYoutube[0m, [33;1mSoundcloud[0m, [32;1mSpotify[0m, [34;1mTwitch[0m```\n",
         color=bot.get_color(target.guild.me)

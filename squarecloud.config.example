@@ -1,13 +1,13 @@
-#####################################################################
-### Notice: If you use this file, rename it to squarecloud.config ###
-#####################################################################
+###################################################################
+### Note: If you use this file, rename it to squarecloud.config ###
+###################################################################
 
 #################################################################################################################
-### Attention: The RAM amount can be adjusted according to the contracted plan (or desired quantity).         ###
-### I recommend using a paid plan that provides a minimum of 512MB of RAM + 0.5vcpu and editing the .env file ###
-### In the AUTO_DOWNLOAD_LAVALINK_SERVERLIST field, change the value from true to false.                      ###
+### Attention: You can adjust the RAM according to the contracted plan (or desired amount).                   ###
+### If you use a paid plan that provides a minimum of 512MB + 0.5vcpu, it's recommended to edit the .env file ###
+### and changing the value of AUTO_DOWNLOAD_LAVALINK_SERVERLIST from true to false                            ###
 ###                                                                                                           ###
-### If you want, you can change the DISPLAY_NAME, DESCRIPTION, and AVATAR link.                               ###
+### If desired, you can also change the DISPLAY_NAME, DESCRIPTION, and AVATAR link.                           ###
 #################################################################################################################
 
 

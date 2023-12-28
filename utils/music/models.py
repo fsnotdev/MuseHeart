@@ -1152,7 +1152,7 @@ class LavalinkPlayer(wavelink.Player):
             if self.is_closing:
                 return
 
-            msg = f"**The player was turned off due to lack of members in the channel." + (f"<#{self.guild.me.voice.channel.id}>"
+            msg = f"**The Player stopped as there were no members in the channel" + (f"<#{self.guild.me.voice.channel.id}>"
                                                                                if self.guild.me.voice else '') + "...**"
             self.command_log = msg
             if not self.static and not self.has_thread:

@@ -18,7 +18,7 @@ if [ ! -d "venv" ]; then
   fi
 
   if [ ! -d "venv" ]; then
-    echo "Venv folder was not created! Check that you have installed python correctly (and that it is configured in PATH/env)"
+    echo "The venv folder was not created! Please check if you have installed Python correctly (and that it is configured in the PATH/env)"
     sleep 45
     exit 1
   fi
@@ -29,7 +29,7 @@ else
   source $VENV_PATH
 fi
 
-echo "Starting bot (Check if it is online)..."
+echo "Starting bot (Ensure that it is online)..."
 
 #mkdir -p ./.logs
 

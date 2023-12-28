@@ -15,7 +15,7 @@ else
 fi
 
 if [ ! -d "venv" ]; then
-  echo "Venv folder was not created! Check that you have installed python correctly (and that it is configured in PATH/env)"
+  echo "The venv folder was not created! Please check if you have installed Python correctly (and that it is configured in the PATH/env)"
   sleep 45
   exit 1
 fi
@@ -38,7 +38,7 @@ pip install -r ./requirements.txt 2>&1 | tee "./.logs/setup.log"
 
 if [ ! -f ".env" ] && [ ! -f "config.json" ]; then
   cp .example.env .env
-  echo 'Dont forget to add the necessary tokens in the .env file'
+  echo "Don't forget to add the necessary tokens to the .env file"
 fi
 
 sleep 60s

@@ -2035,7 +2035,7 @@ class Music(commands.Cog):
     @check_queue_loading()
     @has_player()
     @check_voice()
-    @pool_command(name="back", aliases=["b", "voltar"], description="Go back to the previous song.", only_voiced=True,
+    @pool_command(name="back", aliases=["b", "voltar"], description="Return to the previous song.", only_voiced=True,
                   cooldown=skip_back_cd, max_concurrency=skip_back_mc)
     async def back_legacy(self, ctx: CustomContext):
         await self.back.callback(self=self, inter=ctx)
@@ -2047,7 +2047,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.max_concurrency(1, commands.BucketType.member)
     @commands.slash_command(
-        description=f"{desc_prefix}Go back to the previous song.", dm_permission=False,
+        description=f"{desc_prefix}Return to the previous song.", dm_permission=False,
         extras={"only_voiced": True}, cooldown=skip_back_cd, max_concurrency=skip_back_mc
     )
     async def back(self, inter: disnake.AppCmdInter):
@@ -2854,13 +2854,13 @@ class Music(commands.Cog):
     @has_source()
     @check_voice()
     @pool_command(name="controller", aliases=["np", "ctl"], only_voiced=True, cooldown=controller_cd,
-                  max_concurrency=controller_mc, description="Send player controller to a specific/current channel.")
+                  max_concurrency=controller_mc, description="Send Player controller to a specific/current channel.")
     async def controller_legacy(self, ctx: CustomContext):
         await self.controller.callback(self=self, inter=ctx)
 
     @has_source()
     @check_voice()
-    @commands.slash_command(description=f"{desc_prefix}Send player controller to a specific/current channel.",
+    @commands.slash_command(description=f"{desc_prefix}Send Player controller to a specific/current channel.",
                             extras={"only_voiced": True}, cooldown=controller_cd, max_concurrency=controller_mc,
                             dm_permission=False)
     async def controller(self, inter: disnake.AppCmdInter):
@@ -2877,7 +2877,7 @@ class Music(commands.Cog):
         player: LavalinkPlayer = bot.music.players[guild.id]
 
         if player.static:
-            raise GenericError("This command cannot be used in static player mode.")
+            raise GenericError("This command cannot be used in Pinned Player mode.")
 
         if player.has_thread:
             raise GenericError("**This command cannot be used with an active conversation in the "
@@ -2934,7 +2934,7 @@ class Music(commands.Cog):
     @has_player()
     @check_voice()
     @pool_command(name="adddj", aliases=["adj"], only_voiced=True,
-                  description="Add a member to the DJ list in the current player session.",
+                  description="Add a member to the DJ list of the current Player session.",
                   usage="{prefix}{cmd} [id|name|@user]\nEx: {prefix}{cmd} @member")
     async def add_dj_legacy(self, ctx: CustomContext, user: disnake.Member):
         await self.add_dj.callback(self=self, inter=ctx, user=user)
@@ -2943,7 +2943,7 @@ class Music(commands.Cog):
     @has_player()
     @check_voice()
     @commands.slash_command(
-        description=f"{desc_prefix}Add a member to the DJ list in the current player session.",
+        description=f"{desc_prefix}Add a member to the DJ list of the current Player session.",
         extras={"only_voiced": True}, dm_permission=False
     )
     async def add_dj(
@@ -2996,7 +2996,7 @@ class Music(commands.Cog):
     @has_player()
     @check_voice()
     @commands.slash_command(
-        description=f"{desc_prefix}Remove a member from the DJ list in the current player session.",
+        description=f"{desc_prefix}Remove a member from the DJ list of the current Player session.",
         extras={"only_voiced": True}, dm_permission=False
     )
     async def remove_dj(
@@ -4080,7 +4080,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.has_guild_permissions(manage_guild=True)
     @pool_command(name="247", aliases=["nonstop"], only_voiced=True, cooldown=nonstop_cd, max_concurrency=nonstop_mc,
-                  description="Enable/Disable the 24/7 mode of the player (In testing).")
+                  description="Toggle 24/7 mode of the Player (In testing).")
     async def nonstop_legacy(self, ctx: CustomContext):
         await self.nonstop.callback(self=self, inter=ctx)
 
@@ -4088,7 +4088,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.slash_command(
         name="247",
-        description=f"{desc_prefix}Enable/Disable the 24/7 mode of the player (In testing).",
+        description=f"{desc_prefix}Toggle 24/7 mode of the Player (In testing).",
         default_member_permissions=disnake.Permissions(manage_guild=True), dm_permission=False,
         extras={"only_voiced": True}, cooldown=nonstop_cd, max_concurrency=nonstop_mc
     )
@@ -4130,7 +4130,7 @@ class Music(commands.Cog):
     @has_player()
     @check_voice()
     @pool_command(name="autoplay", aliases=["ap", "aplay"], only_voiced=True, cooldown=autoplay_cd, max_concurrency=autoplay_mc,
-                  description="Enable/Disable autoplay when the queue ends.")
+                  description="Toggle autoplay at the end of the queue.")
     async def autoplay_legacy(self, ctx: CustomContext):
         await self.autoplay.callback(self=self, inter=ctx)
 
@@ -4138,7 +4138,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.slash_command(
         name="autoplay",
-        description=f"{desc_prefix}Enable/Disable autoplay when the queue ends.",
+        description=f"{desc_prefix}Toggle autoplay at the end of the queue.",
         extras={"only_voiced": True}, cooldown=autoplay_cd, max_concurrency=autoplay_mc, dm_permission=False
     )
     async def autoplay(self, inter: disnake.AppCmdInter):
@@ -4170,7 +4170,7 @@ class Music(commands.Cog):
     @is_dj()
     @commands.cooldown(1, 10, commands.BucketType.guild)
     @commands.slash_command(
-        description=f"{desc_prefix}Migrate the player to another music server.", dm_permission=False
+        description=f"{desc_prefix}Migrate the Player to another music server.", dm_permission=False
     )
     async def change_node(
             self,
