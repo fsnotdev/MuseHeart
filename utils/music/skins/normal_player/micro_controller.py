@@ -7,6 +7,7 @@ from utils.music.converters import fix_characters, get_button_style, music_sourc
 from utils.music.models import LavalinkPlayer
 from utils.others import PlayerControls
 
+
 class MicroController:
 
     __slots__ = ("name", "preview")
@@ -51,7 +52,7 @@ class MicroController:
         )
 
         if player.command_log:
-            embed.description += f"\n\n{player.command_log_emoji} **Last Interaction:** {player.command_log}"
+            embed.description += f"\n\n{player.command_log_emoji} ⠂**Last Interaction:** {player.command_log}"
 
         if player.current_hint:
             embed_hint = disnake.Embed(colour=embed_color)

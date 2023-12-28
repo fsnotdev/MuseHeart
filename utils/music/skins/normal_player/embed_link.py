@@ -37,17 +37,17 @@ class EmbedLinkSkin:
             txt += f"> `💡` **Hint:** `{player.current_hint}`"
 
         if player.current.is_stream:
-            duration_txt = f"\n> `🔴` **Duration:** `Livestream`"
+            duration_txt = f"\n> `🔴` **⠂Duration:** `Livestream`"
         else:
-            duration_txt = f"\n> `⏰` **Duration:** `{time_format(player.current.duration)}`"
+            duration_txt = f"\n> `⏰` **⠂Duration:** `{time_format(player.current.duration)}`"
 
         title = f"`{player.current.title}`" if not player.current.uri else f"[`{fix_characters(player.current.title, 40)}`]({player.current.uri})"
 
         if player.paused:
-            txt += f"\n> `⏸️` **Paused:** {title}{duration_txt}"
+            txt += f"\n> `⏸️` **⠂Paused:** {title}{duration_txt}"
 
         else:
-            txt += f"\n> `▶️` **Playing Now:** {title}{duration_txt}"
+            txt += f"\n> `▶️` **⠂Playing Now:** {title}{duration_txt}"
             if not player.current.is_stream:
                 txt += f" `[`<t:{int((disnake.utils.utcnow() + datetime.timedelta(milliseconds=player.current.duration - player.position)).timestamp())}:R>`]`" \
                 if not player.paused else ''

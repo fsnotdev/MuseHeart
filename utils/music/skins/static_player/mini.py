@@ -75,12 +75,12 @@ class MiniStaticSkin:
         duration = "🔴 Livestream" if player.current.is_stream else \
             time_format(player.current.duration)
 
-        embed.add_field(name="⏰ **Duration:**", value=f"```ansi\n[34;1m{duration}[0m\n```")
-        embed.add_field(name="💠 **Uploader/Artist:**",
+        embed.add_field(name="⏰ **⠂Duration:**", value=f"```ansi\n[34;1m{duration}[0m\n```")
+        embed.add_field(name="💠 **⠂Uploader/Artist:**",
                         value=f"```ansi\n[34;1m{fix_characters(player.current.author, 18)}[0m\n```")
 
         if player.command_log:
-            embed.add_field(name=f"{player.command_log_emoji} **Last Interaction:**",
+            embed.add_field(name=f"{player.command_log_emoji} **⠂Last Interaction:**",
                             value=f"{player.command_log}", inline=False)
 
         embed.set_image(url=player.current.thumb or "https://media.discordapp.net/attachments/480195401543188483/987830071815471114/musicequalizer.gif")
