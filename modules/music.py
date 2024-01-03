@@ -4723,16 +4723,16 @@ class Music(commands.Cog):
                     components=[
                         disnake.ui.TextInput(
                             style=disnake.TextInputStyle.short,
-                            label="Name/link of the song.",
-                            placeholder="Name or link of the song (youtube/spotify/soundcloud etc.)",
+                            label="Name/Link for the song",
+                            placeholder="youtube/spotify/soundcloud/...",
                             custom_id="song_input",
                             max_length=150,
                             required=True
                         ),
                         disnake.ui.TextInput(
                             style=disnake.TextInputStyle.short,
-                            label="Queue position (number).",
-                            placeholder="Optional, if not used it will be added at the end.",
+                            label="Queue position",
+                            placeholder="Enter a number, or leave it blank to add the song at the end",
                             custom_id="song_position",
                             max_length=3,
                             required=False
