@@ -32,7 +32,7 @@ from utils.music.models import LavalinkPlayer, LavalinkTrack, LavalinkPlaylist
 from utils.music.converters import time_format, fix_characters, string_to_seconds, URL_REG, \
     YOUTUBE_VIDEO_REG, google_search, percentage, music_source_image, perms_translations
 from utils.music.interactions import VolumeInteraction, QueueInteraction, SelectInteraction, FavMenuView, ViewMode
-from utils.others import check_cmd, send_idle_embed, CustomContext, PlayerControls, fav_list, queue_track_index, \
+from utils.others import check_cmd, send_idle_embed, CustomContext, PlayerControls, queue_track_index, \
     pool_command, string_to_file, CommandArgparse, music_source_emoji_url, SongRequestPurgeMode, song_request_buttons, \
     select_bot_pool
 
@@ -501,7 +501,7 @@ class Music(commands.Cog):
             position=0,
             options="",
             manual_selection=False,
-            source="ytsearch",
+            source=None,
             repeat_amount=0,
             force_play="no",
         )
@@ -532,7 +532,7 @@ class Music(commands.Cog):
             source: str = commands.Param(name="source",
                                          description="Select website for music search (not links)",
                                          choices=search_sources_opts,
-                                         default="ytsearch"),
+                                         default=None),
             repeat_amount: int = commands.Param(name="repetitions", description="Set the number of repetitions.",
                                                 default=0),
             server: str = commands.Param(name="server", desc="Use a specific music server in the search.",
@@ -749,7 +749,7 @@ class Music(commands.Cog):
 
         await self.play.callback(self=self, inter=ctx, query=query, position=position, options=False,
                                  force_play="no", manual_selection=False,
-                                 source="ytsearch", repeat_amount=0, server=None)
+                                 source=None, repeat_amount=0, server=None)
 
     stage_flags = CommandArgparse()
     stage_flags.add_argument('query', nargs='*', help="name or link of the song")
@@ -796,7 +796,7 @@ class Music(commands.Cog):
     async def search_legacy(self, ctx: CustomContext, *, query):
 
         await self.play.callback(self=self, inter=ctx, query=query, position=0, options=False, force_play="no",
-                                 manual_selection=True, source="ytsearch", repeat_amount=0, server=None)
+                                 manual_selection=True, source=None, repeat_amount=0, server=None)
 
     @can_send_message_check()
     @check_voice()
@@ -839,7 +839,7 @@ class Music(commands.Cog):
         inter.message.thread = thread
 
         await self.play.callback(self=self, inter=inter, query="", position=position, options=False, force_play=force_play,
-                                 manual_selection=False, source="ytsearch", repeat_amount=repeat_amount, server=server)
+                                 manual_selection=False, source=None, repeat_amount=repeat_amount, server=server)
 
     async def check_player_queue(self, user: disnake.User, bot: BotCore, guild_id: int, tracks: Union[list, LavalinkPlaylist] = None):
 
@@ -913,9 +913,6 @@ class Music(commands.Cog):
             guild = inter.guild
             channel = inter.channel
 
-        if not source:
-            source = self.bot.pool.config["DEFAULT_SEARCH_PROVIDER"]
-
         can_send_message(channel, bot.user)
 
         if not guild.voice_client and not check_channel_limit(guild.me, inter.author.voice.channel):
@@ -928,6 +925,7 @@ class Music(commands.Cog):
         ephemeral = None
         warn_message = None
         queue_loaded = False
+        reg_query = None
 
         try:
             if isinstance(inter.message, disnake.Message):
@@ -1016,30 +1014,170 @@ class Music(commands.Cog):
                 except IndexError:
                     pass
 
+        try:
+            user_data = inter.global_user_data
+        except:
+            user_data = await self.bot.get_global_data(inter.author.id, db_name=DBModel.users)
+            try:
+                inter.global_user_data = user_data
+            except:
+                pass
+
         if not query:
 
+            embed = disnake.Embed(
+                color=self.bot.get_color(guild.me),
+                description="**Select an item below:**\n"
+                            f'Note: you only have <t:{int((disnake.utils.utcnow() + datetime.timedelta(seconds=45)).timestamp())}:R> to choose!'
+            )
+
             try:
-                user_data = inter.global_user_data
-            except:
-                user_data = await self.bot.get_global_data(inter.author.id, db_name=DBModel.users)
-                inter.global_user_data = user_data
+                if bot.user.id != self.bot.user.id:
+                    embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+            except AttributeError:
+                pass
 
-            db_favs = {}
+            kwargs = {
+                "content": "",
+                "embed": embed
+            }
 
-            for k, v in user_data["integration_links"].items():
-                db_favs[f"> itg: {k}"] = v
+            try:
+                if inter.message.author.bot:
+                    kwargs["content"] = inter.author.mention
+            except AttributeError:
+                pass
 
-            for k, v in user_data["fav_links"].items():
-                db_favs[f"> fav: {k}"] = v
-
+            opts = [
+                disnake.SelectOption(label="Use favorite", value=">> [⭐ Favorites ⭐] <<", emoji="⭐"),
+                disnake.SelectOption(label="Use integration", value=">> [💠 Integrations 💠] <<", emoji="💠"),
+            ]
+            
             if os.path.isfile(f"./local_database/saved_queues_v1/users/{inter.author.id}.pkl"):
-                db_favs["> svq: Fila Salva"] = ">> saved_queue <<"
+                opts.append(disnake.SelectOption(label="Use saved queue", value=">> [💾 Saved Queue 💾] <<", emoji="💾"))
 
-            if not db_favs:
-                raise EmptyFavIntegration()
+            if user_data["last_tracks"]:
+                opts.append(disnake.SelectOption(label="Add recent song", value=">> [📑 Recent songs 📑] <<", emoji="📑"))
+                
+            if not guild_data:
 
-            if len(db_favs) == 1:
-                query = list(db_favs)[0]
+                if inter.bot == bot:
+                    try:
+                        guild_data = inter.guild_data
+                    except AttributeError:
+                        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
+                        try:
+                            inter.guild_data = guild_data
+                        except AttributeError:
+                            pass
+
+                if not guild_data:
+                    guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
+
+            if guild_data["player_controller"]["fav_links"]:
+                disnake.SelectOption(label="Use server favorite", value=">> [📌 Server favorites 📌] <<", emoji="📌"),
+
+            view = SelectInteraction(user=inter.author, timeout=45, opts=opts)
+
+            if isinstance(inter, disnake.MessageInteraction) and not inter.response.is_done():
+                await inter.response.defer(ephemeral=ephemeral)
+
+            try:
+                msg = await inter.followup.send(ephemeral=ephemeral, view=view, wait=True, **kwargs)
+            except (disnake.InteractionTimedOut, AttributeError):
+                msg = await inter.channel.send(view=view, **kwargs)
+
+            await view.wait()
+
+            select_interaction = view.inter
+
+            if not select_interaction or view.selected is False:
+
+                text = "### Selection time expired!" if view.selected is not False else "### Cancelled by the user."
+
+                try:
+                    await msg.edit(embed=disnake.Embed(description=text, color=self.bot.get_color(guild.me)),
+                                   components=song_request_buttons)
+                except AttributeError:
+                    traceback.print_exc()
+                    pass
+                return
+
+            if select_interaction.data.values[0] == "cancel":
+                await msg.edit(
+                    embed=disnake.Embed(
+                        description="**Selection canceled!**",
+                        color=self.bot.get_color(guild.me)
+                    ),
+                    components=None
+                )
+                return
+
+            try:
+                inter.store_message = msg
+            except AttributeError:
+                pass
+
+            inter.token = select_interaction.token
+            inter.id = select_interaction.id
+            inter.response = select_interaction.response
+            query = select_interaction.data.values[0]
+            await inter.response.defer()
+
+        fav_opts = []
+
+        if query.startswith(">> [💠 Integrations 💠] <<"):
+            query = ""
+            for k, v in user_data["integration_links"].items():
+                fav_opts.append(disnake.SelectOption(label=k[5:], value=f"> itg: {k}", description="[💠 Integration 💠]", emoji=music_source_emoji_url(v)))
+
+        elif query.startswith(">> [⭐ Favorites ⭐] <<"):
+            query = ""
+            for k, v in user_data["fav_links"].items():
+                fav_opts.append(disnake.SelectOption(label=k, value=f"> fav: {k}", description="[⭐ Favorite ⭐]", emoji=music_source_emoji_url(v)))
+
+        elif query.startswith(">> [📑 Recent songs 📑] <<"):
+
+            if not user_data["last_tracks"]:
+                raise GenericError("**You don't have any song in your history...**\n"
+                                   "They will appear as you add songs through search or link.")
+
+            query = ""
+            for i, d in enumerate(user_data["last_tracks"]):
+                fav_opts.append(disnake.SelectOption(label=d["name"], value=f"> lst: {i}", description="[📑 Recent songs 📑]",
+                                                     emoji=music_source_emoji_url(d["url"])))
+
+        elif query.startswith(">> [📌 Server favorites 📌] <<"):
+
+            if not guild_data:
+
+                if inter.bot == bot:
+                    try:
+                        guild_data = inter.guild_data
+                    except AttributeError:
+                        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
+                        try:
+                            inter.guild_data = guild_data
+                        except AttributeError:
+                            pass
+
+                if not guild_data:
+                    guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
+
+            if not guild_data["player_controller"]["fav_links"]:
+                raise GenericError("**The server does not have fixed/bookmarked links.**")
+            
+            for name, v in guild_data["player_controller"]["fav_links"].items():
+                fav_opts.append(disnake.SelectOption(label=name, value=f"> pin: {name}", description="[📌 Server favorites 📌]", emoji=music_source_emoji_url(v['url'])))
+
+            is_pin = False
+
+        if fav_opts:
+
+            source = False
+
+            if len(fav_opts) == 1:
+                query = list(fav_opts)[0].value
 
             else:
                 embed = disnake.Embed(
@@ -1066,17 +1204,29 @@ class Music(commands.Cog):
                     pass
 
                 view = SelectInteraction(
-                    user=inter.author,  timeout=45,
-                    opts=[disnake.SelectOption(label=k, value=k, emoji=music_source_emoji_url(v)) for k, v in db_favs.items()]
+                    user=inter.author,  timeout=45, opts=fav_opts
                 )
 
                 if isinstance(inter, disnake.MessageInteraction) and not inter.response.is_done():
                     await inter.response.defer(ephemeral=ephemeral)
 
                 try:
-                    msg = await inter.followup.send(ephemeral=ephemeral, view=view, wait=True, **kwargs)
-                except (disnake.InteractionTimedOut, AttributeError):
-                    msg = await inter.channel.send(view=view, **kwargs)
+                    func = msg.edit
+                except AttributeError:
+                    try:
+                        if inter.response.is_done():
+                            func = inter.edit_original_message
+                        else:
+                            func = inter.response.send_message
+                            kwargs["ephemeral"] = ephemeral
+                    except AttributeError:
+                        kwargs["ephemeral"] = ephemeral
+                        try:
+                            func = inter.followup.send
+                        except AttributeError:
+                            func = inter.send
+
+                msg = await func(view=view, **kwargs)
 
                 await view.wait()
 
@@ -1084,13 +1234,15 @@ class Music(commands.Cog):
 
                 if not select_interaction or view.selected is False:
 
-                    text = "### Selection time expired!" if view.selected is not False else "### Cancelled by the user."
+                    embed = disnake.Embed(description="### Selection time expired!" if view.selected is not False else "### Cancelled by the user.", color=self.bot.get_color(guild.me))
 
                     try:
-                        await msg.edit(embed=disnake.Embed(description=text, color=self.bot.get_color(guild.me)), components=song_request_buttons)
+                        await msg.edit(embed=embed, components=song_request_buttons)
                     except AttributeError:
-                        traceback.print_exc()
-                        pass
+                        try:
+                            await select_interaction.response.edit_message(embed=embed, components=song_request_buttons)
+                        except AttributeError:
+                            traceback.print_exc()
                     return
 
                 if select_interaction.data.values[0] == "cancel":
@@ -1113,16 +1265,28 @@ class Music(commands.Cog):
                 inter.response = select_interaction.response
                 query = select_interaction.data.values[0]
 
+        elif not query:
+            raise EmptyFavIntegration()
+
         if query.startswith("> pin: "):
-            is_pin = True
-            query = query[7:]
+            if is_pin is None:
+                is_pin = True
+            query = guild_data["player_controller"]["fav_links"][query[7:]]['url']
+            source = False
+
+        elif query.startswith("> lst: "):
+            query = user_data["last_tracks"][int(query[7:])]["url"]
+            source = False
 
         elif query.startswith(("> fav: ", "> itg: ")):
             try:
                 user_data = inter.global_user_data
             except AttributeError:
                 user_data = await self.bot.get_global_data(inter.author.id, db_name=DBModel.users)
-                inter.global_user_data = user_data
+                try:
+                    inter.global_user_data = user_data
+                except:
+                    pass
 
             if query.startswith("> fav:"):
                 query = user_data["fav_links"][query[7:]]
@@ -1230,7 +1394,9 @@ class Music(commands.Cog):
                     else:
                         inter = view.inter
 
-        elif query.startswith("> svq: "):
+            source = False
+
+        elif query.startswith(">> [💾 Saved Queue 💾] <<"):
 
             try:
                 async with aiofiles.open(f"./local_database/saved_queues_v1/users/{inter.author.id}.pkl", 'rb') as f:
@@ -1246,6 +1412,7 @@ class Music(commands.Cog):
             tracks = await self.check_player_queue(inter.author, bot, guild.id, self.bot.get_cog("PlayerSession").process_track_cls(data["tracks"])[0])
             node = await self.get_best_node(bot)
             queue_loaded = True
+            source = False
 
         else:
 
@@ -1253,13 +1420,11 @@ class Music(commands.Cog):
 
             urls = URL_REG.findall(query)
 
-            if not urls:
+            reg_query = {}
 
-                query = f"{source}:{query}"
-
-            else:
-
+            if urls:
                 query = urls[0]
+                source = False
 
                 if query.startswith("https://www.youtube.com/results"):
                     try:
@@ -1352,7 +1517,7 @@ class Music(commands.Cog):
             await inter.response.defer(ephemeral=ephemeral)
 
         if not queue_loaded:
-            tracks, node = await self.get_tracks(query, inter.author, node=node, track_loops=repeat_amount)
+            tracks, node = await self.get_tracks(query, inter.author, node=node, track_loops=repeat_amount, source=source)
             tracks = await self.check_player_queue(inter.author, bot, guild.id, tracks)
 
         try:
@@ -1618,6 +1783,9 @@ class Music(commands.Cog):
                 if isinstance(inter, CustomContext):
                     inter.message = msg
 
+                if reg_query is not None:
+                    reg_query = {"name": tracks.title, "url": tracks.uri}
+
             elif not queue_loaded:
 
                 tracks = tracks[0]
@@ -1655,6 +1823,8 @@ class Music(commands.Cog):
                 embed.set_thumbnail(url=tracks.thumb)
                 embed.description = f"`{fix_characters(tracks.author, 15)}`**┃**`{time_format(tracks.duration) if not tracks.is_stream else '🔴 Livestream'}`**┃**{inter.author.mention}"
                 emoji = "🎵"
+                if reg_query is not None:
+                    reg_query = {"name": tracks.title, "url": tracks.uri}
 
             else:
 
@@ -1750,6 +1920,9 @@ class Music(commands.Cog):
             embed.description = f"`{len(tracks.tracks)} song(s)`**┃**`{time_format(total_duration)}`**┃**{inter.author.mention}"
             emoji = "🎶"
 
+            if reg_query is not None:
+                reg_query = {"name": tracks.name, "url": tracks.url}
+
         embed.description += player.controller_link
 
         if not is_pin:
@@ -1827,18 +2000,31 @@ class Music(commands.Cog):
                 player.set_command_log(text=log_text, emoji=emoji)
             player.update = True
 
+        if reg_query is not None:
+
+            try:
+                user_data["last_tracks"].remove(reg_query)
+            except:
+                pass
+
+            if len(user_data["last_tracks"]) > 6:
+                user_data["last_tracks"].pop(0)
+
+            user_data["last_tracks"].append(reg_query)
+
+            await bot.update_global_data(inter.author.id, user_data, db_name=DBModel.users)
+
     @play.autocomplete("search")
     async def fav_add_autocomplete(self, inter: disnake.Interaction, query: str):
 
         if URL_REG.match(query):
             return [query] if len(query) < 100 else []
 
-        favs = []
+        favs = [">> [⭐ Favorites ⭐] <<", ">> [💠 Integrations 💠] <<", ">> [📌 Server favorites 📌] <<",
+                ">> [📑 Recent songs 📑] <<"]
 
         if os.path.isfile(f"./local_database/saved_queues_v1/users/{inter.author.id}.pkl"):
-            favs.append("> svq: Fila Salva")
-
-        favs.extend(await fav_list(inter, query))
+            favs.append(">> [💾 Saved Queue 💾] <<")
 
         if not inter.guild:
             try:
@@ -1851,10 +2037,10 @@ class Music(commands.Cog):
         except AttributeError:
             vc = True
 
-        if not vc or not query or (favs_size := len(favs)) >= 20:
-            return favs[:20]
+        if not vc or not query:
+            return favs
 
-        return await google_search(self.bot, query, max_entries=20 - favs_size) + favs
+        return await google_search(self.bot, query, max_entries=20) or favs
 
     skip_back_cd = commands.CooldownMapping.from_cooldown(2, 13, commands.BucketType.member)
     skip_back_mc = commands.MaxConcurrency(1, per=commands.BucketType.member, wait=False)
@@ -3506,9 +3692,24 @@ class Music(commands.Cog):
                     temp_filter.remove('time_above')
                     final_filters.add('time_above')
 
-                if 'song_name' in temp_filter and song_name.lower() in t.title.replace("️", "").lower():
-                    temp_filter.remove('song_name')
-                    final_filters.add('song_name')
+                if 'song_name' in temp_filter:
+
+                    title = t.title.replace("️", "").lower().split()
+
+                    query_words = song_name.lower().split()
+
+                    word_count = 0
+
+                    for query_word in song_name.lower().split():
+                        for title_word in title:
+                            if query_word in title_word:
+                                title.remove(title_word)
+                                word_count += 1
+                                break
+
+                    if word_count == len(query_words):
+                        temp_filter.remove('song_name')
+                        final_filters.add('song_name')
 
                 if 'song_author' in temp_filter and song_author.lower() in t.author.replace("️", "").lower():
                     temp_filter.remove('song_author')
@@ -3820,9 +4021,24 @@ class Music(commands.Cog):
                     temp_filter.remove('time_above')
                     final_filters.add('time_above')
 
-                if 'song_name' in temp_filter and song_name.lower() in t.title.replace("️", "").lower():
-                    temp_filter.remove('song_name')
-                    final_filters.add('song_name')
+                if 'song_name' in temp_filter:
+
+                    title = t.title.replace("️", "").lower().split()
+
+                    query_words = song_name.lower().split()
+
+                    word_count = 0
+
+                    for query_word in song_name.lower().split():
+                        for title_word in title:
+                            if query_word in title_word:
+                                title.remove(title_word)
+                                word_count += 1
+                                break
+
+                    if word_count == len(query_words):
+                        temp_filter.remove('song_name')
+                        final_filters.add('song_name')
 
                 if 'song_author' in temp_filter and song_author.lower() in t.author.replace("️", "").lower():
                     temp_filter.remove('song_author')
@@ -4320,7 +4536,10 @@ class Music(commands.Cog):
             user_data = inter.global_user_data
         except AttributeError:
             user_data = await bot.get_global_data(inter.author.id, db_name=DBModel.users)
-            inter.global_user_data = user_data
+            try:
+                inter.global_user_data = user_data
+            except:
+                pass
 
         view = FavMenuView(bot=bot, ctx=inter, data=user_data, prefix=prefix, mode=mode)
         view.guild_data = guild_data
@@ -4628,7 +4847,7 @@ class Music(commands.Cog):
         guild_data = await self.bot.get_data(interaction.guild_id, db_name=DBModel.guilds)
 
         try:
-            query = guild_data["player_controller"]["fav_links"][interaction.data.values[0]]['url']
+            query = interaction.data.values[0]
         except KeyError:
             await interaction.send("**The selected item was not found in the database...**", ephemeral=True)
             await send_idle_embed(interaction.message, bot=self.bot, guild_data=guild_data, force=True)
@@ -4748,7 +4967,7 @@ class Music(commands.Cog):
                     "query": kwargs.get("query", ""),
                     "position": 0,
                     "options": False,
-                    "source": "ytsearch",
+                    "source": None,
                     "repeat_amount": 0,
                     "server": None,
                     "force_play": "no"
@@ -5085,7 +5304,7 @@ class Music(commands.Cog):
                     "position": position or 0,
                     "options": False,
                     "manual_selection": True,
-                    "source": "ytsearch",
+                    "source": None,
                     "repeat_amount": 0,
                     "server": None,
                     "force_play": "no",
@@ -5268,9 +5487,10 @@ class Music(commands.Cog):
             urls = URL_REG.findall(message.content)
 
             if not urls:
-                message.content = f"ytsearch:{message.content}"
+                source = self.bot.config["DEFAULT_SEARCH_PROVIDER"]
 
             else:
+                source = None
                 message.content = urls[0]
 
                 if "&list=" in message.content:
@@ -5302,7 +5522,7 @@ class Music(commands.Cog):
                     if view.selected == "music":
                         message.content = YOUTUBE_VIDEO_REG.match(message.content).group()
 
-            await self.parse_song_request(message, text_channel, data, response=msg)
+            await self.parse_song_request(message, text_channel, data, response=msg, source=source)
 
         except GenericError as e:
             error = f"{message.author.mention}. {e}"
@@ -5412,7 +5632,7 @@ class Music(commands.Cog):
                 pass
 
 
-    async def parse_song_request(self, message: disnake.Message, text_channel, data, *, response=None, attachment: disnake.Attachment=None):
+    async def parse_song_request(self, message: disnake.Message, text_channel, data, *, response=None, attachment: disnake.Attachment=None, source=None):
 
         if not message.author.voice:
             raise GenericError("You must join a voice channel to request a song.")
@@ -5431,7 +5651,7 @@ class Music(commands.Cog):
         except AttributeError:
             pass
 
-        tracks, node = await self.get_tracks(message.content, message.author)
+        tracks, node = await self.get_tracks(message.content, message.author, source=source)
         tracks = await self.check_player_queue(message.author, self.bot, message.guild.id, tracks)
 
         try:
@@ -5749,7 +5969,7 @@ class Music(commands.Cog):
             except:
                 pass
 
-            player._new_node_task = self.bot.loop.create_task(player._wait_for_new_node())
+            player._new_node_task = player.bot.loop.create_task(player._wait_for_new_node())
 
         await asyncio.sleep(2)
 
@@ -5790,6 +6010,20 @@ class Music(commands.Cog):
     @commands.Cog.listener("on_wavelink_node_ready")
     async def node_ready(self, node: wavelink.Node):
         print(f'{self.bot.user} - Music server: [{node.identifier} / v{node.version}] is ready for use!')
+        retries = 25
+        while retries > 0:
+
+            if not node._websocket.is_connected:
+                return
+
+            if not node.stats:
+                await asyncio.sleep(5)
+                retries -= 1
+                continue
+
+            if node.stats.uptime < 600000:
+                node.open()
+            return
 
     async def connect_node(self, data: dict):
 
@@ -5807,6 +6041,7 @@ class Music(commands.Cog):
         node_website = data.pop('website', '')
         region = data.pop('region', 'us_central')
         heartbeat = int(data.pop('heartbeat', 30))
+        search_providers = data.pop("search_providers", [self.bot.pool.config["DEFAULT_SEARCH_PROVIDER"]] + [s for s in ("ytsearch", "scsearch") if s != self.bot.pool.config["DEFAULT_SEARCH_PROVIDER"]])
         retry_403 = data.pop('retry_403', False)
         info = None
 
@@ -5868,15 +6103,18 @@ class Music(commands.Cog):
         node.search = search
         node.website = node_website
         node.retry_403 = retry_403
+        node.search_providers = search_providers
 
     async def get_tracks(
             self, query: str, user: disnake.Member, node: wavelink.Node = None,
-            track_loops=0, use_cache=True):
+            track_loops=0, use_cache=True, source=None):
 
         if not node:
             node = await self.get_best_node()
 
         tracks = await process_spotify(self.bot, user.id, query)
+
+        exceptions = set()
 
         if not tracks:
 
@@ -5913,33 +6151,53 @@ class Music(commands.Cog):
                     except IndexError:
                         node_search = node
 
-                try:
-                    tracks = await node_search.get_tracks(
-                        query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist, requester=user.id
-                    )
-                except ClientConnectorCertificateError:
-                    node_search.available = False
+                if source is False:
+                    providers = [node.search_providers[:1]]
+                elif source:
+                    providers = [s for s in (node.search_providers or [self.bot.config["DEFAULT_SEARCH_PROVIDER"]]) if s != source]
+                    providers.insert(0, source)
+                else:
+                    providers = node.search_providers or [self.bot.config["DEFAULT_SEARCH_PROVIDER"]]
 
-                    for n in self.bot.music.nodes.values():
+                for search_provider in providers:
 
-                        if not n.available or not n.is_available:
-                            continue
+                    search_query = f"{search_provider}:{query}" if source is not False else query
 
-                        try:
-                            tracks = await n.get_tracks(
-                                query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist, requester=user.id
-                            )
-                            node_search = n
-                            break
-                        except ClientConnectorCertificateError:
-                            n.available = False
-                            continue
+                    try:
+                        tracks = await node_search.get_tracks(
+                            search_query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist, requester=user.id
+                        )
+                    except ClientConnectorCertificateError:
+                        node_search.available = False
 
-                    if not node_search:
-                        raise GenericError("**There are no music servers available.**")
+                        for n in self.bot.music.nodes.values():
+
+                            if not n.available or not n.is_available:
+                                continue
+
+                            try:
+                                tracks = await n.get_tracks(
+                                    search_query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist, requester=user.id
+                                )
+                                node_search = n
+                                break
+                            except ClientConnectorCertificateError:
+                                n.available = False
+                                continue
+
+                        if not node_search:
+                            raise GenericError("**There are no music servers available.**")
+
+                    except Exception as e:
+                        exceptions.add(repr(e))
+
+                    if tracks or source is False:
+                        break
 
         if not tracks:
-            raise GenericError("There were no results for your search.")
+            if exceptions:
+                raise GenericError("**An error occurred while processing your search:** ```py\n" + "\n".join(exceptions) + "```")
+            raise GenericError("**There were no results for your search.**")
 
         if isinstance(tracks, list):
             tracks[0].info["extra"]["track_loops"] = track_loops

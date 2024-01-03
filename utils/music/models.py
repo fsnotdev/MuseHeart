@@ -109,12 +109,20 @@ class PartialTrack:
         return self.info["uri"]
 
     @property
+    def url(self) -> str:
+        return self.uri
+
+    @property
     def search_uri(self):
         return f"https://www.youtube.com/results?search_query={quote(self.title)}"
 
     @property
     def title(self) -> str:
         return f"{self.author} - {self.single_title}"
+
+    @property
+    def name(self) -> str:
+        return self.title
 
     @property
     def original_id(self) -> str:
@@ -305,8 +313,16 @@ class LavalinkTrack(wavelink.Track):
         return f"{self.info['sourceName']} - {self.duration if not self.is_stream else 'stream'} - {self.authors_string} - {self.title}"
 
     @property
+    def name(self) -> str:
+        return self.title
+
+    @property
     def single_title(self) -> str:
         return self.title
+
+    @property
+    def url(self) -> str:
+        return self.info["uri"]
 
     @property
     def search_uri(self):
@@ -749,12 +765,13 @@ class LavalinkPlayer(wavelink.Player):
                     await asyncio.sleep(3)
 
                     current_node: wavelink.Node = self.bot.music.nodes[self.node.identifier]
+                    current_node.close()
 
                     for player_id in list(self.node.players):
 
                         p = self.node.players[player_id]
 
-                        node = [n for n in self.bot.music.nodes.values() if n.identifier != current_node.identifier and n.available and n.is_available]
+                        node = [n for n in self.bot.music.nodes.values() if n.available and n.is_available]
                         p.current = p.last_track
                         if node:
                             await p.change_node(node[0].identifier)
@@ -767,12 +784,8 @@ class LavalinkPlayer(wavelink.Player):
                             except:
                                 pass
                             p._new_node_task = p.bot.loop.create_task(p._wait_for_new_node(
-                                f"The server **{current_node.identifier}** has reached the YouTube ratelimit and is currently unavailable "
-                                f"(waiting for a new server to become available).",
-                                ignore_node=current_node.identifier))
-
-
-                    current_node.close()
+                                f"The server **{current_node.identifier}** received a YouTube ratelimit "
+                                f"and is currently unavailable (waiting for a new server to become available)."))
                     return
 
             await send_report()
@@ -1388,21 +1401,21 @@ class LavalinkPlayer(wavelink.Player):
         except:
             pass
 
+        clear_autoqueue = True
+
         if len(self.queue):
             track = self.queue.popleft()
-            clear_autoqueue = bool(track.ytid)
 
         else:
 
             try:
-
-                clear_autoqueue = False
 
                 track = None
 
                 if self.autoplay or self.keep_connected:
                     try:
                         track = await self.get_autoqueue_tracks()
+                        clear_autoqueue = False
                     except:
                         traceback.print_exc()
                         self.locked = False
@@ -1465,10 +1478,12 @@ class LavalinkPlayer(wavelink.Player):
                             description=f"The song [{track.title}]({track.uri}) is not available...\n"
                                         f"Skipping to the next song...",
                             color=self.bot.get_color()
-                        ), delete_after=30
+                        ), delete_after=10
                     )
                 except:
                     traceback.print_exc()
+
+                await asyncio.sleep(10)
 
                 self.locked = False
 
@@ -1494,12 +1509,14 @@ class LavalinkPlayer(wavelink.Player):
                     await self.text_channel.send(
                         embed=disnake.Embed(
                             description=f"The song [{track.title}]({track.uri}) is not available...\n"
-                                        f"Skipping to the next song...",
+                                        "Skipping to the next song...",
                             color=self.bot.get_color()
-                        ), delete_after=30
+                        ), delete_after=10
                     )
                 except:
                     traceback.print_exc()
+
+                await asyncio.sleep(10)
 
                 self.locked = False
 
@@ -1614,12 +1631,14 @@ class LavalinkPlayer(wavelink.Player):
             )
 
         embed = disnake.Embed(
-            description=f"**There are no songs in the queue... Add a song or use one of the options below.\n\n"
-                        f"Note:** `The player will automatically turn off` "
-                        f"<t:{int((disnake.utils.utcnow() + datetime.timedelta(seconds=self.bot.config['IDLE_TIMEOUT'])).timestamp())}:R> "
-                        f"`if no action is performed...`",
+            description=f"**There are no songs in the queue... Add a song or use one of the options below.",
             color=self.bot.get_color(self.guild.me)
         )
+
+        if not self.keep_connected:
+            embed.description += "\n\nNote:** `The Player will be turned off automatically` " \
+                        f"<t:{int((disnake.utils.utcnow() + datetime.timedelta(seconds=self.bot.config['IDLE_TIMEOUT'])).timestamp())}:R> " \
+                        f"`if no action is taken...`"
 
         kwargs = {
             "embed": embed,
@@ -1677,6 +1696,9 @@ class LavalinkPlayer(wavelink.Player):
         except:
             pass
 
+        if self.keep_connected:
+            return
+
         await asyncio.sleep(self.bot.config["IDLE_TIMEOUT"])
 
         msg = "💤 **⠂The player was disconnected due to inactivity...**"
@@ -1715,8 +1737,6 @@ class LavalinkPlayer(wavelink.Player):
 
         msg = None
 
-        timestamp = ""
-
         if self.current:
 
             requester = self.guild.get_member(self.current.requester)
@@ -1727,9 +1747,12 @@ class LavalinkPlayer(wavelink.Player):
                 requester_name = "Unknown member"
 
             if not self.current.is_stream and (not self.auto_pause or not self.paused):
-                timestamp = f"<t:{int((disnake.utils.utcnow() + datetime.timedelta(milliseconds=self.current.duration - self.position)).timestamp())}:R>"
+                if isinstance(self.guild.me.voice.channel, disnake.StageChannel):
+                    timestamp = str(self.current.duration)
+                else:
+                    timestamp = f"<t:{int((disnake.utils.utcnow() + datetime.timedelta(milliseconds=self.current.duration - self.position)).timestamp())}:R>"
             else:
-                timestamp = ("paused " if (self.paused) else "🔴 ") + f"<t:{int(disnake.utils.utcnow().timestamp())}:R>"
+                timestamp = ("paused" if (self.paused) else "🔴") + (f" <t:{int(disnake.utils.utcnow().timestamp())}:R>") if not self.current.is_stream else ""
 
             msg = self.stage_title_template \
                 .replace("{track.title}", self.current.single_title) \
@@ -1739,18 +1762,22 @@ class LavalinkPlayer(wavelink.Player):
                 .replace("{track.source}", self.current.info.get("sourceName", "unknown")) \
                 .replace("{track.playlist}", self.current.playlist_name or "No playlist") \
                 .replace("{requester.name}", requester_name) \
-                .replace("{requester.id}", str(self.current.requester))
+                .replace("{requester.id}", str(self.current.requester)) \
+                .replace("{track.timestamp}", timestamp)
 
         if isinstance(self.guild.me.voice.channel, disnake.StageChannel):
 
             if not self.guild.me.guild_permissions.manage_guild:
                 return
 
+            if msg is not None:
+                msg = msg.replace("{track.emoji}", "♪")
+
+                if len(msg) > 110:
+                    msg = msg[:107] + "..."
+
             if not msg:
                 msg = "Status: Waiting for new songs."
-
-            elif len(msg) > 110:
-                msg = msg[:107] + "..."
 
             if not self.guild.me.voice.channel.instance:
                 func = self.guild.me.voice.channel.create_instance
@@ -1765,9 +1792,7 @@ class LavalinkPlayer(wavelink.Player):
 
             if msg is not None:
 
-                msg = msg \
-                    .replace("{track.timestamp}", timestamp) \
-                    .replace("{track.emoji}", music_source_emoji(self.current.info["sourceName"]))
+                msg = msg.replace("{track.emoji}", music_source_emoji(self.current.info["sourceName"]))
 
                 if len(msg) > 496:
                     msg = msg[:496] + "..."
@@ -2434,33 +2459,30 @@ class LavalinkPlayer(wavelink.Player):
 
         while True:
 
-            try:
-                node = sorted([n for n in self.bot.music.nodes.values() if n.stats and n.is_available
+            nodes = sorted([n for n in self.bot.music.nodes.values() if n.is_available
                                and n.available and n.identifier != ignore_node],
-                              key=lambda n: n.stats.players
-                              )[0]
-            except:
+                              key=lambda n: n.stats.players)
+            if not nodes:
                 await asyncio.sleep(5)
                 continue
 
-            else:
-                try:
-                    self.locked = False
-                    await self.change_node(node.identifier, force=True)
-                except:
-                    traceback.print_exc()
-                    self.locked = True
-                    await asyncio.sleep(5)
-                    continue
+            node = nodes[0]
 
+            try:
+                await self.change_node(node.identifier)
+                self.locked = False
+            except:
+                traceback.print_exc()
+                await asyncio.sleep(5)
+                continue
+
+            try:
                 self.set_command_log(emoji=original_log_emoji, text=original_log)
+                await self.invoke_np(force=True)
+            except:
+                traceback.print_exc()
 
-                try:
-                    await self.invoke_np(force=True)
-                except:
-                    traceback.print_exc()
-
-                return
+            return
 
     async def _send_rpc_data(self, users: List[int], stats: dict):
 
