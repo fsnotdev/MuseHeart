@@ -31,7 +31,8 @@ from utils.music.checks import check_voice, has_player, has_source, is_requester
 from utils.music.models import LavalinkPlayer, LavalinkTrack, LavalinkPlaylist
 from utils.music.converters import time_format, fix_characters, string_to_seconds, URL_REG, \
     YOUTUBE_VIDEO_REG, google_search, percentage, music_source_image, perms_translations
-from utils.music.interactions import VolumeInteraction, QueueInteraction, SelectInteraction, FavMenuView, ViewMode
+from utils.music.interactions import VolumeInteraction, QueueInteraction, SelectInteraction, FavMenuView, ViewMode, \
+    SetStageTitle
 from utils.others import check_cmd, send_idle_embed, CustomContext, PlayerControls, queue_track_index, \
     pool_command, string_to_file, CommandArgparse, music_source_emoji_url, SongRequestPurgeMode, song_request_buttons, \
     select_bot_pool
@@ -248,15 +249,6 @@ class Music(commands.Cog):
     stage_cd = commands.CooldownMapping.from_cooldown(2, 45, commands.BucketType.guild)
     stage_mc = commands.MaxConcurrency(1, per=commands.BucketType.guild, wait=False)
 
-    stage_flags = CommandArgparse()
-    stage_flags.add_argument('template', nargs='*', help="Model to be used instead of the default one.")
-    stage_flags.add_argument('-save', '-s', action='store_true',
-                             help='Save the template to be automatically activated when connecting to the voice channel.')
-    stage_flags.add_argument('-clear', '-c', action='store_true',
-                             help='Clear the automatic status of the voice channel')
-    stage_flags.add_argument('-disable', '-d', action='store_true',
-                             help='Disable the automatic status (voice channel)')
-
     @is_dj()
     @has_source()
     @commands.has_guild_permissions(manage_guild=True)
@@ -265,21 +257,11 @@ class Music(commands.Cog):
                                                          "voicestatus", "setvcstatus", "setvoicestatus", "statusvc",
                                                          "vcstatus"],
         description="Activate the automatic announcement/status system of the channel with the name of the song.",
-        cooldown=stage_cd, max_concurrency=stage_mc, extras={"exclusive_cooldown": True, "flags": stage_flags},
+        cooldown=stage_cd, max_concurrency=stage_mc, extras={"exclusive_cooldown": True},
         usage="{prefix}{cmd} <placeholders>\nEx: {track.author} - {track.title}"
     )
-    async def stageannounce_legacy(self, ctx: CustomContext, *, flags: str = ""):
-
-        args, unknown = ctx.command.extras['flags'].parse_known_args(flags.split())
-
-        await self.stage_announce.callback(
-            self=self,
-            inter=ctx,
-            template=" ".join(args.template + unknown),
-            save=args.save,
-            clear=args.clear,
-            disable=args.disable,
-        )
+    async def stageannounce_legacy(self, ctx: CustomContext):
+        await self.stage_announce.callback(self=self, inter=ctx)
 
     @is_dj()
     @has_source()
@@ -288,29 +270,7 @@ class Music(commands.Cog):
         extras={"only_voiced": True, "exclusive_cooldown": True}, cooldown=stage_cd, max_concurrency=stage_mc,
         default_member_permissions=disnake.Permissions(manage_guild=True), dm_permission=False
     )
-    async def stage_announce(
-            self,
-            inter: disnake.AppCmdInter,
-            template: str = commands.Param(
-                name=disnake.Localized("template", data={disnake.Locale.pt_BR: "modelo"}),
-                description="Template to be used instead of the default one.", default=""
-            ),
-            save: bool = commands.Param(
-                name=disnake.Localized("save", data={disnake.Locale.pt_BR: "salvar"}),
-                description="Save the template to be automatically activated when connecting to the voice channel.",
-                default=False,
-            ),
-            clear: bool = commands.Param(
-                name=disnake.Localized("clear", data={disnake.Locale.pt_BR: "limpar"}),
-                description="Clear/disable the automatic status (voice channel).",
-                default=False,
-            ),
-            disable: bool = commands.Param(
-                name=disnake.Localized("disable", data={disnake.Locale.pt_BR: "desativar"}),
-                description="Disable the automatic status (voice channel).",
-                default=False,
-            )
-    ):
+    async def stage_announce(self, inter: disnake.AppCmdInter):
 
         try:
             bot = inter.music_bot
@@ -321,163 +281,17 @@ class Music(commands.Cog):
             guild = inter.guild
             author = inter.author
 
-        player: LavalinkPlayer = bot.music.players[inter.guild_id]
-
         if not author.guild_permissions.manage_guild and not (await bot.is_owner(author)):
             raise GenericError("**You do not have permission to manage the server to enable/disable this system.**")
 
-        if disable or clear:
-
-            await inter.response.defer(ephemeral=True)
-
-            if disable:
-                global_data = await self.bot.get_global_data(inter.guild_id, db_name=DBModel.guilds)
-                if not global_data["voice_channel_status"]:
-                    raise GenericError("**The automatic status has not been configured.**")
-                global_data["voice_channel_status"] = ""
-                await self.bot.update_global_data(inter.guild_id, global_data, db_name=DBModel.guilds)
-
-            await player.update_stage_topic(clear=True)
-
-            player.stage_title_event = False
-
-            if isinstance(inter, disnake.MessageInteraction):
-                await self.interaction_message(inter,  "disabled the automatic status of the voice channel.", emoji="📢", force=True)
-            else:
-                try:
-                    func = inter.edit_original_message
-                except:
-                    func = inter.send
-
-                await func(
-                    embed=disnake.Embed(
-                        description="**The automatic status of the voice channel has been successfully disabled!**",
-                        color=self.bot.get_color(guild.me)
-                    )
-                )
-            await player.process_save_queue()
-            return
-
-        if isinstance(guild.me.voice.channel, disnake.StageChannel) and not author.guild_permissions.manage_guild and not (await bot.is_owner(author)):
-            raise GenericError("**You need the manage server permission to use this command in stage channels**")
-
         await inter.response.defer(ephemeral=True)
+
         global_data = await self.bot.get_global_data(inter.guild_id, db_name=DBModel.guilds)
 
-        if template:
-            if not author.guild_permissions.manage_guild and not (await bot.is_owner(author)):
-                raise GenericError("**You need the manage server permission to use this command with a custom template.\n"
-                                   "Use the command again without including a template (the default template will be used).**")
+        view = SetStageTitle(ctx=inter, bot=bot, data=global_data, guild=guild)
+        view.message = await inter.send(view=view, embed=view.build_embed())
+        await view.wait()
 
-            if not any(p in template for p in (
-                    '{track.title}', '{track.timestamp}', '{track.emoji}', '{track.author}', '{track.duration}',
-                    '{track.source}', '{track.playlist}',
-                    '{requester.name}', '{requester.id}'
-            )):
-
-                if isinstance(inter, CustomContext):
-                    cmd = f"{inter.prefix}{inter.invoked_with}"
-                else:
-                    cmd = f"/{self.stage_announce.name}"
-
-                raise GenericError(
-                    "**You must use at least one valid placeholder in the message.**\n\n"
-                    "**PLACEHOLDERS:** ```ansi\n"
-                    "[34;1m{track.title}[0m -> Song name\n"
-                    "[34;1m{track.author}[0m -> Artist/Uploader/Author of the song.\n"
-                    "[34;1m{track.duration}[0m -> Song duration.\n"
-                    "[34;1m{track.timestamp}[0m -> Remaining time of the duration (only in voice channel).\n"
-                    "[34;1m{track.emoji}[0m -> Emoji of the music source (only in voice channel).\n"
-                    "[34;1m{track.source}[0m -> Source of the music (Youtube/Spotify/Soundcloud etc)\n"
-                    "[34;1m{track.playlist}[0m -> Name of the playlist the song is from (if any)\n"
-                    "[34;1m{requester.name}[0m -> Name/Nickname of the member who requested the song\n"
-                    "[34;1m{requester.id}[0m -> ID of the member who requested the song```\n"
-                    "Example: " + cmd + " {track.title} - {track.author}"
-                )
-
-        else:
-            if isinstance(guild.me.voice.channel, disnake.VoiceChannel):
-                template = global_data["voice_channel_status"] or "{track.emoji} {track.title} | {track.timestamp}"
-            else:
-                template = player.stage_title_template or "{track.title} | {track.author}"
-
-        if isinstance(guild.me.voice.channel, disnake.StageChannel):
-
-            if not guild.me.guild_permissions.manage_guild:
-                raise GenericError(
-                    f"{bot.user.mention} does not have the permission: **{perms_translations['manage_guild']}.**")
-
-            if save:
-                raise GenericError("**The save option should only be used in voice channels.**")
-
-            if player.stage_title_event and player.stage_title_template == template:
-                raise GenericError("**The stage automatic announcement is already enabled (and there have been no changes in "
-                                   "the title template).\n"
-                                   "If you want to disable it you can stop the player (all stage members will be "
-                                   "automatically disconnected in this process).**")
-
-            txt = [f"enabled/changed the stage automatic announcement system.",
-                   f"📢 **⠂{inter.author.mention} enabled/changed the stage automatic announcement system "
-                   f"{guild.me.voice.channel.mention}.**\n\n"
-                   f"`Note: If the player is turned off, all stage members will be automatically disconnected.`\n\n"
-                   f"**Used template:** `{disnake.utils.escape_markdown(template, as_needed=True)}`"]
-
-        elif isinstance(guild.me.voice.channel, disnake.VoiceChannel):
-
-            txt = [f"enabled/changed the automatic status system of the voice channel.",
-                   f"📢 **⠂{inter.author.mention} enabled/changed the automatic status system of the voice channel "
-                   f"{guild.me.voice.channel.mention}.**\n\n"
-                   f"**Used template:** `{disnake.utils.escape_markdown(template, as_needed=True)}`"]
-
-        else:
-            raise GenericError("**You must be in a stage channel to enable/disable this system.**")
-
-        player.stage_title_event = True
-        player.stage_title_template = template
-        player.start_time = disnake.utils.utcnow()
-
-        if save and isinstance(guild.me.voice.channel, disnake.VoiceChannel):
-
-            log, msg = txt
-
-            if author.guild_permissions.manage_guild:
-                global_data["voice_channel_status"] = template
-                await self.bot.update_global_data(inter.guild_id, global_data, db_name=DBModel.guilds)
-                msg += "\n\n**Note:** `The template has been saved and will be automatically used in voice channels.`"
-            else:
-                msg += "\n\n**Note:** `The template was not saved because you do not have the manage server permission.`"
-
-            player.set_command_log(emoji="📢", text=log)
-            player.update = True
-
-            if inter.response.is_done():
-                func = inter.edit_original_message
-                kwargs = {}
-            else:
-                func = inter.send
-                kwargs = {"ephemeral": True} if not isinstance(inter, CustomContext) else {}
-
-            await func(embed=disnake.Embed(description=msg, color=self.bot.get_color(guild.me)), **kwargs)
-            await player.process_save_queue()
-
-        elif isinstance(inter, (disnake.MessageInteraction)):
-            player.set_command_log(f"{inter.author.mention} {txt[0]}", emoji="📢")
-            await player.invoke_np(force=True, interaction=inter)
-
-        else:
-            await self.interaction_message(inter, txt, emoji="📢", defered=True)
-
-        await player.update_stage_topic()
-
-    @stage_announce.autocomplete("template")
-    async def stage_announce_autocomplete(self, inter: disnake.Interaction, query: str):
-
-        return [
-            "Playing: {track.title} | {track.author}",
-            "{track.title} | Requested by: {requester.name}#{requester.tag}",
-            "24/7 Radio | {track.title}",
-            "{track.title} | Playlist: {track.playlist}",
-        ]
 
     play_cd = commands.CooldownMapping.from_cooldown(3, 12, commands.BucketType.member)
     play_mc = commands.MaxConcurrency(1, per=commands.BucketType.member, wait=False)

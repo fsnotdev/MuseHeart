@@ -17,6 +17,7 @@ from utils.db import DBModel
 from utils.music.checks import check_pool_bots
 from utils.music.converters import time_format, fix_characters, URL_REG
 from utils.music.errors import GenericError
+from utils.music.models import LavalinkPlayer
 from utils.music.skin_utils import skin_converter
 from utils.music.spotify import spotify_regex_w_user
 from utils.others import check_cmd, CustomContext, send_idle_embed, music_source_emoji_url, \
@@ -1713,13 +1714,186 @@ class SkinSettingsButton(disnake.ui.View):
         return True
 
 
-class SkinEditorModal(disnake.ui.Modal):
+class ViewModal(disnake.ui.Modal):
 
     def __init__(self, view: SkinEditorMenu, title: str, components: List[disnake.TextInput], custom_id: str):
         self.view = view
         super().__init__(title=title, components=components, custom_id=custom_id)
     async def callback(self, inter: disnake.ModalInteraction, /) -> None:
         await self.view.modal_handler(inter)
+
+class SetStageTitle(disnake.ui.View):
+    def __init__(self, ctx: Union[CustomContext, disnake.Interaction], bot: BotCore, guild: disnake.Guild, data: dict):
+        super().__init__(timeout=180)
+        self.ctx = ctx
+        self.bot = bot
+        self.data = data
+        self.guild = guild
+        self.message = None
+        self.placeholders = (
+                    '{track.title}', '{track.timestamp}', '{track.emoji}', '{track.author}', '{track.duration}',
+                    '{track.source}', '{track.playlist}',
+                    '{requester.name}', '{requester.id}'
+            )
+
+    @disnake.ui.button(emoji='🔊', style=disnake.ButtonStyle.grey, label="Ativar/Desativar status")
+    async def set_status(self, button, interaction: disnake.MessageInteraction):
+
+        await interaction.response.send_modal(
+            ViewModal(
+                components=[
+                    disnake.ui.TextInput(
+                        style=disnake.TextInputStyle.short,
+                        label="status",
+                        custom_id="status_voice_value",
+                        placeholder="Pra desativar deixe vazio",
+                        max_length=70,
+                        required=False
+                    ),
+                ],
+                view=self,
+                title="Definir status do canal",
+                custom_id="status_voice_channel_temp",
+            )
+        )
+
+    @disnake.ui.button(emoji='💾', style=disnake.ButtonStyle.grey, label="Ativar/Desativar status (permanente)")
+    async def set_status_perm(self, button, interaction: disnake.MessageInteraction):
+
+        await interaction.response.send_modal(
+            ViewModal(
+                components=[
+                    disnake.ui.TextInput(
+                        style=disnake.TextInputStyle.short,
+                        label="status permanente",
+                        custom_id="status_voice_value",
+                        placeholder="Pra desativar deixe vazio",
+                        max_length=70,
+                        required=False
+                    ),
+                ],
+                view=self,
+                title="Definir status do canal",
+                custom_id="status_voice_channel_perm",
+            )
+        )
+
+    def build_embed(self):
+
+        txt = "### Definir status automático no canal de voz ou palco\n"
+
+        if self.data['voice_channel_status']:
+            txt += f"**Modelo permanente atual:**\n{self.data['voice_channel_status']}"
+
+        txt += "**Placeholders:** `(Pelo menos 1 deve ser incluso no status)`\n" \
+               "```ansi\n[34;1m{track.title}[0m -> Nome da música\n" \
+               "[34;1m{track.author}[0m -> Nome do Artista/Uploader/Autor da música.\n" \
+               "[34;1m{track.duration}[0m -> Duração da música.\n" \
+               "[34;1m{track.timestamp}[0m -> Duração da música em contagem regressiva (apenas em canal de voz).\n" \
+               "[34;1m{track.source}[0m -> Origem/Fonte da música (Youtube/Spotify/Soundcloud etc)\n" \
+               "[34;1m{track.emoji}[0m -> Emoji da fonte de música (apenas em canal de voz).\n" \
+               "[34;1m{track.playlist}[0m -> Nome da playlist de origem da música (caso tenha)\n" \
+               "[34;1m{requester.name}[0m -> Nome/Nick do membro que pediu a música\n" \
+               "[34;1m{requester.id}[0m -> ID do membro que pediu a música```\n" \
+               "Exemplo: Tocando {track.title} | Por: {track.author}"
+
+        return disnake.Embed(description=txt, color=self.bot.get_color(self.guild.me))
+
+    async def modal_handler(self, inter: disnake.ModalInteraction):
+
+        if inter.text_values["status_voice_value"] and not any(
+                p in inter.text_values["status_voice_value"] for p in self.placeholders):
+            await inter.send("**Você deve usar pelo menos um placeholder válido...**", ephemeral=True)
+            return
+
+        if inter.data.custom_id == "status_voice_channel_perm":
+
+            if self.data["voice_channel_status"] == inter.text_values["status_voice_value"]:
+                await inter.send("**O status permanente atual é o mesmo do informado...**", ephemeral=True)
+                return
+
+            self.data["voice_channel_status"] = inter.text_values["status_voice_value"]
+
+            await inter.response.defer(ephemeral=True)
+
+            await self.bot.update_global_data(inter.guild_id, self.data, db_name=DBModel.guilds)
+
+            for b in self.bot.pool.bots:
+                for p in b.music.players.values():
+                    p.stage_title_event = True
+                    p.stage_title_template = inter.text_values["status_voice_value"]
+                    p.start_time = disnake.utils.utcnow()
+                    p.set_command_log(
+                        text=("ativou" if inter.text_values["status_voice_value"] else "desativou") + "o status automático",
+                        emoji="📢",
+                    )
+                    p.update = True
+                    await p.update_stage_topic()
+                    await p.process_save_queue()
+                    await asyncio.sleep(3)
+
+            await inter.edit_original_message("**Status permanente foi " + ("salvo" if inter.text_values["status_voice_value"] else "desativado") + "com sucesso!**" )
+
+        elif inter.data.custom_id == "status_voice_channel_temp":
+
+            try:
+                player: LavalinkPlayer = self.bot.music.players[inter.guild_id]
+            except KeyError:
+                await inter.send("**Não estou tocando música em um canal de voz/palco...**", ephemeral=True)
+                return
+
+            player.stage_title_event = True
+            player.stage_title_template = inter.text_values["status_voice_value"]
+            player.start_time = disnake.utils.utcnow()
+
+            await inter.response.defer(ephemeral=True)
+
+            await player.update_stage_topic()
+
+            await player.process_save_queue()
+
+            player.set_command_log(
+                text=("ativou" if inter.text_values["status_voice_value"] else "desativou") + "o status automático",
+                emoji="📢",
+            )
+
+            player.update = True
+
+            await inter.edit_original_message("**Status definido com sucesso!**" if inter.text_values["status_voice_value"] else "**Status desativado com sucesso!**")
+
+        else:
+            await inter.send(f"Não implementado: {inter.data.custom_id}", ephemeral=True)
+            return
+
+        await self.close()
+        self.stop()
+
+    async def on_timeout(self) -> None:
+        await self.close()
+
+    async def close(self):
+
+        for c in self.children:
+            c.disabled = True
+
+        if isinstance(self.ctx, CustomContext):
+            try:
+                await self.message.edit(view=self)
+            except:
+                pass
+        else:
+            try:
+                await self.ctx.edit_original_message(view=self)
+            except:
+                pass
+
+    async def interaction_check(self, inter: disnake.MessageInteraction) -> bool:
+        if inter.author.id != self.ctx.author.id:
+            await inter.send(f"Apenas o membro {self.ctx.author.mention} pode interagir nessa mensagem.",
+                             ephemeral=True)
+            return False
+        return True
+
 
 class SkinEditorMenu(disnake.ui.View):
 
@@ -1936,7 +2110,7 @@ class SkinEditorMenu(disnake.ui.View):
 
     async def edit_content(self, inter: disnake.MessageInteraction):
         await inter.response.send_modal(
-            SkinEditorModal(
+            ViewModal(
                 view=self, title="Edit/Add message content", custom_id="skin_editor_message_content",
                 components=[
                     disnake.ui.TextInput(
@@ -1964,7 +2138,7 @@ class SkinEditorMenu(disnake.ui.View):
             thumb_url = ""
 
         await inter.response.send_modal(
-            SkinEditorModal(
+            ViewModal(
                 view=self, title="Add Embed", custom_id="skin_editor_add_embed",
                 components=[
                     disnake.ui.TextInput(
@@ -2024,8 +2198,8 @@ class SkinEditorMenu(disnake.ui.View):
             thumb_url = ""
 
         await inter.response.send_modal(
-            SkinEditorModal(
-                view=self, title="Edit Main Fields of Embed", custom_id="skin_editor_edit_embed",
+            ViewModal(
+                view=self, title="Edit the main fields of the embed", custom_id="skin_editor_edit_embed",
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
@@ -2080,7 +2254,7 @@ class SkinEditorMenu(disnake.ui.View):
 
     async def add_field(self, inter: disnake.MessageInteraction):
         await inter.response.send_modal(
-            SkinEditorModal(
+            ViewModal(
                 view=self, title="Add field to embed", custom_id="skin_editor_add_field",
                 components=[
                     disnake.ui.TextInput(
@@ -2106,7 +2280,7 @@ class SkinEditorMenu(disnake.ui.View):
         field = self.message_data["embeds"][self.embed_index]["fields"][self.embed_field_index]
 
         await inter.response.send_modal(
-            SkinEditorModal(
+            ViewModal(
                 view=self, title="Edit main embed fields", custom_id="skin_editor_edit_field",
                 components=[
                     disnake.ui.TextInput(
@@ -2163,7 +2337,7 @@ class SkinEditorMenu(disnake.ui.View):
             footer_icon_url = ""
 
         await inter.response.send_modal(
-            SkinEditorModal(
+            ViewModal(
                 view=self, custom_id="skin_editor_set_authorfooter", title="Add/edit author/footer",
                 components = [
                     disnake.ui.TextInput(
@@ -2212,7 +2386,7 @@ class SkinEditorMenu(disnake.ui.View):
 
     async def setup_queue(self, inter: disnake.MessageInteraction):
         await inter.response.send_modal(
-            SkinEditorModal(
+            ViewModal(
                 view=self, title="Placeholder for the queue music list", custom_id="skin_editor_setup_queue",
                 components=[
                     disnake.ui.TextInput(
@@ -2241,7 +2415,7 @@ class SkinEditorMenu(disnake.ui.View):
 
     async def import_(self, inter: disnake.MessageInteraction):
         await inter.response.send_modal(
-            SkinEditorModal(
+            ViewModal(
                 view=self, title="Import skin", custom_id="skin_editor_import_skin",
                 components=[
                     disnake.ui.TextInput(
@@ -2258,7 +2432,7 @@ class SkinEditorMenu(disnake.ui.View):
     async def save(self, inter: disnake.MessageInteraction):
 
         await inter.response.send_modal(
-            SkinEditorModal(
+            ViewModal(
                 view=self, title="Enter the skin name", custom_id="skin_editor_save",
                 components=[
                     disnake.ui.TextInput(
