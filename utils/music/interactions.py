@@ -1736,7 +1736,7 @@ class SetStageTitle(disnake.ui.View):
                     '{requester.name}', '{requester.id}'
             )
 
-    @disnake.ui.button(emoji='🔊', style=disnake.ButtonStyle.grey, label="Ativar/Desativar status")
+    @disnake.ui.button(emoji='🔊', style=disnake.ButtonStyle.grey, label="Enable/Disable status")
     async def set_status(self, button, interaction: disnake.MessageInteraction):
 
         await interaction.response.send_modal(
@@ -1746,18 +1746,18 @@ class SetStageTitle(disnake.ui.View):
                         style=disnake.TextInputStyle.short,
                         label="status",
                         custom_id="status_voice_value",
-                        placeholder="Pra desativar deixe vazio",
+                        placeholder="Leave blank to disable",
                         max_length=70,
                         required=False
                     ),
                 ],
                 view=self,
-                title="Definir status do canal",
+                title="Set Voice Channel Status",
                 custom_id="status_voice_channel_temp",
             )
         )
 
-    @disnake.ui.button(emoji='💾', style=disnake.ButtonStyle.grey, label="Ativar/Desativar status (permanente)")
+    @disnake.ui.button(emoji='💾', style=disnake.ButtonStyle.grey, label="Enable/Disable status (permanent)")
     async def set_status_perm(self, button, interaction: disnake.MessageInteraction):
 
         await interaction.response.send_modal(
@@ -1765,37 +1765,37 @@ class SetStageTitle(disnake.ui.View):
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="status permanente",
+                        label="permanent status",
                         custom_id="status_voice_value",
-                        placeholder="Pra desativar deixe vazio",
+                        placeholder="Leave blank to disable",
                         max_length=70,
                         required=False
                     ),
                 ],
                 view=self,
-                title="Definir status do canal",
+                title="Set Voice Channel Status",
                 custom_id="status_voice_channel_perm",
             )
         )
 
     def build_embed(self):
 
-        txt = "### Definir status automático no canal de voz ou palco\n"
+        txt = "### Set automatic status in voice channel or stage\n"
 
         if self.data['voice_channel_status']:
-            txt += f"**Modelo permanente atual:**\n{self.data['voice_channel_status']}"
+            txt += f"**Current permanent template:**\n{self.data['voice_channel_status']}"
 
-        txt += "**Placeholders:** `(Pelo menos 1 deve ser incluso no status)`\n" \
-               "```ansi\n[34;1m{track.title}[0m -> Nome da música\n" \
-               "[34;1m{track.author}[0m -> Nome do Artista/Uploader/Autor da música.\n" \
-               "[34;1m{track.duration}[0m -> Duração da música.\n" \
-               "[34;1m{track.timestamp}[0m -> Duração da música em contagem regressiva (apenas em canal de voz).\n" \
-               "[34;1m{track.source}[0m -> Origem/Fonte da música (Youtube/Spotify/Soundcloud etc)\n" \
-               "[34;1m{track.emoji}[0m -> Emoji da fonte de música (apenas em canal de voz).\n" \
-               "[34;1m{track.playlist}[0m -> Nome da playlist de origem da música (caso tenha)\n" \
-               "[34;1m{requester.name}[0m -> Nome/Nick do membro que pediu a música\n" \
-               "[34;1m{requester.id}[0m -> ID do membro que pediu a música```\n" \
-               "Exemplo: Tocando {track.title} | Por: {track.author}"
+        txt += "**Placeholders:** `(At least 1 must be included in the status)`\n" \
+               "```ansi\n[34;1m{track.title}[0m -> Song name\n" \
+               "[34;1m{track.author}[0m -> Artist/Uploader/Author of the song.\n" \
+               "[34;1m{track.duration}[0m -> Song duration.\n" \
+               "[34;1m{track.timestamp}[0m -> Song duration in countdown format (only in voice channel).\n" \
+               "[34;1m{track.source}[0m -> Song source (Youtube/Spotify/Soundcloud etc)\n" \
+               "[34;1m{track.emoji}[0m -> Emoji of the song source (only in voice channel).\n" \
+               "[34;1m{track.playlist}[0m -> Name of the original playlist of the song (if any)\n" \
+               "[34;1m{requester.name}[0m -> Name/Nickname of the member who requested the song\n" \
+               "[34;1m{requester.id}[0m -> ID of the member who requested the song```\n" \
+               "Example: Playing {track.title} | By: {track.author}"
 
         return disnake.Embed(description=txt, color=self.bot.get_color(self.guild.me))
 
@@ -1803,13 +1803,13 @@ class SetStageTitle(disnake.ui.View):
 
         if inter.text_values["status_voice_value"] and not any(
                 p in inter.text_values["status_voice_value"] for p in self.placeholders):
-            await inter.send("**Você deve usar pelo menos um placeholder válido...**", ephemeral=True)
+            await inter.send("**You must use at least one valid placeholder...**", ephemeral=True)
             return
 
         if inter.data.custom_id == "status_voice_channel_perm":
 
             if self.data["voice_channel_status"] == inter.text_values["status_voice_value"]:
-                await inter.send("**O status permanente atual é o mesmo do informado...**", ephemeral=True)
+                await inter.send("**The current permanent status is the same as the one provided...**", ephemeral=True)
                 return
 
             self.data["voice_channel_status"] = inter.text_values["status_voice_value"]
@@ -1824,7 +1824,7 @@ class SetStageTitle(disnake.ui.View):
                     p.stage_title_template = inter.text_values["status_voice_value"]
                     p.start_time = disnake.utils.utcnow()
                     p.set_command_log(
-                        text=("ativou" if inter.text_values["status_voice_value"] else "desativou") + "o status automático",
+                        text=("enabled" if inter.text_values["status_voice_value"] else "disabled") + " automatic status",
                         emoji="📢",
                     )
                     p.update = True
@@ -1832,14 +1832,14 @@ class SetStageTitle(disnake.ui.View):
                     await p.process_save_queue()
                     await asyncio.sleep(3)
 
-            await inter.edit_original_message("**Status permanente foi " + ("salvo" if inter.text_values["status_voice_value"] else "desativado") + "com sucesso!**" )
+            await inter.edit_original_message("**Permanent status was " + ("saved" if inter.text_values["status_voice_value"] else "disabled") + " successfully!**" )
 
         elif inter.data.custom_id == "status_voice_channel_temp":
 
             try:
                 player: LavalinkPlayer = self.bot.music.players[inter.guild_id]
             except KeyError:
-                await inter.send("**Não estou tocando música em um canal de voz/palco...**", ephemeral=True)
+                await inter.send("**I am not playing music in a voice/stage channel...**", ephemeral=True)
                 return
 
             player.stage_title_event = True
@@ -1853,16 +1853,16 @@ class SetStageTitle(disnake.ui.View):
             await player.process_save_queue()
 
             player.set_command_log(
-                text=("ativou" if inter.text_values["status_voice_value"] else "desativou") + "o status automático",
+                text=("enabled" if inter.text_values["status_voice_value"] else "disabled") + " automatic status",
                 emoji="📢",
             )
 
             player.update = True
 
-            await inter.edit_original_message("**Status definido com sucesso!**" if inter.text_values["status_voice_value"] else "**Status desativado com sucesso!**")
+            await inter.edit_original_message("**Status set successfully!**" if inter.text_values["status_voice_value"] else "**Status disabled successfully!**")
 
         else:
-            await inter.send(f"Não implementado: {inter.data.custom_id}", ephemeral=True)
+            await inter.send(f"Not implemented: {inter.data.custom_id}", ephemeral=True)
             return
 
         await self.close()
@@ -1889,7 +1889,7 @@ class SetStageTitle(disnake.ui.View):
 
     async def interaction_check(self, inter: disnake.MessageInteraction) -> bool:
         if inter.author.id != self.ctx.author.id:
-            await inter.send(f"Apenas o membro {self.ctx.author.mention} pode interagir nessa mensagem.",
+            await inter.send(f"Only member {self.ctx.author.mention} can interact with this message.",
                              ephemeral=True)
             return False
         return True
