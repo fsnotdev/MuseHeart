@@ -12,6 +12,8 @@ import disnake
 import asyncio
 import wavelink
 from urllib import parse
+
+from utils.music.checks import can_connect
 from utils.music.converters import fix_characters, time_format, get_button_style, YOUTUBE_VIDEO_REG
 from utils.music.skin_utils import skin_converter
 from utils.music.filters import AudioFilter
@@ -914,7 +916,7 @@ class LavalinkPlayer(wavelink.Player):
 
             if event.code == 4014:
 
-                if self.guild.me.voice:
+                if self.guild.me.voice or self._new_node_task:
                     return
 
                 if self.static:
@@ -2459,8 +2461,7 @@ class LavalinkPlayer(wavelink.Player):
 
         while True:
 
-            nodes = sorted([n for n in self.bot.music.nodes.values() if n.is_available
-                               and n.available and n.identifier != ignore_node],
+            nodes = sorted([n for n in self.bot.music.nodes.values() if n.is_available and n.identifier != ignore_node],
                               key=lambda n: n.stats.players)
             if not nodes:
                 await asyncio.sleep(5)
@@ -2476,12 +2477,26 @@ class LavalinkPlayer(wavelink.Player):
                 await asyncio.sleep(5)
                 continue
 
+            if not self.guild.me.voice:
+                try:
+                    can_connect(self.last_channel, self.guild, bot=self.bot)
+                except Exception as e:
+                    self.set_command_log(f"O player foi finalizado devido ao erro: {e}")
+                    await self.destroy()
+                    return
+                await self.connect(self.last_channel.id)
+
+            self.set_command_log(emoji=original_log_emoji, text=original_log)
+
             try:
-                self.set_command_log(emoji=original_log_emoji, text=original_log)
-                await self.invoke_np(force=True)
+                if self.auto_pause:
+                    self.auto_skip_track_task = self.bot.loop.create_task(self.auto_skip_track())
+                else:
+                    await self.invoke_np(force=True)
             except:
                 traceback.print_exc()
 
+            self._new_node_task = None
             return
 
     async def _send_rpc_data(self, users: List[int], stats: dict):
