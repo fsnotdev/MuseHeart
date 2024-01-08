@@ -301,7 +301,7 @@ class PlayerSession(commands.Cog):
                 guild = self.bot.get_guild(data["_id"])
 
                 if self.bot.music.players.get(int(data["_id"])):
-                    print(f"{self.bot.user} - Ignorando player já existente: {data['_id']}")
+                    print(f"{self.bot.user} - Ignoring existing player: {data['_id']}")
                     continue
 
                 if not guild:
@@ -518,7 +518,7 @@ class PlayerSession(commands.Cog):
                     try:
                         await guild.me.edit(suppress=False)
                     except Exception as e:
-                        print(f"{self.bot.user} - Falha ao falar no palco do servidor {guild.name}. Erro: {repr(e)}")
+                        print(f"{self.bot.user} - Failed to speak in the server stage {guild.name}. Error: {repr(e)}")
                         continue
 
                 player.set_command_log(
