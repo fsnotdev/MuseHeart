@@ -1743,11 +1743,11 @@ class SetStageTitle(disnake.ui.View):
             ViewModal(
                 components=[
                     disnake.ui.TextInput(
-                        style=disnake.TextInputStyle.short,
+                        style=disnake.TextInputStyle.long,
                         label="status",
                         custom_id="status_voice_value",
                         placeholder="Leave blank to disable",
-                        max_length=70,
+                        max_length=496,
                         required=False
                     ),
                 ],
@@ -1764,11 +1764,11 @@ class SetStageTitle(disnake.ui.View):
             ViewModal(
                 components=[
                     disnake.ui.TextInput(
-                        style=disnake.TextInputStyle.short,
+                        style=disnake.TextInputStyle.long,
                         label="permanent status",
                         custom_id="status_voice_value",
                         placeholder="Leave blank to disable",
-                        max_length=70,
+                        max_length=496,
                         required=False
                     ),
                 ],
@@ -1800,6 +1800,8 @@ class SetStageTitle(disnake.ui.View):
         return disnake.Embed(description=txt, color=self.bot.get_color(self.guild.me))
 
     async def modal_handler(self, inter: disnake.ModalInteraction):
+
+        inter.text_values["status_voice_value"] = inter.text_values["status_voice_value"].replace("\n", " ").strip()
 
         if inter.text_values["status_voice_value"] and not any(
                 p in inter.text_values["status_voice_value"] for p in self.placeholders):

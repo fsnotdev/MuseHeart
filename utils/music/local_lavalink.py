@@ -194,23 +194,22 @@ def run_lavalink(
     if 0 < lavalink_initial_ram < lavalink_ram_limit:
         java_cmd += f" -Xms{lavalink_ram_limit}m"
 
-    try:
-        shutil.rmtree("./.tempjar")
-    except:
-        pass
+    if os.name != "nt":
 
-    try:
+        if os.path.isdir("./.tempjar"):
+            shutil.rmtree("./.tempjar")
+
         os.makedirs("./.tempjar/undertow-docbase.80.2258596138812103750")
-    except:
-        pass
 
-    java_cmd += f" -Djava.io.tmpdir={os.getcwd()}/.tempjar -jar Lavalink.jar"
+        java_cmd += f" -Djava.io.tmpdir={os.getcwd()}/.tempjar"
 
     if clear_plugins:
         try:
             shutil.rmtree("./plugins")
         except:
             pass
+
+    java_cmd += " -jar Lavalink.jar"
 
     print(f"Starting Lavalink server (depending on the hosting, Lavalink may take a while to start, "
           f"which may cause failures in some connection attempts until it fully starts).\n{'-' * 30}")
