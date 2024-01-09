@@ -1723,6 +1723,24 @@ class ViewModal(disnake.ui.Modal):
         await self.view.modal_handler(inter)
 
 class SetStageTitle(disnake.ui.View):
+
+    placeholders = (
+        '{track.title}', '{track.timestamp}', '{track.emoji}', '{track.author}', '{track.duration}',
+        '{track.source}', '{track.playlist}',
+        '{requester.name}', '{requester.id}'
+    )
+
+    placeholder_text = "```ansi\n[34;1m{track.title}[0m -> Nome da música\n" \
+               "[34;1m{track.author}[0m -> Nome do Artista/Uploader/Autor da música.\n" \
+               "[34;1m{track.duration}[0m -> Duração da música.\n" \
+               "[34;1m{track.timestamp}[0m -> Duração da música em contagem regressiva (apenas em canal de voz).\n" \
+               "[34;1m{track.source}[0m -> Origem/Fonte da música (Youtube/Spotify/Soundcloud etc)\n" \
+               "[34;1m{track.emoji}[0m -> Emoji da fonte de música (apenas em canal de voz).\n" \
+               "[34;1m{track.playlist}[0m -> Nome da playlist de origem da música (caso tenha)\n" \
+               "[34;1m{requester.name}[0m -> Nome/Nick do membro que pediu a música\n" \
+               "[34;1m{requester.id}[0m -> ID do membro que pediu a música```\n" \
+               "Exemplo: Tocando {track.title} | Por: {track.author}"
+
     def __init__(self, ctx: Union[CustomContext, disnake.Interaction], bot: BotCore, guild: disnake.Guild, data: dict):
         super().__init__(timeout=180)
         self.ctx = ctx
@@ -1730,11 +1748,6 @@ class SetStageTitle(disnake.ui.View):
         self.data = data
         self.guild = guild
         self.message = None
-        self.placeholders = (
-                    '{track.title}', '{track.timestamp}', '{track.emoji}', '{track.author}', '{track.duration}',
-                    '{track.source}', '{track.playlist}',
-                    '{requester.name}', '{requester.id}'
-            )
 
     @disnake.ui.button(emoji='🔊', style=disnake.ButtonStyle.grey, label="Enable/Disable status")
     async def set_status(self, button, interaction: disnake.MessageInteraction):
@@ -1785,17 +1798,7 @@ class SetStageTitle(disnake.ui.View):
         if self.data['voice_channel_status']:
             txt += f"**Current permanent template:**\n{self.data['voice_channel_status']}"
 
-        txt += "**Placeholders:** `(At least 1 must be included in the status)`\n" \
-               "```ansi\n[34;1m{track.title}[0m -> Song name\n" \
-               "[34;1m{track.author}[0m -> Artist/Uploader/Author of the song.\n" \
-               "[34;1m{track.duration}[0m -> Song duration.\n" \
-               "[34;1m{track.timestamp}[0m -> Song duration in countdown format (only in voice channel).\n" \
-               "[34;1m{track.source}[0m -> Song source (Youtube/Spotify/Soundcloud etc)\n" \
-               "[34;1m{track.emoji}[0m -> Emoji of the song source (only in voice channel).\n" \
-               "[34;1m{track.playlist}[0m -> Name of the original playlist of the song (if any)\n" \
-               "[34;1m{requester.name}[0m -> Name/Nickname of the member who requested the song\n" \
-               "[34;1m{requester.id}[0m -> ID of the member who requested the song```\n" \
-               "Example: Playing {track.title} | By: {track.author}"
+        txt += f"**Placeholders:** `(At least 1 must be included in the status)`\n{self.placeholder_text}"
 
         return disnake.Embed(description=txt, color=self.bot.get_color(self.guild.me))
 
