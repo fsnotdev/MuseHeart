@@ -1810,7 +1810,7 @@ class LavalinkPlayer(wavelink.Player):
             except Exception as e:
                 if isinstance(e, disnake.Forbidden) and e.code == 403:
                     self.stage_title_event = False
-                    self.set_command_log(emoji="❌", text="O status automático foi desativado devido a falta de permissão pra alterar status.")
+                    self.set_command_log(emoji="❌", text="The automatic status has been deactivated due to a lack of permission to change status.")
                     self.update = True
                 print(traceback.format_exc())
 

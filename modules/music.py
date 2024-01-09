@@ -272,7 +272,7 @@ class Music(commands.Cog):
     )
     async def stage_announce(
             self, inter: disnake.AppCmdInter,
-            template: str = commands.Param(name="modelo", default="")
+            template: str = commands.Param(name="model", default="")
     ):
 
         if isinstance(template, commands.ParamInfo):
@@ -300,7 +300,7 @@ class Music(commands.Cog):
             await view.wait()
         else:
             if not any(p in template for p in SetStageTitle.placeholders):
-                raise GenericError(f"**Você deve usar pelo menos um placeholder válido:** {SetStageTitle.placeholder_text}")
+                raise GenericError(f"**You must use at least one valid placeholder:** {SetStageTitle.placeholder_text}")
 
             await inter.response.defer(ephemeral=True)
 
@@ -313,14 +313,14 @@ class Music(commands.Cog):
 
             await player.process_save_queue()
 
-            player.set_command_log(text="ativou o status automático", emoji="📢")
+            player.set_command_log(text="activated automatic status", emoji="📢")
 
             player.update = True
 
             if isinstance(inter, CustomContext):
-                await inter.send("**O status automático foi definido com sucesso!**")
+                await inter.send("**The automatic status has been successfully set!**")
             else:
-                await inter.edit_original_message("**O status automático foi definido com sucesso!**")
+                await inter.edit_original_message("**The automatic status has been successfully set!**")
 
 
     play_cd = commands.CooldownMapping.from_cooldown(3, 12, commands.BucketType.member)
@@ -1709,7 +1709,7 @@ class Music(commands.Cog):
                                 tracks_playlists[t.playlist_url] = {"name": t.playlist_name, "count": 1}
 
                     if tracks_playlists:
-                        embed_description += "\n### Playlists carregadas:\n" + "\n".join(f"[`{info['name']}`]({url}) `- {info['count']} música(s)` " for url, info in tracks_playlists.items()) + "\n"
+                        embed_description += "\n### Loaded playlists:\n" + "\n".join(f"[`{info['name']}`]({url}) `- {info['count']} song(s)` " for url, info in tracks_playlists.items()) + "\n"
 
                 else:
                     query = fix_characters(query.replace(f"{source}:", '', 1), 25)
