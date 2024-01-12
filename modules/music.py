@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
+import asyncio
 import datetime
 import json
 import os.path
 import pickle
 import re
 import traceback
-import asyncio
 import zlib
 from base64 import b64decode
 from copy import deepcopy
-from typing import Union, Optional
 from random import shuffle
+from typing import Union, Optional
 from urllib.parse import urlparse, parse_qs
 
 import aiofiles
@@ -20,19 +20,18 @@ from aiohttp import ClientConnectorCertificateError
 from disnake.ext import commands
 
 import wavelink
-
 from utils.client import BotCore
 from utils.db import DBModel
-from utils.music.errors import GenericError, MissingVoicePerms, NoVoice, PoolException, parse_error, EmptyFavIntegration
-from utils.music.spotify import process_spotify, spotify_regex_w_user
 from utils.music.checks import check_voice, has_player, has_source, is_requester, is_dj, \
     can_send_message_check, check_requester_channel, can_send_message, can_connect, check_deafen, check_pool_bots, \
     check_channel_limit, check_stage_topic, check_queue_loading
-from utils.music.models import LavalinkPlayer, LavalinkTrack, LavalinkPlaylist
 from utils.music.converters import time_format, fix_characters, string_to_seconds, URL_REG, \
-    YOUTUBE_VIDEO_REG, google_search, percentage, music_source_image, perms_translations
+    YOUTUBE_VIDEO_REG, google_search, percentage, music_source_image
+from utils.music.errors import GenericError, MissingVoicePerms, NoVoice, PoolException, parse_error, EmptyFavIntegration
 from utils.music.interactions import VolumeInteraction, QueueInteraction, SelectInteraction, FavMenuView, ViewMode, \
     SetStageTitle
+from utils.music.models import LavalinkPlayer, LavalinkTrack, LavalinkPlaylist
+from utils.music.spotify import process_spotify, spotify_regex_w_user
 from utils.others import check_cmd, send_idle_embed, CustomContext, PlayerControls, queue_track_index, \
     pool_command, string_to_file, CommandArgparse, music_source_emoji_url, SongRequestPurgeMode, song_request_buttons, \
     select_bot_pool
@@ -1883,8 +1882,7 @@ class Music(commands.Cog):
         if URL_REG.match(query):
             return [query] if len(query) < 100 else []
 
-        favs = [">> [⭐ Favorites ⭐] <<", ">> [💠 Integrations 💠] <<", ">> [📌 Server favorites 📌] <<",
-                ">> [📑 Recent songs 📑] <<"]
+        favs = [">> [⭐ Favorites ⭐] <<", ">> [💠 Integrations 💠] <<", ">> [📌 Server favorites 📌] <<"]
 
         if os.path.isfile(f"./local_database/saved_queues_v1/users/{inter.author.id}.pkl"):
             favs.append(">> [💾 Saved Queue 💾] <<")
@@ -1900,10 +1898,14 @@ class Music(commands.Cog):
         except AttributeError:
             vc = True
 
-        if not vc or not query:
-            return favs
+        user_data = await self.bot.get_global_data(inter.author.id, db_name=DBModel.users)
 
-        return await google_search(self.bot, query, max_entries=20) or favs
+        favs.extend([(f"{rec['url']} || {rec['name']}"[:100] if len(rec['url']) < 101 else rec['name'][:100]) for rec in user_data["last_tracks"]])
+
+        if not vc or not query:
+            return favs[:20]
+
+        return await google_search(self.bot, query, max_entries=20) or favs[:20]
 
     skip_back_cd = commands.CooldownMapping.from_cooldown(2, 13, commands.BucketType.member)
     skip_back_mc = commands.MaxConcurrency(1, per=commands.BucketType.member, wait=False)
@@ -5349,7 +5351,7 @@ class Music(commands.Cog):
                 source = self.bot.config["DEFAULT_SEARCH_PROVIDER"]
 
             else:
-                source = None
+                source = False
                 message.content = urls[0]
 
                 if "&list=" in message.content:
@@ -6016,11 +6018,12 @@ class Music(commands.Cog):
                     providers = [s for s in (node.search_providers or [self.bot.config["DEFAULT_SEARCH_PROVIDER"]]) if s != source]
                     providers.insert(0, source)
                 else:
+                    source = True
                     providers = node.search_providers or [self.bot.config["DEFAULT_SEARCH_PROVIDER"]]
 
                 for search_provider in providers:
 
-                    search_query = f"{search_provider}:{query}" if source is not False else query
+                    search_query = f"{search_provider}:{query}" if source else query
 
                     try:
                         tracks = await node_search.get_tracks(
@@ -6048,9 +6051,10 @@ class Music(commands.Cog):
                             raise GenericError("**There are no music servers available.**")
 
                     except Exception as e:
+                        print(f"Failed to process search...\n{query}\n{traceback.format_exc()}")
                         exceptions.add(repr(e))
 
-                    if tracks or source is False:
+                    if tracks or not source:
                         break
 
         if not tracks:

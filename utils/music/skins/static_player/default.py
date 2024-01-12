@@ -59,9 +59,10 @@ class DefaultStaticSkin:
 
         queue_img = ""
 
-        duration = "> 🔴 **⠂Duration:** `Livestream`\n" if player.current.is_stream else \
-            (f"> ⏰ **⠂Duration:** `{time_format(player.current.duration)} [`" +
-            f"<t:{int((disnake.utils.utcnow() + datetime.timedelta(milliseconds=player.current.duration - player.position)).timestamp())}:R>`]`\n"
+        current_time = disnake.utils.utcnow() - datetime.timedelta(milliseconds=player.position)
+
+        duration = f"> 🔴 **⠂Livestream:** <t:{int(current_time.timestamp())}:R>\n" if player.current.is_stream else \
+            (f"> ⏰ **⠂Duration:** `{time_format(player.current.duration)} [`<t:{int(current_time.timestamp())}:R>`]`\n"
             if not player.paused else '')
 
         txt = f"[`{player.current.single_title}`]({player.current.uri or player.current.search_uri})\n\n" \
@@ -108,23 +109,46 @@ class DefaultStaticSkin:
 
         if qlenght:=len(player.queue):
 
-            queue_txt = "\n".join(
-                f"`{(n + 1):02}) [{time_format(t.duration) if not t.is_stream else '🔴 Livestream'}]` [`{fix_characters(t.title, 33)}`]({t.uri})"
-                for n, t in (enumerate(itertools.islice(player.queue, 20)))
-            )
+            queue_txt = ""
+
+            has_stream = False
+
+            current_time += datetime.timedelta(milliseconds=player.current.duration)
+
+            queue_duration = 0
+
+            for n, t in enumerate(player.queue):
+
+                if t.is_stream:
+                    has_stream = True
+
+                elif n != 0:
+                    queue_duration += t.duration
+
+                if n > 9:
+                    if has_stream:
+                        break
+                    continue
+
+                if has_stream:
+                    duration = time_format(t.duration) if not t.is_stream else '🔴 Ao vivo'
+
+                    queue_txt += f"`┌ {n+1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
+                           f"`└ ⏲️ {duration}`" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
+                           f" **|** `✋` <@{t.requester}>\n"
+
+                else:
+                    duration = f"<t:{int((current_time + datetime.timedelta(milliseconds=queue_duration)).timestamp())}:R>"
+
+                    queue_txt += f"`┌ {n+1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
+                           f"`└ ⏲️` {duration}" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
+                           f" **|** `✋` <@{t.requester}>\n"
 
             embed_queue = disnake.Embed(title=f"Songs in queue: {qlenght}", color=player.bot.get_color(player.guild.me),
                                         description=f"\n{queue_txt}")
 
-            if not player.loop and not player.keep_connected and not player.paused and not player.current.is_stream:
-
-                queue_duration = 0
-
-                for t in player.queue:
-                    if not t.is_stream:
-                        queue_duration += t.duration
-
-                embed_queue.description += f"\n`[⌛ Songs end` <t:{int((disnake.utils.utcnow() + datetime.timedelta(milliseconds=(queue_duration + (player.current.duration if not player.current.is_stream else 0)) - player.position)).timestamp())}:R> `⌛]`"
+            if not has_stream and not player.loop and not player.keep_connected and not player.paused and not player.current.is_stream:
+                embed_queue.description += f"\n`[ ⌛ Songs end` <t:{int((current_time + datetime.timedelta(milliseconds=queue_duration + player.current.duration)).timestamp())}:R> `⌛ ]`"
 
             embed_queue.set_image(url=queue_img)
 
@@ -198,7 +222,7 @@ class DefaultStaticSkin:
                     disnake.SelectOption(
                         label=("Disable" if player.restrict_mode else "Enable") + " restrict mode", emoji="🔐",
                         value=PlayerControls.restrict_mode,
-                        description="Only DJ's/Staff's can use restricted commands."
+                        description="Only DJ/Staff can use restricted commands."
                     ),
                 ]
             ),

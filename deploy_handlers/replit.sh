@@ -8,10 +8,10 @@ if [ "${SOURCE_AUTO_UPDATE,,}" == "true" ]; then
 fi
 
 if [ ! -d "venv" ] || [ ! -f "./venv/bin/requirements.txt" ] || [ ! "$REPL_SLUG-$REPL_OWNER" == "$(cat ./venv/.deployed)" ]; then
-  rm -rf venv .config .cache local_database .logs Lavalink.jar pyproject.toml poetry.lock
-  echo -e "\n###################################" \
+  rm -rf venv .config .cache local_database .logs Lavalink.jar plugins pyproject.toml poetry.lock
+  echo -e "\n####################################" \
           "\n### Initializing virtual_env... ###" \
-          "\n###################################\n"
+          "\n####################################\n"
   python3 -m venv venv
   . venv/bin/activate
   python3 -m pip install -U pip

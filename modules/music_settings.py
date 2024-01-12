@@ -1,26 +1,27 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+
 import asyncio
+import datetime
 import os
 import pickle
 import random
 import string
+import traceback
 from base64 import b64decode
 from typing import TYPE_CHECKING, Union, Optional
-import datetime
-import traceback
 
-import humanize
 import disnake
+import humanize
 from disnake.ext import commands
 
 from utils.db import DBModel
 from utils.music.converters import perms_translations, time_format
 from utils.music.errors import GenericError, NoVoice
 from utils.music.interactions import SkinEditorMenu
+from utils.music.models import LavalinkPlayer
 from utils.others import send_idle_embed, CustomContext, select_bot_pool, pool_command, CommandArgparse, \
     SongRequestPurgeMode, update_inter
-from utils.music.models import LavalinkPlayer
 
 if TYPE_CHECKING:
     from utils.client import BotCore
@@ -277,10 +278,14 @@ class PlayerSettings(disnake.ui.View):
         await interaction.response.edit_message(view=self)
 
     async def close_callback(self, interaction: disnake.MessageInteraction):
-        if isinstance(self.ctx, CustomContext):
-            await interaction.message.delete()
-        else:
-            await interaction.response.edit_message(content="Changes saved successfully!", view=None, embed=None)
+
+        try:
+            if isinstance(self.ctx, CustomContext):
+                await self.message.edit(content="Changes saved successfully!", view=None, embed=None)
+            else:
+                await self.ctx.edit_original_message(content="Changes saved successfully!", view=None, embed=None)
+        except Exception:
+            traceback.print_exc()
         await self.save_data()
         self.stop()
 
@@ -354,7 +359,7 @@ class MusicSettings(commands.Cog):
     )
     async def player_settings(self, interaction: disnake.AppCmdInter):
 
-        inter, bot = await select_bot_pool(interaction)
+        inter, bot = await select_bot_pool(interaction, return_new=True)
 
         if not bot:
             return

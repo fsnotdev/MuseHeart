@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import disnake
-from disnake.ext import commands
-from aiohttp import ClientSession
 import asyncio
 import traceback
+from typing import TYPE_CHECKING, Optional
+
+import disnake
+from aiohttp import ClientSession
+from disnake.ext import commands
 
 from utils.music.converters import URL_REG
 from utils.music.errors import parse_error, PoolException
 from utils.others import send_message, CustomContext, string_to_file, paginator
-from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from utils.client import BotCore
@@ -85,6 +86,9 @@ class ErrorHandler(commands.Cog):
             return
 
         error_msg, full_error_msg, kill_process, components, mention_author = parse_error(inter, error)
+
+        if isinstance(error, disnake.NotFound) and str(error).endswith("Unknown Interaction"):
+            return
 
         kwargs = {"text": ""}
         send_webhook = False

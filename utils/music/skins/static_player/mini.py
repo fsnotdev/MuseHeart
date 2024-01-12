@@ -87,24 +87,47 @@ class MiniStaticSkin:
 
         if queue_size:
 
-            queue_txt = "\n".join(
-                f"`{(n + 1):02}) [{time_format(t.duration) if not t.is_stream else '🔴 Livestream'}]` [`{fix_characters(t.title, 28)}`]({t.uri})"
-                for n, t in (enumerate(itertools.islice(player.queue, 15)))
-            )
+            queue_txt = ""
 
-            embed_queue = disnake.Embed(title=f"Songs in queue: {len(player.queue)}",
+            has_stream = False
+
+            current_time = disnake.utils.utcnow() - datetime.timedelta(milliseconds=player.position + player.current.duration)
+
+            queue_duration = 0
+
+            for n, t in enumerate(player.queue):
+
+                if t.is_stream:
+                    has_stream = True
+
+                elif n != 0:
+                    queue_duration += t.duration
+
+                if n > 9:
+                    if has_stream:
+                        break
+                    continue
+
+                if has_stream:
+                    duration = time_format(t.duration) if not t.is_stream else '🔴 Live'
+
+                    queue_txt += f"`┌ {n + 1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
+                                 f"`└ ⏲️ {duration}`" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
+                                 f" **|** `✋` <@{t.requester}>\n"
+
+                else:
+                    duration = f"<t:{int((current_time + datetime.timedelta(milliseconds=queue_duration)).timestamp())}:R>"
+
+                    queue_txt += f"`┌ {n + 1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
+                                 f"`└ ⏲️` {duration}" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
+                                 f" **|** `✋` <@{t.requester}>\n"
+
+            embed_queue = disnake.Embed(title=f"Songs in queue: {queue_size}",
                                         color=player.bot.get_color(player.guild.me),
                                         description=f"\n{queue_txt}")
 
-            if not player.loop and not player.paused and not player.current.is_stream:
-
-                queue_duration = 0
-
-                for t in player.queue:
-                    if not t.is_stream:
-                        queue_duration += t.duration
-
-                embed_queue.description += f"\n`[⌛ Songs end` <t:{int((disnake.utils.utcnow() + datetime.timedelta(milliseconds=(queue_duration + (player.current.duration if not player.current.is_stream else 0)) - player.position)).timestamp())}:R> `⌛]`"
+            if not has_stream and not player.loop and not player.keep_connected and not player.paused and not player.current.is_stream:
+                embed_queue.description += f"\n`[ ⌛ Songs end` <t:{int((current_time + datetime.timedelta(milliseconds=queue_duration + player.current.duration)).timestamp())}:R> `⌛ ]`"
 
         if player.current_hint:
             embed.set_footer(text=f"💡 Hint: {player.current_hint}")
@@ -175,7 +198,7 @@ class MiniStaticSkin:
                     disnake.SelectOption(
                         label=("Disable" if player.restrict_mode else "Enable") + " restrict mode", emoji="🔐",
                         value=PlayerControls.restrict_mode,
-                        description="Only DJ's/Staff's can use restricted commands."
+                        description="Only DJ/Staff can use restricted commands."
                     ),
                 ]
             ),

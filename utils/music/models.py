@@ -1,28 +1,29 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+
+import asyncio
 import datetime
 import pprint
 import random
+import traceback
 import uuid
+from collections import deque
 from itertools import cycle
 from time import time
+from typing import Optional, Union, TYPE_CHECKING, List
+from urllib import parse
 from urllib.parse import quote
 
 import disnake
-import asyncio
-import wavelink
-from urllib import parse
 
+import wavelink
+from utils.db import DBModel
 from utils.music.checks import can_connect
 from utils.music.converters import fix_characters, time_format, get_button_style, YOUTUBE_VIDEO_REG
-from utils.music.skin_utils import skin_converter
 from utils.music.filters import AudioFilter
-from utils.db import DBModel
+from utils.music.skin_utils import skin_converter
 from utils.others import music_source_emoji, send_idle_embed, PlayerControls, SongRequestPurgeMode, \
     song_request_buttons
-import traceback
-from collections import deque
-from typing import Optional, Union, TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from utils.client import BotCore
@@ -233,7 +234,10 @@ class LavalinkPlaylist:
 
         try:
             if self.data['tracks'][0]['info'].get("sourceName") == "youtube":
-                self.url = f"https://www.youtube.com/playlist?list={parse.parse_qs(parse.urlparse(self.url).query)['list'][0]}"
+                try:
+                    self.url = f"https://www.youtube.com/playlist?list={parse.parse_qs(parse.urlparse(self.url).query)['list'][0]}"
+                except KeyError:
+                    pass
         except IndexError:
             pass
         self.tracks = [LavalinkTrack(
@@ -915,22 +919,30 @@ class LavalinkPlayer(wavelink.Player):
                 return
 
             if event.code == 4014:
+                await asyncio.sleep(5)
 
-                if self.guild.me.voice or self._new_node_task:
-                    return
+                vc = self.bot.get_channel(self.last_channel.id)
 
-                if self.static:
-                    self.command_log = "I turned off the player due to loss of connection with the voice channel."
-                    await self.destroy()
+                if not vc:
 
-                else:
-                    embed = disnake.Embed(description="**I turned off the player due to loss of connection with the voice channel.**",
-                                          color=self.bot.get_color(self.guild.me))
-                    try:
-                        self.bot.loop.create_task(self.text_channel.send(embed=embed, delete_after=7))
-                    except:
-                        traceback.print_exc()
-                    await self.destroy()
+                    msg = "The voice channel was deleted...."
+
+                    if self.static:
+                        self.command_log = msg
+                        await self.destroy()
+
+                    else:
+                        embed = disnake.Embed(
+                            description=msg,
+                            color=self.bot.get_color(self.guild.me))
+                        try:
+                            self.bot.loop.create_task(self.text_channel.send(embed=embed, delete_after=7))
+                        except:
+                            traceback.print_exc()
+                        await self.destroy()
+
+                elif not self.guild.me.voice:
+                    await self.connect(vc.id)
 
                 return
 
@@ -1808,7 +1820,7 @@ class LavalinkPlayer(wavelink.Player):
             try:
                 await self.bot.edit_voice_channel_status(status=msg, channel_id=self.guild.me.voice.channel.id)
             except Exception as e:
-                if isinstance(e, disnake.Forbidden) and e.code == 403:
+                if isinstance(e, disnake.Forbidden):
                     self.stage_title_event = False
                     self.set_command_log(emoji="❌", text="The automatic status has been deactivated due to a lack of permission to change status.")
                     self.update = True
