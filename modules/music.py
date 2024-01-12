@@ -3588,13 +3588,11 @@ class Music(commands.Cog):
                     temp_filter.remove('absent_members')
                     final_filters.add('absent_members')
 
+                playlist_link = None
+
                 if 'playlist' in temp_filter:
-                    if playlist == t.playlist_name.replace("️", ""):
-                        playlist_hyperlink.add(f"[`{fix_characters(t.playlist_name)}`]({t.playlist_url})")
-                        temp_filter.remove('playlist')
-                        final_filters.add('playlist')
-                    elif isinstance(inter, CustomContext) and playlist.lower() in t.playlist_name.replace("️", "").lower():
-                        playlist_hyperlink.add(f"[`{fix_characters(t.playlist_name)}`]({t.playlist_url})")
+                    if playlist == t.playlist_name.replace("️", "") or (isinstance(inter, CustomContext) and playlist.lower() in t.playlist_name.replace("️", "").lower()):
+                        playlist_link = f"[`{fix_characters(t.playlist_name)}`]({t.playlist_url})"
                         temp_filter.remove('playlist')
                         final_filters.add('playlist')
 
@@ -3602,6 +3600,9 @@ class Music(commands.Cog):
                     tracklist.append(t)
                     player.queue.remove(t)
                     deleted_tracks += 1
+                    if playlist_link:
+                        playlist_hyperlink.add(playlist_link)
+
                     if amount:
                         amount_counter -= 1
 
@@ -3917,13 +3918,11 @@ class Music(commands.Cog):
                     temp_filter.remove('absent_members')
                     final_filters.add('absent_members')
 
+                playlist_link = None
+
                 if 'playlist' in temp_filter:
-                    if playlist == t.playlist_name.replace("️", ""):
-                        playlist_hyperlink.add(f"[`{fix_characters(t.playlist_name)}`]({t.playlist_url})")
-                        temp_filter.remove('playlist')
-                        final_filters.add('playlist')
-                    elif isinstance(inter, CustomContext) and playlist.lower() in t.playlist_name.replace("️", "").lower():
-                        playlist_hyperlink.add(f"[`{fix_characters(t.playlist_name)}`]({t.playlist_url})")
+                    if playlist == t.playlist_name.replace("️", "") or (isinstance(inter, CustomContext) and playlist.lower() in t.playlist_name.replace("️", "").lower()):
+                        playlist_link = f"[`{fix_characters(t.playlist_name)}`]({t.playlist_url})"
                         temp_filter.remove('playlist')
                         final_filters.add('playlist')
 
@@ -3932,6 +3931,8 @@ class Music(commands.Cog):
                     track = player.queue[player.queue.index(t)]
                     player.queue.remove(t)
                     tracklist.append(track)
+                    if playlist_link:
+                        playlist_hyperlink.add(playlist_link)
 
                     if amount:
                         amount_counter -= 1
