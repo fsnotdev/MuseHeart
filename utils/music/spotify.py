@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import traceback
 from typing import Optional, TYPE_CHECKING
 from urllib.parse import quote
 
@@ -212,8 +213,12 @@ def spotify_client(config: dict) -> Optional[spotipy.Spotify]:
             )
         )
 
-    except Exception as e:
+    except KeyError as e:
         print(
             f"Spotify's Apikey was not properly configured in the host ENV (or .env file), "
             f"Check and try again if you want to support Spotify songs (error: {repr(e)}).\n{'-' * 30}")
+        return
+
+    except Exception as e:
+        print(f"Ocorreu um erro na configuração do spotify:\n{traceback.format_exc()}).\n{'-' * 30}")
         return

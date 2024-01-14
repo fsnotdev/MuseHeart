@@ -34,7 +34,7 @@ from utils.music.models import LavalinkPlayer, LavalinkTrack, LavalinkPlaylist
 from utils.music.spotify import process_spotify, spotify_regex_w_user
 from utils.others import check_cmd, send_idle_embed, CustomContext, PlayerControls, queue_track_index, \
     pool_command, string_to_file, CommandArgparse, music_source_emoji_url, SongRequestPurgeMode, song_request_buttons, \
-    select_bot_pool
+    select_bot_pool, get_inter_guild_data
 
 
 class Music(commands.Cog):
@@ -79,6 +79,9 @@ class Music(commands.Cog):
         self.song_request_concurrency = commands.MaxConcurrency(1, per=commands.BucketType.member, wait=False)
 
         self.player_interaction_concurrency = commands.MaxConcurrency(1, per=commands.BucketType.member, wait=False)
+
+        self.add_fav_embed_cooldown = commands.CooldownMapping.from_cooldown(rate=1, per=13,
+                                                                            type=commands.BucketType.user)
 
         self.song_request_cooldown = commands.CooldownMapping.from_cooldown(rate=1, per=300,
                                                                             type=commands.BucketType.member)
@@ -810,14 +813,7 @@ class Music(commands.Cog):
             guild_data = None
 
             if inter.bot == bot:
-                try:
-                    guild_data = inter.guild_data
-                except AttributeError:
-                    guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
-                    try:
-                        inter.guild_data = guild_data
-                    except AttributeError:
-                        pass
+                inter, guild_data = await get_inter_guild_data(inter, bot)
 
             if not guild_data:
                 guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
@@ -905,17 +901,9 @@ class Music(commands.Cog):
             if not guild_data:
 
                 if inter.bot == bot:
-                    try:
-                        guild_data = inter.guild_data
-                    except AttributeError:
-                        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
-                        try:
-                            inter.guild_data = guild_data
-                        except AttributeError:
-                            pass
-
-                if not guild_data:
-                    guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
+                    inter, guild_data = await get_inter_guild_data(inter, bot)
+                else:
+                    inter, guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
 
             if guild_data["player_controller"]["fav_links"]:
                 disnake.SelectOption(label="Use server favorite", value=">> [📌 Server favorites 📌] <<", emoji="📌"),
@@ -995,16 +983,8 @@ class Music(commands.Cog):
             if not guild_data:
 
                 if inter.bot == bot:
-                    try:
-                        guild_data = inter.guild_data
-                    except AttributeError:
-                        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
-                        try:
-                            inter.guild_data = guild_data
-                        except AttributeError:
-                            pass
-
-                if not guild_data:
+                    inter, guild_data = await get_inter_guild_data(inter, bot)
+                else:
                     guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
 
             if not guild_data["player_controller"]["fav_links"]:
@@ -1111,9 +1091,15 @@ class Music(commands.Cog):
         elif not query:
             raise EmptyFavIntegration()
 
+        add_fav_button = True
+        tracks = []
+
         if query.startswith("> pin: "):
+            add_fav_button = False
             if is_pin is None:
                 is_pin = True
+            if not guild_data:
+                inter, guild_data = await get_inter_guild_data(inter, bot)
             query = guild_data["player_controller"]["fav_links"][query[7:]]['url']
             source = False
 
@@ -1122,6 +1108,7 @@ class Music(commands.Cog):
             source = False
 
         elif query.startswith(("> fav: ", "> itg: ")):
+            add_fav_button = False
             try:
                 user_data = inter.global_user_data
             except AttributeError:
@@ -1385,16 +1372,8 @@ class Music(commands.Cog):
                 if not guild_data:
 
                     if inter.bot == bot:
-                        try:
-                            guild_data = inter.guild_data
-                        except AttributeError:
-                            guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
-                            try:
-                                inter.guild_data = guild_data
-                            except AttributeError:
-                                pass
-
-                    if not guild_data:
+                        inter, guild_data = await get_inter_guild_data(inter, bot)
+                    else:
                         guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
 
                 static_player = guild_data['player_controller']
@@ -1553,6 +1532,8 @@ class Music(commands.Cog):
         position -= 1
 
         embed_description = ""
+
+        components = None
 
         if isinstance(tracks, list):
 
@@ -1779,6 +1760,8 @@ class Music(commands.Cog):
             embed.set_thumbnail(url=tracks.thumb)
             embed.description = f"`{len(tracks.tracks)} song(s)`**┃**`{time_format(total_duration)}`**┃**{inter.author.mention}"
             emoji = "🎶"
+            if add_fav_button:
+                components = [disnake.ui.Button(emoji="💗", label="Adicione nos seus favoritos", custom_id=PlayerControls.embed_add_fav)]
 
             if reg_query is not None:
                 reg_query = {"name": tracks.name, "url": tracks.url}
@@ -1811,26 +1794,16 @@ class Music(commands.Cog):
             except AttributeError:
                 pass
 
-            await func(embed=embed, view=None)
+            await func(embed=embed, **{"components": components} if components else {"view": None})
 
         if not player.is_connected:
 
             try:
                 guild_data["check_other_bots_in_vc"]
             except KeyError:
-                guild_data = None
-
                 if inter.bot == bot:
-                    try:
-                        guild_data = inter.guild_data
-                    except AttributeError:
-                        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
-                        try:
-                            inter.guild_data = guild_data
-                        except AttributeError:
-                            pass
-
-                if not guild_data:
+                    inter, guild_data = await get_inter_guild_data(inter, bot)
+                else:
                     guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
 
             if not inter.author.voice:
@@ -4372,11 +4345,7 @@ class Music(commands.Cog):
 
                 await interaction.response.defer(ephemeral=True)
 
-                try:
-                    guild_data = inter.guild_data
-                except AttributeError:
-                    guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
-                    inter.guild_data = guild_data
+                inter, guild_data = await get_inter_guild_data(inter, bot)
 
             elif inter.invoked_with in ("integrations", "integrationmanager", "itg", "itgmgr", "itglist", "integrationlist"):
                 mode = ViewMode.integrations_manager
@@ -4759,6 +4728,81 @@ class Music(commands.Cog):
 
         if not self.bot.bot_ready:
             await interaction.send("I am still initializing...", ephemeral=True)
+            return
+
+        if not interaction.guild_id:
+            await interaction.response.edit_message(components=None)
+            return
+
+        if control == PlayerControls.embed_add_fav:
+
+            try:
+                embed = interaction.message.embeds[0]
+            except IndexError:
+                await interaction.send("A embed da mensagem foi removida...", ephemeral=True)
+                return
+
+            if (retry_after := self.add_fav_embed_cooldown.get_bucket(interaction).update_rate_limit()):
+                await interaction.send(
+                    f"**Você terá que aguardar {int(retry_after)} segundo(s) para adicionar um novo favorito.**",
+                    ephemeral=True)
+                return
+
+            await interaction.response.defer()
+
+            user_data = await self.bot.get_global_data(interaction.author.id, db_name=DBModel.users)
+
+            if self.bot.config["MAX_USER_FAVS"] > 0 and not (await self.bot.is_owner(interaction.author)):
+
+                if (current_favs_size := len(user_data["fav_links"])) > self.bot.config["MAX_USER_FAVS"]:
+                    await interaction.edit_original_message(f"A quantidade de itens no seu arquivo de favorito excede "
+                                                            f"a quantidade máxima permitida ({self.bot.config['MAX_USER_FAVS']}).")
+                    return
+
+                if (current_favs_size + (user_favs := len(user_data["fav_links"]))) > self.bot.config["MAX_USER_FAVS"]:
+                    await interaction.edit_original_message(
+                        "Você não possui espaço suficiente para adicionar todos os favoritos de seu arquivo...\n"
+                        f"Limite atual: {self.bot.config['MAX_USER_FAVS']}\n"
+                        f"Quantidade de favoritos salvos: {user_favs}\n"
+                        f"Você precisa de: {(current_favs_size + user_favs) - self.bot.config['MAX_USER_FAVS']}")
+                    return
+
+            fav_name = embed.author.name[1:]
+
+            user_data["fav_links"][fav_name] = embed.author.url
+
+            await self.bot.update_global_data(interaction.author.id, user_data, db_name=DBModel.users)
+
+            global_data = await self.bot.get_global_data(interaction.guild_id, db_name=DBModel.guilds)
+
+            try:
+                cmd = f"</play:" + str(self.bot.pool.controller_bot.get_global_command_named("play",
+                                                                                             cmd_type=disnake.ApplicationCommandType.chat_input).id) + ">"
+            except AttributeError:
+                cmd = "/play"
+
+            try:
+                interaction.message.embeds[0].fields[0].value = f"{interaction.author.mention} " + \
+                                                                interaction.message.embeds[0].fields[0].value.replace(
+                                                                    interaction.author.mention, "")
+            except IndexError:
+                interaction.message.embeds[0].add_field(name="**Membros que curtiram a playlist:**",
+                                                        value=interaction.author.mention)
+
+            await interaction.send(embed=disnake.Embed(
+                description=f"[`{fav_name}`](<{embed.author.url}>) **foi adicionado nos seus favoritos!**\n\n"
+                            "**Como usar?**\n"
+                            f"* Usando o comando {cmd} (selecionando o favorito no preenchimento automático da busca)\n"
+                            "* Clicando no botão/select de tocar favorito/integração do player.\n"
+                            f"* Usando o comando {global_data['prefix'] or self.bot.default_prefix}{self.bot.get_cog('Music').play_legacy.name} sem incluir um nome ou link de uma música/vídeo.\n"
+
+            ), ephemeral=True)
+
+            if not interaction.message.flags.ephemeral:
+                if not interaction.guild:
+                    await (await interaction.original_response()).edit(embed=interaction.message.embeds[0])
+                else:
+                    await interaction.message.edit(embed=interaction.message.embeds[0])
             return
 
         if not interaction.guild:
@@ -5619,6 +5663,8 @@ class Music(commands.Cog):
                     embed.description += f"\n🔊 **⠂ Voice channel:** {message.author.voice.channel.mention}"
                 except AttributeError:
                     pass
+
+                components.append(disnake.ui.Button(emoji="💗", label="Adicione nos seus favoritos", custom_id=PlayerControls.embed_add_fav))
 
                 if response:
                     await response.edit(content=None, embed=embed, components=components)

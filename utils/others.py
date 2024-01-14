@@ -34,7 +34,10 @@ class CommandArgparse(argparse.ArgumentParser):
         kwargs.pop('allow_abbrev', None)
         kwargs.pop('add_help', None)
 
-        super().__init__(*args, exit_on_error=False, allow_abbrev=False, add_help=False, **kwargs)
+        try:
+            super().__init__(*args, exit_on_error=False, allow_abbrev=False, add_help=False, **kwargs)
+        except TypeError:
+            super().__init__(*args, allow_abbrev=False, add_help=False, **kwargs)
 
     def parse_known_args(
         self, args = None, namespace = None
@@ -161,6 +164,7 @@ class PlayerControls:
     add_favorite = "musicplayer_add_favorite"
     stage_announce = "musicplayer_stage_announce"
     lyrics = "musicplayer_lyrics"
+    embed_add_fav = "musicplayer_embed_add_fav"
 
 
 class SongRequestPurgeMode:
@@ -782,3 +786,17 @@ def sort_dict_recursively(d):
             return d
     else:
         return d
+
+async def get_inter_guild_data(inter, bot):
+    try:
+        guild_data = inter.guild_data
+    except AttributeError:
+        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
+        try:
+            inter.guild_data = guild_data
+        except AttributeError:
+            pass
+    if not guild_data:
+        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
+
+    return inter, guild_data
