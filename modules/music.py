@@ -1761,7 +1761,7 @@ class Music(commands.Cog):
             embed.description = f"`{len(tracks.tracks)} song(s)`**┃**`{time_format(total_duration)}`**┃**{inter.author.mention}"
             emoji = "🎶"
             if add_fav_button:
-                components = [disnake.ui.Button(emoji="💗", label="Adicione nos seus favoritos", custom_id=PlayerControls.embed_add_fav)]
+                components = [disnake.ui.Button(emoji="💗", label="Add to your Favorites", custom_id=PlayerControls.embed_add_fav)]
 
             if reg_query is not None:
                 reg_query = {"name": tracks.name, "url": tracks.url}
@@ -4739,12 +4739,12 @@ class Music(commands.Cog):
             try:
                 embed = interaction.message.embeds[0]
             except IndexError:
-                await interaction.send("A embed da mensagem foi removida...", ephemeral=True)
+                await interaction.send("The message embed was removed....", ephemeral=True)
                 return
 
             if (retry_after := self.add_fav_embed_cooldown.get_bucket(interaction).update_rate_limit()):
                 await interaction.send(
-                    f"**Você terá que aguardar {int(retry_after)} segundo(s) para adicionar um novo favorito.**",
+                    f"**You will have to wait {int(retry_after)} second(s) to add a new favorite.**",
                     ephemeral=True)
                 return
 
@@ -4755,16 +4755,16 @@ class Music(commands.Cog):
             if self.bot.config["MAX_USER_FAVS"] > 0 and not (await self.bot.is_owner(interaction.author)):
 
                 if (current_favs_size := len(user_data["fav_links"])) > self.bot.config["MAX_USER_FAVS"]:
-                    await interaction.edit_original_message(f"A quantidade de itens no seu arquivo de favorito excede "
-                                                            f"a quantidade máxima permitida ({self.bot.config['MAX_USER_FAVS']}).")
+                    await interaction.edit_original_message(f"The number of items in your Favorites exceeds "
+                                                            f"the maximum allowed amount ({self.bot.config['MAX_USER_FAVS']}).")
                     return
 
                 if (current_favs_size + (user_favs := len(user_data["fav_links"]))) > self.bot.config["MAX_USER_FAVS"]:
                     await interaction.edit_original_message(
-                        "Você não possui espaço suficiente para adicionar todos os favoritos de seu arquivo...\n"
-                        f"Limite atual: {self.bot.config['MAX_USER_FAVS']}\n"
-                        f"Quantidade de favoritos salvos: {user_favs}\n"
-                        f"Você precisa de: {(current_favs_size + user_favs) - self.bot.config['MAX_USER_FAVS']}")
+                        "You don't have enough space to add all your favorites...\n"
+                        f"Current limit: {self.bot.config['MAX_USER_FAVS']}\n"
+                        f"Number of saved favorites: {user_favs}\n"
+                        f"You need: {(current_favs_size + user_favs) - self.bot.config['MAX_USER_FAVS']}")
                     return
 
             fav_name = embed.author.name[1:]
@@ -4786,15 +4786,15 @@ class Music(commands.Cog):
                                                                 interaction.message.embeds[0].fields[0].value.replace(
                                                                     interaction.author.mention, "")
             except IndexError:
-                interaction.message.embeds[0].add_field(name="**Membros que curtiram a playlist:**",
+                interaction.message.embeds[0].add_field(name="**Members who liked the playlist:**",
                                                         value=interaction.author.mention)
 
             await interaction.send(embed=disnake.Embed(
-                description=f"[`{fav_name}`](<{embed.author.url}>) **foi adicionado nos seus favoritos!**\n\n"
-                            "**Como usar?**\n"
-                            f"* Usando o comando {cmd} (selecionando o favorito no preenchimento automático da busca)\n"
-                            "* Clicando no botão/select de tocar favorito/integração do player.\n"
-                            f"* Usando o comando {global_data['prefix'] or self.bot.default_prefix}{self.bot.get_cog('Music').play_legacy.name} sem incluir um nome ou link de uma música/vídeo.\n"
+                description=f"[`{fav_name}`](<{embed.author.url}>) **has been added to your Favorites!**\n\n"
+                            "**How to use?**\n"
+                            f"* Using the command {cmd} (selecting the favorite from the autocomplete search)\n"
+                            "* Clicking on the play favorite button/select of the player integration.\n"
+                            "* Using the command {global_data['prefix'] or self.bot.default_prefix}{self.bot.get_cog('Music').play_legacy.name} without including a name or link of a song/video.\n"
 
             ), ephemeral=True)
 
@@ -5664,7 +5664,7 @@ class Music(commands.Cog):
                 except AttributeError:
                     pass
 
-                components.append(disnake.ui.Button(emoji="💗", label="Adicione nos seus favoritos", custom_id=PlayerControls.embed_add_fav))
+                components.append(disnake.ui.Button(emoji="💗", label="Add to your Favorites", custom_id=PlayerControls.embed_add_fav))
 
                 if response:
                     await response.edit(content=None, embed=embed, components=components)
