@@ -6125,7 +6125,7 @@ class Music(commands.Cog):
 
             localnode = {
                 'host': '127.0.0.1',
-                'port': 8090,
+                'port': os.environ.get("SERVER_PORT") or 8090,
                 'password': 'youshallnotpass',
                 'identifier': 'LOCAL',
                 'region': 'us_central',

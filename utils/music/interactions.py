@@ -1015,6 +1015,10 @@ class FavMenuView(disnake.ui.View):
 
         self.clear_items()
 
+        if not self.ctx.guild:
+            self.bot.loop.create_task(self.on_timeout())
+            return
+
         mode_select = disnake.ui.Select(
             options=[
                 disnake.SelectOption(label="Favorites Manager", value=f"fav_view_mode_{ViewMode.fav_manager}", emoji="⭐",
