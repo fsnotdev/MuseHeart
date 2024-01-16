@@ -584,6 +584,28 @@ class LavalinkPlayer(wavelink.Player):
         self.position_timestamp = state.get('time', 0)
         self.ping = state.get('ping', None)
 
+    async def report_error(self, embed: disnake.Embed, track: Union[LavalinkTrack, PartialTrack]):
+
+        cog = self.bot.get_cog("Music")
+
+        if cog and cog.error_report_queue:
+
+            embed.description += f"\n**Source:** `{track.info['sourceName']}`" \
+                                 f"\n**Server:** `{disnake.utils.escape_markdown(self.guild.name)} [{self.guild.id}]`"
+
+            try:
+                embed.description += f"\n**Channel:** `{disnake.utils.escape_markdown(self.guild.me.voice.channel.name)} [{self.guild.me.voice.channel.id}]`\n"
+            except:
+                pass
+
+            embed.description += f"**Date:** <t:{int(disnake.utils.utcnow().timestamp())}:F>"
+
+            if self.guild.icon:
+                embed.set_thumbnail(url=self.guild.icon.with_format("png").url)
+
+            await cog.error_report_queue.put({"embed": embed})
+
+
     async def hook(self, event) -> None:
 
         if self.is_closing:
@@ -678,24 +700,7 @@ class LavalinkPlayer(wavelink.Player):
                                    f"Server: {self.node.identifier}\n"
                                    f"{error_format}\n" + ("-" * 50))
 
-                cog = self.bot.get_cog("Music")
-
-                if cog and cog.error_report_queue:
-
-                    embed.description += f"\n**Source:** `{track.info['sourceName']}`" \
-                                         f"\n**Server:** `{disnake.utils.escape_markdown(self.guild.name)} [{self.guild.id}]`"
-
-                    try:
-                        embed.description += f"\n**Channel:** `{disnake.utils.escape_markdown(self.guild.me.voice.channel.name)} [{self.guild.me.voice.channel.id}]`\n"
-                    except:
-                        pass
-
-                    embed.description += f"**Date:** <t:{int(disnake.utils.utcnow().timestamp())}:F>"
-
-                    if self.guild.icon:
-                        embed.set_thumbnail(url=self.guild.icon.with_format("png").url)
-
-                    await cog.error_report_queue.put({"embed": embed})
+                await self.report_error(embed, track)
 
             if self.locked:
                 self.set_command_log(
@@ -1011,7 +1016,6 @@ class LavalinkPlayer(wavelink.Player):
     async def connect(self, channel_id: int, self_mute: bool = False, self_deaf: bool = False):
         self.last_channel = self.bot.get_channel(channel_id)
         await super().connect(channel_id, self_mute=self_mute, self_deaf=True)
-        self.set_voice_invite_url()
 
     def process_hint(self):
 
@@ -1515,7 +1519,27 @@ class LavalinkPlayer(wavelink.Player):
             else:
                 query = track.uri
 
-            t = await self.node.get_tracks(query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist)
+            try:
+                t = await self.node.get_tracks(query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist)
+            except Exception as e:
+                traceback.print_exc()
+                try:
+                    await self.text_channel.send(
+                        embed=disnake.Embed(
+                            description=f"**An error occurred while retrieving music information.:** [{track.title}]({track.uri}) ```py\n{repr(e)}```"
+                        )
+                    )
+                except:
+                    pass
+                embed = disnake.Embed(
+                    description=f"**Failed to retrieve PartialTrack information:\n[{track.title}]({track.uri or track.search_uri})** ```py\n{repr(e)}```\n"
+                                f"**Music server:** `{self.node.identifier}`",
+                    color=disnake.Colour.red())
+                await self.report_error(embed, track)
+                await asyncio.sleep(7)
+                self.locked = False
+                await self.process_next()
+                return
 
             try:
                 t = t.tracks
@@ -1835,12 +1859,6 @@ class LavalinkPlayer(wavelink.Player):
         except AttributeError:
             pass
         self.message_updater_task = self.bot.loop.create_task(self.message_updater())
-
-    def set_voice_invite_url(self):
-        if (not self.listen_along_invite and self.guild.verification_level == disnake.VerificationLevel.none
-                and "DISCOVERABLE" in self.guild.features and
-                self.guild.me.voice.channel.permissions_for(self.guild.default_role).connect):
-            self.listen_along_invite = self.guild.me.voice.channel.jump_url
 
     async def invoke_np(self, force=False, interaction=None, rpc_update=False):
 
@@ -2462,8 +2480,13 @@ class LavalinkPlayer(wavelink.Player):
 
         except IndexError:
             return
-        except Exception:
+        except Exception as e:
             traceback.print_exc()
+            embed = disnake.Embed(
+                description=f"**Failed to retrieve PartialTrack information:\n[{track.title}]({track.uri or track.search_uri})** ```py\n{repr(e)}```\n"
+                            f"**Music server:** `{self.node.identifier}`",
+                color=disnake.Colour.red())
+            await self.report_error(embed, track)
             return
 
         return
