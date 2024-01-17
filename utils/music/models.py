@@ -2436,6 +2436,8 @@ class LavalinkPlayer(wavelink.Player):
 
         try:
 
+            exceptions = []
+
             try:
                 to_search = track.info["search_uri"]
                 check_duration = False
@@ -2445,18 +2447,34 @@ class LavalinkPlayer(wavelink.Player):
 
             try:
                 tracks = (await self.node.get_tracks(to_search, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist))
-            except wavelink.TrackNotFound:
-                tracks = None
+            except wavelink.TrackNotFound as e:
+                exceptions.append(e)
+                tracks = []
 
             if not tracks and self.bot.config['PARTIALTRACK_SEARCH_PROVIDER'] not in ("ytsearch", "ytmsearch", "scsearch"):
-                tracks = await self.node.get_tracks(
-                    "ytsearch:" + (f"\"{track.info['isrc']}\"" if track.info.get("isrc") else f"{track.single_title.replace(' - ', ' ')} - {track.authors_string}"),
-                    track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist)
+
+                if track.info.get("isrc"):
+                    try:
+                        tracks = await self.node.get_tracks(f"ytsearch:\"{track.info['isrc']}\"",track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist)
+                    except Exception as e:
+                        exceptions.append(e)
+
+                if not tracks:
+                    try:
+                        tracks = await self.node.get_tracks(
+                            f"ytsearch:{track.single_title.replace(' - ', ' ')} - {track.authors_string}")
+                    except Exception as e:
+                        exceptions.append(e)
 
             try:
                 tracks = tracks.tracks
             except AttributeError:
                 pass
+
+            if not tracks:
+                if exceptions:
+                    print("Falha ao resolver PartialTrack:\n" + "\n".join(repr(e) for e in exceptions))
+                return
 
             selected_track = None
 
@@ -2478,8 +2496,6 @@ class LavalinkPlayer(wavelink.Player):
             track.id = selected_track.id
             track.info["length"] = selected_track.duration
 
-        except IndexError:
-            return
         except Exception as e:
             traceback.print_exc()
             embed = disnake.Embed(

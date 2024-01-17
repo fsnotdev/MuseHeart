@@ -4424,7 +4424,7 @@ class Music(commands.Cog):
         player.message = None
         await thread.edit(archived=True, locked=True, name=f"archived: {thread.name}")
 
-    @commands.Cog.listener('on_ready')
+    @commands.Cog.listener('on_resumed')
     async def resume_players_ready(self):
 
         for guild_id in list(self.bot.music.players):

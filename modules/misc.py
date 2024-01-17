@@ -92,23 +92,18 @@ class Misc(commands.Cog):
                     text = text.replace("{players_count}", str(player_count))
 
             if "{players_count_allbotchannels}" in text:
+
                 if not channels:
                     return
 
-                if player_count == (count:=len(channels)) or len(guilds) == count:
-                    return
-
-                text = text.replace("{players_count_allbotchannels}", str(count))
+                text = text.replace("{players_count_allbotchannels}", str(len(channels)))
 
             if "{players_count_allbotservers}" in text:
 
                 if not guilds:
                     return
 
-                if player_count == (count:=len(guilds)):
-                    return
-
-                text = text.replace("{players_count_allbotservers}", str(count))
+                text = text.replace("{players_count_allbotservers}", str(len(guilds)))
 
         return text \
             .replace("{users}", f'{len([m for m in self.bot.users if not m.bot]):,}'.replace(",", ".")) \
@@ -225,14 +220,23 @@ class Misc(commands.Cog):
         interaction_invite = ""
 
         bots_in_guild = []
+        bots_outside_guild = []
 
         for bot in self.bot.pool.bots:
 
             if bot == self.bot:
                 continue
 
+            if not bot.bot_ready:
+                continue
+
+            if str(bot.user.id) in self.bot.config["INTERACTION_BOTS_CONTROLLER"]:
+                continue
+
             if bot.user in guild.members:
                 bots_in_guild.append(bot)
+            else:
+                bots_outside_guild.append(bot)
 
         components = [disnake.ui.Button(custom_id="bot_invite", label="Need more music bots? Click here.")] if [b for b in self.bot.pool.bots if b.appinfo and b.appinfo.bot_public] else []
 
@@ -258,6 +262,8 @@ class Misc(commands.Cog):
         image = "https://cdn.discordapp.com/attachments/554468640942981147/1082887587770937455/rainbow_bar2.gif"
 
         color = self.bot.get_color()
+
+        send_video = ""
 
         try:
             channel = guild.system_channel if guild.system_channel.permissions_for(guild.me).send_messages else None
@@ -320,22 +326,38 @@ class Misc(commands.Cog):
                         )
 
                         if bots_in_guild:
-                            embeds.append(
-                                disnake.Embed(
-                                    color=color,
-                                    description=f"I noticed there are other bots in the server **{guild.name}** where I am compatible with "
-                                                f"the multi-voice system: {', '.join(b.user.mention for b in bots_in_guild)}\n\n"
-                                                f"When using music commands (e.g., play) without one of the bots "
-                                                f"connected in the channel, one of the available bots in the "
-                                                f"server will be used."
-                                ).set_image(url=image)
-                            )
+
+                            msg = f"I noticed there are other bots in the server **{guild.name}** where I am compatible with " \
+                                   f"the multi-voice system: {', '.join(b.user.mention for b in bots_in_guild)}\n\n" \
+                                   f"When using music commands (e.g., play) without one of the bots connected in the channel, " \
+                                    "one of the available bots in the server will be used."
+
+                            if not self.bot.pool.config.get("MULTIVOICE_VIDEO_DEMO_URL"):
+                                embeds.append(
+                                    disnake.Embed(
+                                        color=color,
+                                        description=msg
+                                    ).set_image(url=image)
+                                )
+
+                            else:
+                                send_video = msg
+
+                        elif bots_outside_guild and self.bot.config.get('MULTIVOICE_VIDEO_DEMO_URL'):
+                            send_video = "**If there is demand in your server, you can also add more extra music bots.\n" \
+                                         "All bots share the same prefix and slash command, eliminating the need " \
+                                         f"to remember prefixes and slash commands for each individual bot.\n\n" \
+                                         f"Check out the [video]({self.bot.config['MULTIVOICE_VIDEO_DEMO_URL']}) demonstrating the use of multi-bot in practice.**"
 
                         if support_server:
                             embeds.append(disnake.Embed(color=color, description=support_server).set_image(url=image))
 
                         try:
-                            return await entry.user.send(embeds=embeds, components=components)
+                            await entry.user.send(embeds=embeds, components=components)
+                            if send_video:
+                                await asyncio.sleep(1)
+                                await entry.user.send(f"{send_video}\n\nCheck out the [**video**]({self.bot.config['MULTIVOICE_VIDEO_DEMO_URL']}) demonstrating this feature.")
+                            return
                         except disnake.Forbidden:
                             pass
                         except Exception:
@@ -394,16 +416,27 @@ class Misc(commands.Cog):
         )
 
         if bots_in_guild:
-            embeds.append(
-                disnake.Embed(
-                    color=color,
-                    description=f"I noticed there are other bots in the server **{guild.name}** where I am compatible with "
-                                f"the multi-voice system: {', '.join(b.user.mention for b in bots_in_guild)}\n\n"
-                                f"When using music commands (e.g., play) without one of the bots "
-                                f"connected in the channel, one of the available bots in the "
-                                f"server will be used."
-                ).set_image(url=image)
-            )
+
+            msg = f"I noticed there are other bots in the server **{guild.name}** where I am compatible with " \
+                  f"the multi-voice system: {', '.join(b.user.mention for b in bots_in_guild)}\n\n" \
+                  f"When using music commands (e.g., play) without one of the bots connected in the channel, one of " \
+                  f"the available bots in the server will be used."
+
+            if not self.bot.config.get('MULTIVOICE_VIDEO_DEMO_URL'):
+                embeds.append(
+                    disnake.Embed(
+                        color=color,
+                        description=msg
+                    ).set_image(url=image)
+                )
+            else:
+                send_video = msg
+
+        elif bots_outside_guild and self.bot.config.get('MULTIVOICE_VIDEO_DEMO_URL'):
+            send_video = "**If there is demand in your server, you can also add more extra music bots.\n" \
+                          "All bots share the same prefix and slash command, eliminating the need " \
+                          "to memorize prefixes and slash commands for each individual bot.\n\n" \
+                        f"Check out the [video]({self.bot.config['MULTIVOICE_VIDEO_DEMO_URL']}) demonstrating the use of multi-bot in practice.**"
 
         embeds.append(disnake.Embed(color=color, description=cmd_text).set_image(url=image))
 
@@ -414,10 +447,15 @@ class Misc(commands.Cog):
 
         timestamp = int((disnake.utils.utcnow() + datetime.timedelta(seconds=kwargs["delete_after"])).timestamp())
 
-        embeds[-1].description += f"\n\nThis message will be automatically deleted: <t:{timestamp}:R>"
+        embeds[-1].description += f"\nThis message will be deleted automatically <t:{timestamp}:R>"
 
         try:
             await channel.send(embeds=embeds, components=components, **kwargs)
+            if send_video:
+                if "delete_after" in kwargs:
+                    kwargs["delete_after"] = 600
+                await asyncio.sleep(1)
+                await channel.send(f"{send_video}\n\nCheck out the [**video**]({self.bot.config['MULTIVOICE_VIDEO_DEMO_URL']}) demonstrating this feature.", **kwargs)
         except:
             print(f"Failed to send new server message in channel: {channel}\n"
                 f"Channel ID: {channel.id}\n"
