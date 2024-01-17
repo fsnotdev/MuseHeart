@@ -2473,7 +2473,7 @@ class LavalinkPlayer(wavelink.Player):
 
             if not tracks:
                 if exceptions:
-                    print("Falha ao resolver PartialTrack:\n" + "\n".join(repr(e) for e in exceptions))
+                    print("Failure to resolve PartialTrack:\n" + "\n".join(repr(e) for e in exceptions))
                 return
 
             selected_track = None
