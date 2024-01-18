@@ -68,6 +68,7 @@ class BotPool:
         self.failed_bots: dict = {}
         self.controller_bot: Optional[BotCore] = None
         self.current_useragent = self.reset_useragent()
+        self.processing_gc: bool = False
 
     def reset_useragent(self):
         self.current_useragent = generate_user_agent()
@@ -285,7 +286,7 @@ class BotPool:
         mongo_key = self.config.get("MONGO")
 
         if mongo_key:
-            self.mongo_database = MongoDatabase(mongo_key)
+            self.mongo_database = MongoDatabase(mongo_key, timeout=self.config["MONGO_TIMEOUT"])
             print("Database in use: MongoDB")
         else:
             print("Database in use: TinyMongo | Note: Database files will be saved locally in the folder: local_database")
@@ -412,18 +413,16 @@ class BotPool:
                     except:
                         pass
 
-            bot.processing_gc = False
-
             @bot.listen("on_resumed")
             async def clear_gc():
 
-                if bot.processing_gc:
+                if self.processing_gc:
                     return
 
-                bot.processing_gc = True
+                self.processing_gc = True
                 await asyncio.sleep(2)
                 gc.collect()
-                bot.processing_gc = False
+                self.processing_gc = False
 
             @bot.application_command_check(slash_commands=True, message_commands=True, user_commands=True)
             async def check(inter: disnake.ApplicationCommandInteraction):
@@ -839,7 +838,7 @@ class BotCore(commands.AutoShardedBot):
                 if c.extras.get("exclusive_cooldown"): continue
                 c._buckets = cmd._buckets
 
-    async def can_send_message(self, message: disnake.Message, dm_user=True):
+    async def can_send_message(self, message: disnake.Message):
 
         if isinstance(message.channel, disnake.Thread):
             perm_check = message.channel.parent.permissions_for(message.guild.me).send_messages_in_threads
@@ -847,23 +846,7 @@ class BotCore(commands.AutoShardedBot):
             perm_check = message.channel.permissions_for(message.guild.me).send_messages
 
         if not perm_check:
-
             print(f"Can't send message in: {message.channel.name} [{message.channel.id}] (Missing permissions)")
-
-            if not dm_user:
-                return
-
-            bucket = self.dm_cooldown.get_bucket(message)
-            retry_after = bucket.update_rate_limit()
-
-            if retry_after:
-                return
-
-            try:
-                await message.author.send(f"I am not allowed to send messages on the channel {message.channel.mention}...")
-            except disnake.HTTPException:
-                pass
-
             return
 
         return True
@@ -894,7 +877,7 @@ class BotCore(commands.AutoShardedBot):
             if message.author.bot:
                 return
 
-            if not await self.can_send_message(message, dm_user=False):
+            if not await self.can_send_message(message):
                 return
 
             embed = disnake.Embed(color=self.get_color(message.guild.me))
