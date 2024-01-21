@@ -1744,7 +1744,8 @@ class SetStageTitle(disnake.ui.View):
                "[34;1m{track.playlist}[0m -> Name of the original playlist of the song (if any)\n" \
                "[34;1m{requester.name}[0m -> Name/Nickname of the member who requested the song\n" \
                "[34;1m{requester.id}[0m -> ID of the member who requested the song```\n" \
-               "Example: Playing {track.title} | By: {track.author}"
+               "Example: Playing {track.title} | By: {track.author}" \
+               "`Note: In the voice channel, you can use custom emojis in the status message (including emojis from servers that I am not in and servers that you are not in).`"
 
     def __init__(self, ctx: Union[CustomContext, disnake.Interaction], bot: BotCore, guild: disnake.Guild, data: dict):
         super().__init__(timeout=180)
@@ -1803,7 +1804,7 @@ class SetStageTitle(disnake.ui.View):
         if self.data['voice_channel_status']:
             txt += f"**Current permanent template:**\n{self.data['voice_channel_status']}"
 
-        txt += f"**Placeholders:** `(At least 1 must be included in the status)`\n{self.placeholder_text}"
+        txt += f"**Placeholders:** `(At least one placeholder must be included in the status message)`\n{self.placeholder_text}"
 
         return disnake.Embed(description=txt, color=self.bot.get_color(self.guild.me))
 
