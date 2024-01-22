@@ -1733,7 +1733,7 @@ class MusicSettings(commands.Cog):
                             "[34;1m{track.title}[0m -> Song title\n"
                             "[34;1m{track.title_25}[0m -> Song title (up to 25 characters)\n"
                             "[34;1m{track.title_42}[0m -> Song title (up to 48 characters)\n"
-                            "[34;1m{track.title_25}[0m -> Song title (up to 52 characters)\n"
+                            "[34;1m{track.title_58}[0m -> Song title (up to 58 characters)\n"
                             "[34;1m{track.url}[0m -> Song link\n"
                             "[34;1m{track.author}[0m -> Uploader/Artist name\n"
                             "[34;1m{track.duration}[0m -> Song duration\n"

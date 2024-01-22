@@ -55,7 +55,7 @@ class EmbedLinkStaticSkin:
             txt += f"\n> ✋ **⠂Requested by:** <@{player.current.requester}>\n"
         else:
             try:
-                mode = f" [`Recommended Music`]({player.current.info['extra']['related']['uri']})"
+                mode = f" [`Recommended Music`](<{player.current.info['extra']['related']['uri']}>)"
             except:
                 mode = "`Recommended Music`"
             txt += f"\n> 👍 **⠂Added via:** {mode}\n"

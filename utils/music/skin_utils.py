@@ -58,9 +58,9 @@ def replaces(
             data=txt
         ). \
             replace('{track.thumb}', player.current.thumb). \
-            replace('{playlist.name}', player.current.playlist_name or "None"). \
-            replace('{playlist.url}', player.current.playlist_url). \
-            replace('{player.loop.mode}', 'Disabled' if not player.loop else 'Current Music' if player.loop == "current" else "Queue"). \
+            replace('{playlist.name}', player.current.playlist_name or "Sem playlist"). \
+            replace('{playlist.url}', player.current.playlist_url or player.controller_link). \
+            replace('{player.loop.mode}', 'Disabled' if not player.loop else 'Current music' if player.loop == "current" else "Queue"). \
             replace('{player.queue.size}', str(len(player.queue))). \
             replace('{player.volume}', str(player.volume)). \
             replace('{player.autoplay}', "Enabled" if player.autoplay else "Disabled"). \
@@ -76,18 +76,11 @@ def replaces(
             replace('{guild.icon}', player.guild.icon.with_static_format("png").url if player.guild.icon else ""). \
             replace('{guild.name}', player.guild.name). \
             replace('{guild.id}', str(player.guild.id)). \
-            replace('{queue_format}', queue_text or "No songs.")
+            replace('{queue_format}', queue_text or "Empty queue...")
 
     else:
 
         queue_max_entries = info.pop("queue_max_entries", 3) or 3
-
-        color = ctx.bot.get_color(ctx.guild.me)
-
-        try:
-            color = hex(ctx.bot.get_color(ctx.guild.me).value)[2:]
-        except AttributeError:
-            color = hex(color)
 
         txt = track_title_format(
             track_title=track['title'],
@@ -110,11 +103,11 @@ def replaces(
             replace('{requester.display_name}', ctx.author.display_name). \
             replace('{requester.mention}', ctx.author.mention). \
             replace('{requester.avatar}', ctx.author.display_avatar.with_static_format("png").url). \
-            replace('{guild.color}', color). \
+            replace('{guild.color}', hex(ctx.bot.get_color(ctx.guild.me).value)[2:]). \
             replace('{guild.icon}', ctx.guild.icon.with_static_format("png").url if ctx.guild.icon else ""). \
             replace('{guild.name}', ctx.guild.name). \
             replace('{guild.id}', str(ctx.guild.id)). \
-            replace('{queue_format}', queue_text or "No songs.")
+            replace('{queue_format}', queue_text or "(No songs).")
 
     return txt
 
@@ -213,14 +206,15 @@ def skin_converter(info: dict, ctx: Union[CustomContext, disnake.ModalInteractio
                 d["thumbnail"]["url"] = replaces(d["thumbnail"]["url"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track)
             except KeyError:
                 pass
-            try:
-                d["color"] = int(replaces(d["color"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track), 16)
-            except (KeyError, AttributeError):
-                pass
 
             for n, f in enumerate(d.get("fields", [])):
                 f["name"] = replaces(f["name"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track)
                 f["value"] = replaces(f["value"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track)
+
+            try:
+                d["color"] = int(replaces(d["color"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track), 16)
+            except (KeyError, AttributeError):
+                pass
 
         info["embeds"] = [disnake.Embed.from_dict(e) for e in embeds]
 
