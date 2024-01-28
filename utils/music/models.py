@@ -477,12 +477,9 @@ class LavalinkPlayer(wavelink.Player):
             f"It is possible to change the player's skin/appearance using the command /change_skin or {self.prefix_info}skin "
             f"(Only members with server management permission can use this command).",
 
-            "You can add favorite links for easy access to use them in the /play command (in the search autocomplete) or "
-            f"{self.prefix_info}play (without including name/link), eliminating the need to copy and paste the links to play or add your favorite songs to the queue. Try using the /fav_manager command or "
-            f"{self.prefix_info}favmanager.",
-
-            "Give a new look to the music player on the server by creating custom skins. Try using the /custom_skin command or "
-            f"{self.prefix_info}customskin (Only members with administrator permission can use this command).",
+            "Give a fresh look to the music player on the server by creating custom skins. Try using "
+            f"the command /custom_skin or {self.prefix_info}customskin (Only members with administrator permissions "
+            "can use this command).",
 
             "You can set the automatic status in the voice channel with information about the currently playing song. Try using the /stage_announce command or "
             f"{self.prefix_info}stageannounce (Only members with server management permission can use this feature)."
@@ -501,9 +498,9 @@ class LavalinkPlayer(wavelink.Player):
         if hint_platforms:
             self.initial_hints.append(
                 "You can add/integrate links to profiles/channels of " + " and ".join(hint_platforms) + " to play "
-                "public playlists from the channel/profile using the command {self.prefix_info}play (without including "
-                "the name/link) or the command /play (via autocomplete search). Try using the "
-                "/fav_manager command or {self.prefix_info}favmanager."
+                f"public playlists available on the channel/profile using the command {self.prefix_info}play (without including "
+                "the name/link) or the command /play (via search autocomplete). Try using the "
+                f"command /fav_manager or {self.prefix_info}favmanager and select the \"integrations\" option."
             )
 
         try:
@@ -651,6 +648,9 @@ class LavalinkPlayer(wavelink.Player):
             self.start_time = disnake.utils.utcnow()
 
             if self.auto_pause:
+                return
+
+            if not self.text_channel:
                 return
 
             if isinstance(self.text_channel, disnake.Thread):

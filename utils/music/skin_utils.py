@@ -30,7 +30,7 @@ def track_title_format(
         replace('{track.title}', track_title). \
         replace('{track.url}', track_url). \
         replace('{track.author}', track_author). \
-        replace('{track.duration}', time_format(track_duration)). \
+        replace('{track.duration}', time_format(track_duration) if track_duration else "🔴 Ao vivo"). \
         replace('{track.number}', str(track_number))
 
 
@@ -41,10 +41,15 @@ def replaces(
     if player:
 
         try:
-            requester = player.guild.get_member(player.current.requester)
-            requester_global_name = requester.global_name
-            requester_display_name = requester.display_name
-            requester_avatar = requester.display_avatar.replace(static_format="png", size=512).url
+            if not player.current.autoplay:
+                requester = player.guild.get_member(player.current.requester)
+                requester_global_name = requester.global_name
+                requester_display_name = requester.display_name
+                requester_avatar = requester.display_avatar.replace(static_format="png", size=512).url
+            else:
+                requester_global_name = "Recomendação"
+                requester_display_name = "Recomendação"
+                requester_avatar = player.guild.me.display_avatar.replace(static_format="png", size=512).url
         except:
             requester_global_name = "Unknown..."
             requester_display_name = "Unknown..."
@@ -54,7 +59,7 @@ def replaces(
             track_title=player.current.title,
             track_author=player.current.author,
             track_url=player.current.uri,
-            track_duration=player.current.duration,
+            track_duration=player.current.duration if not player.current.is_stream else 0,
             data=txt
         ). \
             replace('{track.thumb}', player.current.thumb). \
@@ -160,7 +165,8 @@ def skin_converter(info: dict, ctx: Union[CustomContext, disnake.ModalInteractio
         ) for n, t in enumerate([track] * queue_max_entries))
 
     try:
-        info["content"] = replaces(info["content"], info=info, ctx=ctx, player=player, queue_text=queue_text, track=track)
+        if info["content"]:
+            info["content"] = replaces(info["content"], info=info, ctx=ctx, player=player, queue_text=queue_text, track=track)
     except KeyError:
         pass
 

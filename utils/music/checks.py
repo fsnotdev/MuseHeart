@@ -81,7 +81,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
         pass
 
     if isinstance(inter, disnake.MessageInteraction):
-        if inter.data.custom_id != "favmanager_play_button":
+        if inter.data.custom_id not in ("favmanager_play_button", "musicplayer_embed_enqueue_track", "musicplayer_embed_forceplay"):
             return
 
     elif isinstance(inter, disnake.ModalInteraction):
@@ -293,7 +293,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
     for bot in inter.bot.pool.bots:
 
         try:
-            if not bot.appinfo.bot_public:
+            if not bot.appinfo.bot_public and not await bot.is_owner(inter.author):
                 continue
         except AttributeError:
             continue
@@ -560,17 +560,7 @@ def user_cooldown(rate: int, per: int):
 
 #######################################################################
 
-
-async def has_perm(inter):
-
-    try:
-        bot = inter.music_bot
-        guild = inter.music_guild
-        channel = bot.get_channel(inter.channel.id)
-    except AttributeError:
-        bot = inter.bot
-        guild = inter.guild
-        channel = inter.channel
+async def check_player_perm(inter, bot: BotCore, channel):
 
     try:
         player: LavalinkPlayer = bot.music.players[inter.guild_id]
@@ -610,7 +600,21 @@ async def has_perm(inter):
         player.dj.add(inter.author.id)
         await channel.send(embed=disnake.Embed(
             description=f"{inter.author.mention} has been added to the list of DJs as there isn't one in the channel <#{vc.id}>.",
-            color=player.bot.get_color(guild.me)), delete_after=10)
+            color=player.bot.get_color(channel.guild.me)), delete_after=10)
+
+    return True
+
+
+async def has_perm(inter):
+
+    try:
+        bot = inter.music_bot
+        channel = bot.get_channel(inter.channel.id)
+    except AttributeError:
+        bot = inter.bot
+        channel = inter.channel
+
+    await check_player_perm(inter=inter, bot=bot, channel=channel)
 
     return True
 

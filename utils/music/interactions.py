@@ -1686,11 +1686,12 @@ class SkinSettingsButton(disnake.ui.View):
         select_mode.callback = self.player_mode
         self.add_item(select_mode)
 
-        controller_btn = disnake.ui.Button(emoji="💠",
-            label="Enable Player-Controller" if not self.controller_enabled else "Disable Player-Controller"
-        )
-        controller_btn.callback = self.controller_buttons
-        self.add_item(controller_btn)
+        if self.mode == "custom_skins":
+            controller_btn = disnake.ui.Button(emoji="💠",
+                label="Enable Player-Controller" if not self.controller_enabled else "Disable Player-Controller"
+            )
+            controller_btn.callback = self.controller_buttons
+            self.add_item(controller_btn)
 
         save_btn = disnake.ui.Button(label="Save", emoji="💾")
         save_btn.callback = self.save
@@ -2522,12 +2523,12 @@ class SkinEditorMenu(disnake.ui.View):
 
     async def modal_handler(self, inter: disnake.ModalInteraction):
 
-        self.ctx = inter
-
         if inter.custom_id == "skin_editor_message_content":
+            self.ctx = inter
             self.message_data["content"] = inter.text_values["message_content"]
 
         elif inter.custom_id == "skin_editor_add_embed":
+            self.ctx = inter
 
             e = disnake.Embed(
                 title=inter.text_values["skin_embed_title"],
@@ -2541,6 +2542,9 @@ class SkinEditorMenu(disnake.ui.View):
             self.embed_index = len(self.message_data["embeds"]) - 1
 
         elif inter.custom_id == "skin_editor_edit_embed":
+
+            self.ctx = inter
+
             self.message_data["embeds"][self.embed_index]["title"] = inter.text_values["skin_embed_title"]
             self.message_data["embeds"][self.embed_index]["description"] = inter.text_values["skin_embed_description"]
 
@@ -2564,6 +2568,8 @@ class SkinEditorMenu(disnake.ui.View):
 
         elif inter.custom_id == "skin_editor_add_field":
 
+            self.ctx = inter
+
             if not self.message_data["embeds"][self.embed_index].get("fields"):
                 self.message_data["embeds"][self.embed_index]["fields"] = [{"name": inter.text_values["add_field_name"], "value": inter.text_values["add_field_value"]}]
             else:
@@ -2572,9 +2578,12 @@ class SkinEditorMenu(disnake.ui.View):
             self.embed_field_index = len(self.message_data["embeds"][self.embed_index]["fields"]) - 1
 
         elif inter.custom_id == "skin_editor_edit_field":
+            self.ctx = inter
             self.message_data["embeds"][self.embed_index]["fields"][self.embed_field_index] = {"name":inter.text_values["edit_field_name"], "value":inter.text_values["edit_field_value"]}
 
         elif inter.custom_id == "skin_editor_set_authorfooter":
+
+            self.ctx = inter
 
             if not inter.text_values["footer_text"]:
                 try:
@@ -2600,6 +2609,7 @@ class SkinEditorMenu(disnake.ui.View):
                 }
 
         elif inter.custom_id == "skin_editor_setup_queue":
+            self.ctx = inter
             self.message_data["queue_format"] = inter.text_values["queue_format"]
             try:
                 self.message_data["queue_max_entries"] = int(inter.text_values["queue_max_entries"])
@@ -2607,6 +2617,8 @@ class SkinEditorMenu(disnake.ui.View):
                 pass
 
         elif inter.custom_id == "skin_editor_import_skin":
+
+            self.ctx = inter
 
             try:
                 info = json.loads(inter.text_values["skin"])
@@ -2659,7 +2671,8 @@ class SkinEditorMenu(disnake.ui.View):
 
             self.message_data["controller_enabled"] = view.controller_enabled
 
-            await view.inter.response.defer(ephemeral=True)
+            if view.inter:
+                await view.inter.response.defer(ephemeral=True)
 
             self.global_data = await self.bot.get_global_data(self.ctx.guild_id, db_name=DBModel.guilds)
 
@@ -2708,6 +2721,9 @@ class SkinEditorMenu(disnake.ui.View):
 
             if not guild_prefix:
                 guild_prefix = self.bot.config.get("DEFAULT_PREFIX") or "!!"
+
+            if not view.inter:
+                view.inter = inter
 
             await view.inter.edit_original_message("**The skin has been saved/edited successfully!**\n"
                                                    f"You can apply it using the command {cmd} or {guild_prefix}skin",
