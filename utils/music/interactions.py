@@ -1912,10 +1912,11 @@ class SetStageTitle(disnake.ui.View):
 
 class SkinEditorMenu(disnake.ui.View):
 
-    def __init__(self, ctx: Union[CustomContext, disnake.AppCmdInter], bot: BotCore, global_data: dict):
+    def __init__(self, ctx: Union[CustomContext, disnake.AppCmdInter], bot: BotCore, guild: disnake.Guild, global_data: dict):
         super().__init__(timeout=600)
         self.ctx = ctx
         self.bot = bot
+        self.guild = guild
         self.message: Optional[disnake.Message] = None
         self.embed_index = 0
         self.embed_field_index = 0
@@ -1987,12 +1988,12 @@ class SkinEditorMenu(disnake.ui.View):
                 has_skins = True
 
             if not has_skins:
-                self.message_data = {"embeds": [{"description": "**No saved skins...\nClick the button below to create a new skin/template.**", "color": self.ctx.guild.me.color.value}]}
+                self.message_data = {"embeds": [{"description": "**No saved skins...\nClick the button below to create a new skin/template.**", "color": self.guild.me.color.value}]}
                 new_skin_btn = disnake.ui.Button(label="Add new skin", custom_id="skin_editor_new_skin", disabled=len(static_skins_opts) > 2 and len(skins_opts) > 2)
                 new_skin_btn.callback = self.new_skin
                 self.add_item(new_skin_btn)
             else:
-                self.message_data = {"embeds": [{"description": "**Select a skin below to edit it or create a new one using a base template by clicking the add button below.**", "color": self.ctx.guild.me.color.value}]}
+                self.message_data = {"embeds": [{"description": "**Select a skin below to edit it or create a new one using a base template by clicking the add button below.**", "color": self.guild.me.color.value}]}
                 new_skin_btn = disnake.ui.Button(label="Add new skin", custom_id="skin_editor_new_skin", disabled=len(static_skins_opts) > 2 and len(skins_opts) > 2)
                 new_skin_btn.callback = self.new_skin
                 self.add_item(new_skin_btn)
