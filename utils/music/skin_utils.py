@@ -30,7 +30,7 @@ def track_title_format(
         replace('{track.title}', track_title). \
         replace('{track.url}', track_url). \
         replace('{track.author}', track_author). \
-        replace('{track.duration}', time_format(track_duration) if track_duration else "🔴 Ao vivo"). \
+        replace('{track.duration}', time_format(track_duration) if track_duration else "🔴 Live"). \
         replace('{track.number}', str(track_number))
 
 
@@ -47,8 +47,8 @@ def replaces(
                 requester_display_name = requester.display_name
                 requester_avatar = requester.display_avatar.replace(static_format="png", size=512).url
             else:
-                requester_global_name = "Recomendação"
-                requester_display_name = "Recomendação"
+                requester_global_name = "Recommendation"
+                requester_display_name = "Recommendation"
                 requester_avatar = player.guild.me.display_avatar.replace(static_format="png", size=512).url
         except:
             requester_global_name = "Unknown..."
