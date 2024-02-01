@@ -42,14 +42,12 @@ class MiniStaticSkin:
         queue_size = len(player.queue)
 
         if not player.paused:
-            emoji = "▶️"
             embed.set_author(
                 name="Currently Playing:",
                 icon_url=music_source_image(player.current.info["sourceName"]),
             )
 
         else:
-            emoji = "⏸️"
             embed.set_author(
                 name="Paused:",
                 icon_url="https://cdn.discordapp.com/attachments/480195401543188483/896013933197013002/pause.png"
@@ -128,6 +126,47 @@ class MiniStaticSkin:
 
             if not has_stream and not player.loop and not player.keep_connected and not player.paused and not player.current.is_stream:
                 embed_queue.description += f"\n`[ ⌛ Songs end` <t:{int((current_time + datetime.timedelta(milliseconds=queue_duration + player.current.duration)).timestamp())}:R> `⌛ ]`"
+
+        elif player.queue_autoplay:
+
+            queue_txt = ""
+
+            has_stream = False
+
+            current_time = disnake.utils.utcnow() - datetime.timedelta(milliseconds=player.position + player.current.duration)
+
+            queue_duration = 0
+
+            for n, t in enumerate(player.queue_autoplay):
+
+                if t.is_stream:
+                    has_stream = True
+
+                elif n != 0:
+                    queue_duration += t.duration
+
+                if n > 7:
+                    if has_stream:
+                        break
+                    continue
+
+                if has_stream:
+                    duration = time_format(t.duration) if not t.is_stream else '🔴 Ao vivo'
+
+                    queue_txt += f"`┌ {n + 1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
+                                 f"`└ ⏲️ {duration}`" + (f" - `Repetições: {t.track_loops}`" if t.track_loops else "") + \
+                                 f" **|** `👍⠂Recomendada`\n"
+
+                else:
+                    duration = f"<t:{int((current_time + datetime.timedelta(milliseconds=queue_duration)).timestamp())}:R>"
+
+                    queue_txt += f"`┌ {n + 1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
+                                 f"`└ ⏲️` {duration}" + (f" - `Repetições: {t.track_loops}`" if t.track_loops else "") + \
+                                 f" **|** `👍⠂Recomendada`\n"
+
+            embed_queue = disnake.Embed(title="Próximas músicas recomendadas:",
+                                        color=player.bot.get_color(player.guild.me),
+                                        description=f"\n{queue_txt}")
 
         if player.current_hint:
             embed.set_footer(text=f"💡 Hint: {player.current_hint}")
@@ -232,12 +271,6 @@ class MiniStaticSkin:
                     description="Create a temporary thread/conversation to request songs using just the name/link."
                 )
             )
-
-        try:
-            if isinstance(player.text_channel.parent, disnake.ForumChannel):
-                data["content"] = f"`{emoji} {fix_characters(player.current.title, 50)}`"
-        except:
-            pass
 
         return data
 

@@ -325,7 +325,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
     else:
 
         if bot_missing_perms:
-            msg = f"**The bot(s) available on the server do not have permission to send messages in the channel {inter.channel.mention}**:\n\n" + \
+            msg = f"**There are music bots available on the server, but they don't have permission to send messages in the channel. <#{inter.channel_id}>**:\n\n" + \
                 ", ".join(b.user.mention for b in bot_missing_perms)
         else:
             msg = "**All bots are currently in use...**\n\n**You can connect to one of the channels below where active sessions are taking place:**\n" + ", ".join(voice_channels)

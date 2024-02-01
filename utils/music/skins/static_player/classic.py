@@ -40,13 +40,11 @@ class ClassicStaticSkin:
         embed_top = None
 
         if not player.paused:
-            emoji = "▶️"
             (embed_top or embed).set_author(
                 name="Currently Playing:",
                 icon_url=music_source_image(player.current.info["sourceName"])
             )
         else:
-            emoji = "⏸️"
             (embed_top or embed).set_author(
                 name="Paused:",
                 icon_url="https://cdn.discordapp.com/attachments/480195401543188483/896013933197013002/pause.png"
@@ -82,6 +80,12 @@ class ClassicStaticSkin:
                 data["content"] += f"\n\n[0;37mAnd more[0m [0;35m{qsize}[0m [0;37msong(s).[0m"
 
             data["content"] += "```"
+
+        elif len(player.queue_autoplay):
+
+            data["content"] = "**Próximas músicas recomendadas:**\n```ansi\n" + \
+                              "\n".join(f"[0;33m{(n+1):02}[0m [0;34m[{time_format(t.duration) if not t.is_stream else '🔴 stream'}][0m [0;36m{fix_characters(t.title, 45)}[0m" for n, t in enumerate(
+                                  itertools.islice(player.queue_autoplay, 15))) + "```"
 
         if player.command_log:
             txt += f"{player.command_log_emoji} **⠂Last Interaction:** {player.command_log}\n"
@@ -196,12 +200,6 @@ class ClassicStaticSkin:
                     description="Create a temporary thread/conversation to request songs using just the name/link."
                 )
             )
-
-        try:
-            if isinstance(player.text_channel.parent, disnake.ForumChannel):
-                data["content"] = f"`{emoji} {fix_characters(player.current.title, 50)}`"
-        except:
-            pass
 
         return data
 

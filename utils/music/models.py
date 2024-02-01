@@ -459,8 +459,12 @@ class LavalinkPlayer(wavelink.Player):
 
         stage_template = kwargs.pop("stage_title_template", None)
 
-        self.stage_title_event = bool(stage_template)
-        self.stage_title_template: str = stage_template or "Tocando: {track.title} | {track.author}"
+        self.stage_title_event = kwargs.pop("stage_title_event", None)
+
+        if self.stage_title_event is None:
+            self.stage_title_event = bool(stage_template)
+
+        self.stage_title_template: str = stage_template or "Playing: {track.title} | {track.author}"
         self.last_stage_title = ""
 
         self.purge_mode = kwargs.pop("purge_mode", SongRequestPurgeMode.on_message)
@@ -1055,10 +1059,12 @@ class LavalinkPlayer(wavelink.Player):
 
             for b in self.bot.pool.bots:
 
+                if b == self.bot:
+                    continue
+
                 try:
-                    if b == self.bot or str(b.user.id) in self.bot.pool.config["INTERACTION_BOTS_CONTROLLER"]:
-                        continue
-                except:
+                    self.bot.user.id
+                except AttributeError:
                     self.retry_setup_hints = True
                     continue
 
@@ -1146,7 +1152,7 @@ class LavalinkPlayer(wavelink.Player):
             except AttributeError:
                 vc = self.last_channel
 
-            if [m for m in vc.members if not m.bot]:
+            if [m for m in vc.members if not m.bot and not (m.voice.deaf or m.voice.self_deaf)]:
                 try:
                     self.auto_skip_track_task.cancel()
                 except:
@@ -1158,7 +1164,7 @@ class LavalinkPlayer(wavelink.Player):
 
             await asyncio.sleep(idle_timeout)
 
-            if [m for m in vc.members if not m.bot]:
+            if [m for m in vc.members if not m.bot and not (m.voice.deaf or m.voice.self_deaf)]:
                 try:
                     self.auto_skip_track_task.cancel()
                 except:
@@ -1925,10 +1931,16 @@ class LavalinkPlayer(wavelink.Player):
 
         self.last_data = data
 
+        try:
+            if self.static and isinstance(self.text_channel.parent, disnake.ForumChannel):
+                data["content"] = f"`{'▶️' if not self.paused else '⏸️'} {fix_characters(self.current.title, 50)}` |\n\n" + (data.get("content") or "")
+        except:
+            pass
+
         if not self.controller_mode:
 
             if self.temp_embed:
-                self.last_data["embeds"].insert(0, self.temp_embed)
+                data["embeds"].insert(0, self.temp_embed)
                 self.temp_embed = None
 
             self.updating = True
@@ -1942,32 +1954,32 @@ class LavalinkPlayer(wavelink.Player):
                         self.message = None
                     else:
                         try:
-                            await self.message.edit(allowed_mentions=self.allowed_mentions, **self.last_data)
+                            await self.message.edit(allowed_mentions=self.allowed_mentions, **data)
                         except disnake.Forbidden:
                             self.message = None
                             self.text_channel = None
                         except:
-                            self.message = await self.text_channel.send(allowed_mentions=self.allowed_mentions, **self.last_data)
+                            self.message = await self.text_channel.send(allowed_mentions=self.allowed_mentions, **data)
 
             else:
                 try:
                     self.message_updater_task.cancel()
                 except:
                     pass
-                self.message = await self.text_channel.send(allowed_mentions=self.allowed_mentions, **self.last_data)
+                self.message = await self.text_channel.send(allowed_mentions=self.allowed_mentions, **data)
 
             self.updating = False
 
         else:
 
-            # no button control was defined in the skin (default buttons will be used).
-            if self.last_data.get("components") is None:
+            # nenhum controle de botão foi definido na skin (será usado os botões padrões).
+            if data.get("components") is None:
 
                 # Warning: Do not modify the components below, prefer to copy one of the skins from the utils -> music -> skins folder
                 # and leave it with another name (without accents, spaces, special characters) and modify them to your liking.
                 # If you want to leave a custom skin by default add/modify the config DEFAULT_SKIN="yourskin"
 
-                self.last_data["components"] = [
+                data["components"] = [
                     disnake.ui.Button(
                         emoji="⏯️", custom_id=PlayerControls.pause_resume, style=get_button_style(self.paused)),
                     disnake.ui.Button(
@@ -2055,7 +2067,7 @@ class LavalinkPlayer(wavelink.Player):
                     )
 
                 if self.mini_queue_feature:
-                    self.last_data["components"][5].options.append(
+                    data["components"][5].options.append(
                         disnake.SelectOption(
                             label="Player mini-queue", emoji="<:music_queue:703761160679194734>",
                             value=PlayerControls.miniqueue,
@@ -2074,7 +2086,7 @@ class LavalinkPlayer(wavelink.Player):
                     )
 
                 if not self.static and not self.has_thread:
-                    self.last_data["components"][5].options.append(
+                    data["components"][5].options.append(
                         disnake.SelectOption(
                             label="Song-Request Thread", emoji="💬",
                             value=PlayerControls.song_request_thread,
@@ -2087,10 +2099,10 @@ class LavalinkPlayer(wavelink.Player):
             if interaction:
                 try:
                     if interaction.response.is_done():
-                        await interaction.message.edit(allowed_mentions=self.allowed_mentions, **self.last_data)
+                        await interaction.message.edit(allowed_mentions=self.allowed_mentions, **data)
                     else:
                         await interaction.response.edit_message(allowed_mentions=self.allowed_mentions,
-                                                                **self.last_data)
+                                                                **data)
                 except:
                     traceback.print_exc()
                 self.updating = False
@@ -2107,7 +2119,7 @@ class LavalinkPlayer(wavelink.Player):
                     try:
 
                         try:
-                            await self.message.edit(allowed_mentions=self.allowed_mentions, **self.last_data)
+                            await self.message.edit(allowed_mentions=self.allowed_mentions, **data)
                         except:
                             self.text_channel = self.bot.get_channel(self.text_channel.id)
 
@@ -2166,7 +2178,7 @@ class LavalinkPlayer(wavelink.Player):
             if not self.static:
                 try:
                     self.message = await self.text_channel.send(allowed_mentions=self.allowed_mentions,
-                                                                **self.last_data)
+                                                                **data)
                 except:
                     traceback.print_exc()
 

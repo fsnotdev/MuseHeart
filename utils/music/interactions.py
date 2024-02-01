@@ -22,7 +22,7 @@ from utils.music.models import LavalinkPlayer
 from utils.music.skin_utils import skin_converter
 from utils.music.spotify import spotify_regex_w_user
 from utils.others import check_cmd, CustomContext, send_idle_embed, music_source_emoji_url, \
-    music_source_emoji_id, PlayerControls
+    music_source_emoji_id, PlayerControls, get_source_emoji_cfg
 
 if TYPE_CHECKING:
     from utils.client import BotCore
@@ -1003,6 +1003,7 @@ class FavMenuView(disnake.ui.View):
         self.mode = mode
         self.bot = bot
         self.ctx = ctx
+        self.guild = ctx.guild
         self.current = None
         self.data = data
         self.guild_data = {}
@@ -1011,11 +1012,18 @@ class FavMenuView(disnake.ui.View):
         self.prefix = prefix
         self.components_updater_task = bot.loop.create_task(self.auto_update())
 
+        if not self.guild:
+            for b in self.bot.pool.bots:
+                guild = b.get_guild(ctx.guild_id)
+                if guild:
+                    self.guild = guild
+                    break
+
     def update_components(self):
 
         self.clear_items()
 
-        if not self.ctx.guild:
+        if not self.guild:
             self.bot.loop.create_task(self.on_timeout())
             return
 
@@ -1060,7 +1068,7 @@ class FavMenuView(disnake.ui.View):
             bots_in_guild = []
 
             for b in sorted(self.bot.pool.bots, key=lambda b: b.identifier):
-                if b.bot_ready and b.user in self.ctx.guild.members:
+                if b.bot_ready and b.user in self.guild.members:
                     bots_in_guild.append(disnake.SelectOption(emoji="🎶",
                                                               label=f"Bot: {b.user.display_name}"[:25],
                                                               value=f"bot_select_{b.user.id}",
@@ -1087,7 +1095,7 @@ class FavMenuView(disnake.ui.View):
             if self.data["integration_links"]:
 
                 integration_select = disnake.ui.Select(options=[
-                    disnake.SelectOption(label=k, emoji=music_source_emoji_id(k)) for k, v in self.data["integration_links"].items()
+                    disnake.SelectOption(label=k[5:], value=k, emoji=music_source_emoji_id(k)) for k, v in self.data["integration_links"].items()
                 ], min_values=1, max_values=1)
                 integration_select.options[0].default = True
                 self.current = integration_select.options[0].label
@@ -1242,8 +1250,15 @@ class FavMenuView(disnake.ui.View):
                 embed.description = "You have no favorites (click the add button below)."
 
             else:
+                def format_fav(index, data):
+                    name, url = data
+                    e = get_source_emoji_cfg(self.bot, url)
+                    if e:
+                        return f"` {index} ` {e} [`{name}`]({url})"
+                    return f"` {index} ` [`{name}`]({url})"
+
                 embed.description = f"**Your current favorites:**\n\n" + "\n".join(
-                    f"> ` {n + 1} ` [`{f[0]}`]({f[1]})" for n, f in enumerate(self.data["fav_links"].items())
+                    f"> {format_fav(n+1, d)}" for n, d in enumerate(self.data["fav_links"].items())
                 )
 
             embed.add_field(name="**How to use them?**", inline=False,
@@ -1263,8 +1278,15 @@ class FavMenuView(disnake.ui.View):
                 embed.description = f"No links added to {self.bot.user.mention} bot (click the add button below)."
 
             else:
-                embed.description = f"**Current links in {self.bot.user.mention} bot:**\n\n" + "\n".join(
-                    f"> ` {n + 1} ` [`{f[0]}`]({f[1]['url']})" for n, f in enumerate(self.guild_data["player_controller"]["fav_links"].items())
+                def format_gfav(index, data):
+                    name, data = data
+                    e = get_source_emoji_cfg(self.bot, data['url'])
+                    if e:
+                        return f"` {index} ` {e} [`{name}`]({data['url']})"
+                    return f"` {index} ` [`{name}`]({data['url']})"
+
+                embed.description = f"**Current links in the bot {self.bot.user.mention}:**\n\n" + "\n".join(
+                    f"> {format_gfav(n+1, d)}" for n, d in enumerate(self.guild_data["player_controller"]["fav_links"].items())
                 )
 
             embed.add_field(name="**How to use them?**", inline=False,
@@ -1280,8 +1302,15 @@ class FavMenuView(disnake.ui.View):
                 embed.description = "**You have no integrations at the moment (click the add button below).**"
 
             else:
+                def format_itg(bot, index, data):
+                    name, url = data
+                    e = get_source_emoji_cfg(bot, url)
+                    if e:
+                        return f"` {index} ` {e} [`{name[5:]}`]({url})"
+                    return f"` {index} ` [`{name}`]({url})"
+
                 embed.description = f"**Your current integrations:**\n\n" + "\n".join(
-                    f"> ` {n + 1} ` [`{f[0]}`]({f[1]})" for n, f in enumerate(self.data["integration_links"].items()))
+                    f"> {format_itg(self.bot, n+1, d)}" for n, d in enumerate(self.data["integration_links"].items()))
 
                 embed.add_field(name="**How to play a playlist from an integration?**", inline=False,
                                 value=f"* Using the {cmd} command (selecting the integration from the search autocomplete)\n"
@@ -1424,7 +1453,7 @@ class FavMenuView(disnake.ui.View):
             except AttributeError:
                 continue
 
-        self.guild_data = await self.bot.get_data(inter.guild.id, db_name=DBModel.guilds)
+        self.guild_data = await self.bot.get_data(inter.guild_id, db_name=DBModel.guilds)
 
         await inter.response.edit_message(embed=self.build_embed(), view=self)
 
@@ -2691,7 +2720,12 @@ class SkinEditorMenu(disnake.ui.View):
 
             await self.bot.update_global_data(id_=inter.guild_id, data=self.global_data, db_name=DBModel.guilds)
 
-            for player in self.bot.music.players.values():
+            for bot in self.bot.pool.bots:
+
+                try:
+                    player = bot.music.players[inter.guild_id]
+                except KeyError:
+                    continue
 
                 global_data = self.global_data.copy()
 

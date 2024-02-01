@@ -40,12 +40,10 @@ class EmbedLinkStaticSkin:
         title = fix_characters(player.current.title) if not player.current.uri else f"[{fix_characters(player.current.title)}]({player.current.uri})"
 
         if player.paused:
-            emoji = "`⏸️`"
             txt += f"\n> ### `⏸️` Paused: {title}\n{duration_txt}"
 
         else:
-            emoji = "`▶️`"
-            txt += f"\n> ### `▶️` Currently Playing: {title}\n{duration_txt}"
+            txt += f"\n> ### `▶️` Now Playing: {title}\n{duration_txt}"
             if not player.current.is_stream and not player.paused:
                 txt += f" `[`<t:{int((disnake.utils.utcnow() + datetime.timedelta(milliseconds=player.current.duration - player.position)).timestamp())}:R>`]`"
 
@@ -98,11 +96,13 @@ class EmbedLinkStaticSkin:
 
             txt = qtext + "```" + txt
 
-        try:
-            if isinstance(player.text_channel.parent, disnake.ForumChannel):
-                txt = f"{emoji} `{fix_characters(player.current.title, 50)}` **|**\n{txt}"
-        except:
-            pass
+        elif len(player.queue_autoplay):
+
+            txt = "**Next recommended songs:**\n```ansi\n" + \
+                              "\n".join(
+                                  f"[0;33m{(n + 1):02}[0m [0;34m[{time_format(t.duration) if not t.is_stream else '🔴 stream'}][0m [0;36m{fix_characters(t.title, 45)}[0m"
+                                  for n, t in enumerate(
+                                      itertools.islice(player.queue_autoplay, 4))) + "```" + txt
 
         data = {
             "content": txt,

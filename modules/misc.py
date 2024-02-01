@@ -67,10 +67,11 @@ class Misc(commands.Cog):
         except AttributeError:
             pass
 
-        if [i for i in ("{players_count}", "{players_count_allbotchannels}", "{players_count_allbotservers}") if i in text]:
+        if [i for i in ("{players_count}", "{players_user_count}","{players_count_allbotchannels}", "{players_count_allbotservers}") if i in text]:
 
             channels = set()
             guilds = set()
+            users = set()
             player_count = 0
 
             for bot in self.bot.pool.bots:
@@ -85,6 +86,10 @@ class Misc(commands.Cog):
                             continue
                         channels.add(vc.id)
                         guilds.add(player.guild.id)
+                        for u in vc.members:
+                            if u.bot or u.voice.deaf or u.voice.self_deaf:
+                                continue
+                            users.add(u.id)
 
                 if "{players_count}" in text:
                     if not player_count:
@@ -104,6 +109,13 @@ class Misc(commands.Cog):
                     return
 
                 text = text.replace("{players_count_allbotservers}", str(len(guilds)))
+
+            if "{players_user_count}" in text:
+
+                if not users:
+                    return
+
+                text = text.replace("{players_user_count}", str(len(users)))
 
         return text \
             .replace("{users}", f'{len([m for m in self.bot.users if not m.bot]):,}'.replace(",", ".")) \
@@ -228,9 +240,6 @@ class Misc(commands.Cog):
                 continue
 
             if not bot.bot_ready:
-                continue
-
-            if str(bot.user.id) in self.bot.config["INTERACTION_BOTS_CONTROLLER"]:
                 continue
 
             if bot.user in guild.members:
@@ -512,13 +521,6 @@ class Misc(commands.Cog):
         all_guilds_ids = set()
 
         for b in bot.pool.bots:
-
-            try:
-                if str(b.user.id) in self.bot.config["INTERACTION_BOTS_CONTROLLER"]:
-                    continue
-            except:
-                pass
-
             for g in b.guilds:
                 all_guilds_ids.add(g.id)
 
@@ -529,6 +531,7 @@ class Misc(commands.Cog):
 
         users = set()
         bots = set()
+        listeners = set()
 
         user_count = 0
         bot_count = 0
@@ -546,12 +549,6 @@ class Misc(commands.Cog):
                 user_count += 1
 
         for b in bot.pool.bots:
-
-            try:
-                if str(b.user.id) in self.bot.config["INTERACTION_BOTS_CONTROLLER"]:
-                    continue
-            except:
-                pass
 
             for user in b.users:
 
@@ -591,6 +588,14 @@ class Misc(commands.Cog):
 
                 else:
                     active_players_other_bots += 1
+                    try:
+                        vc = p.guild.me.voice.channel
+                    except AttributeError:
+                        continue
+                    for u in vc.members:
+                        if u.bot or u.voice.deaf or u.voice.self_deaf:
+                            continue
+                        listeners.add(u.id)
 
             if not b.appinfo or not b.appinfo.bot_public:
                 private_bot_count += 1
@@ -649,6 +654,9 @@ class Misc(commands.Cog):
 
         if inactive_players_other_bots:
             embed.description += f"> 💤 **⠂Inactive players:** `{inactive_players_other_bots:,}`\n"
+
+        if listeners:
+            embed.description += f"> 🎧 **⠂Ouvintes atuais:** `{len(listeners):,}`\n"
 
         if bot.pool.commit:
             embed.description += f"> 📥 **⠂Current commit:** [`{bot.pool.commit[:7]}`]({bot.pool.remote_git_url}/commit/{bot.pool.commit})\n"
@@ -744,14 +752,11 @@ class Misc(commands.Cog):
             except:
                 continue
 
-            if str(bot.user.id) in bot.config['INTERACTION_BOTS_CONTROLLER']:
-                continue
-
             kwargs = {"redirect_uri": self.bot.config['INVITE_REDIRECT_URL']} if self.bot.config['INVITE_REDIRECT_URL'] else {}
 
             invite = f"[`{disnake.utils.escape_markdown(str(bot.user.name))}`]({disnake.utils.oauth_url(bot.user.id, permissions=disnake.Permissions(bot.config['INVITE_PERMISSIONS']), scopes=('bot', 'applications.commands'), **kwargs)})"
 
-            if not str(bot.user.id) not in self.bot.config["INTERACTION_BOTS_CONTROLLER"] and bot.appinfo.flags.gateway_message_content_limited:
+            if bot.appinfo.flags.gateway_message_content_limited:
                 invite += f" ({len(bot.guilds)}/100)"
             else:
                 invite += f" ({len(bot.guilds)})"
