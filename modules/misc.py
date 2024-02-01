@@ -656,7 +656,7 @@ class Misc(commands.Cog):
             embed.description += f"> 💤 **⠂Inactive players:** `{inactive_players_other_bots:,}`\n"
 
         if listeners:
-            embed.description += f"> 🎧 **⠂Ouvintes atuais:** `{len(listeners):,}`\n"
+            embed.description += f"> 🎧 **⠂Current listeners:** `{len(listeners):,}`\n"
 
         if bot.pool.commit:
             embed.description += f"> 📥 **⠂Current commit:** [`{bot.pool.commit[:7]}`]({bot.pool.remote_git_url}/commit/{bot.pool.commit})\n"

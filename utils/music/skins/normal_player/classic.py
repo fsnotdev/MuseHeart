@@ -95,7 +95,7 @@ class ClassicSkin:
                     queue_txt += f"\n`╚══════ And {qsize - 3} more song(s) ══════╝`"
 
         elif len(player.queue_autoplay):
-            queue_txt += "```ansi\n[0;33mPróximas Músicas:[0m```" + "\n".join(
+            queue_txt += "```ansi\n[0;33mNext song:[0m```" + "\n".join(
                 f"`👍⠂{(n + 1):02}) [{time_format(t.duration) if t.duration else '🔴 Livestream'}]` "
                 f"[`{fix_characters(t.title, 29)}`]({t.uri})" for n, t in
                 enumerate(itertools.islice(player.queue_autoplay, 3))

@@ -184,20 +184,20 @@ class DefaultProgressbarStaticSkin:
                     continue
 
                 if has_stream:
-                    duration = time_format(t.duration) if not t.is_stream else '🔴 Ao vivo'
+                    duration = time_format(t.duration) if not t.is_stream else '🔴 Live'
 
                     queue_txt += f"`┌ {n+1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
-                           f"`└ ⏲️ {duration}`" + (f" - `Repetições: {t.track_loops}`" if t.track_loops else "") + \
-                           f" **|** `👍⠂Recomendada`\n"
+                           f"`└ ⏲️ {duration}`" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
+                           f" **|** `👍⠂Recommended`\n"
 
                 else:
                     duration = f"<t:{int((current_time + datetime.timedelta(milliseconds=queue_duration)).timestamp())}:R>"
 
                     queue_txt += f"`┌ {n+1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
-                           f"`└ ⏲️` {duration}" + (f" - `Repetições: {t.track_loops}`" if t.track_loops else "") + \
-                           f" **|** `👍⠂Recomendada`\n"
+                           f"`└ ⏲️` {duration}" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
+                           f" **|** `👍⠂Recommended`\n"
 
-            embed_queue = disnake.Embed(title="Próximas músicas recomendadas:", color=player.bot.get_color(player.guild.me),
+            embed_queue = disnake.Embed(title="Next recommended songs:", color=player.bot.get_color(player.guild.me),
                                         description=f"\n{queue_txt}")
 
             embed_queue.set_image(url=queue_img)
