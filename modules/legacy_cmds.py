@@ -988,7 +988,7 @@ class Owner(commands.Cog):
 
                 msg = await ctx.send(
                     embed=disnake.Embed(
-                        description=f"**Escolha qual bot você deseja usar no canal {ctx.author.voice.channel.mention}**",
+                        description=f"**Choose which bot you want to use in the channel {ctx.author.voice.channel.mention}**",
                         color=self.bot.get_color(guild.me)), view=v
                 )
 
@@ -997,16 +997,16 @@ class Owner(commands.Cog):
                 await v.wait()
 
                 if v.status is None:
-                    await msg.edit(embed=disnake.Embed(description="### Tempo esgotado...", color=self.bot.get_color(guild.me)), view=None)
+                    await msg.edit(embed=disnake.Embed(description="### Time is up...", color=self.bot.get_color(guild.me)), view=None)
                     return
 
                 if v.status is False:
-                    await msg.edit(embed=disnake.Embed(description="### Operação cancelada.",
+                    await msg.edit(embed=disnake.Embed(description="### Operation canceled.",
                                                    color=self.bot.get_color(guild.me)), view=None)
                     return
 
                 if not v.inter.author.voice:
-                    await msg.edit(embed=disnake.Embed(description="### Você não está conectado em um canal de voz...",
+                    await msg.edit(embed=disnake.Embed(description="### You are not connected to a voice channel...",
                                                    color=self.bot.get_color(guild.me)), view=None)
                     return
 
@@ -1033,7 +1033,7 @@ class Owner(commands.Cog):
 
         if msg:
             await msg.edit(
-                f"Sessão de música iniciada no canal {ctx.author.voice.channel.mention}\nVia: {bot.user.mention}{player.controller_link}",
+                f"Music session started on the channel {ctx.author.voice.channel.mention}\nBy: {bot.user.mention}{player.controller_link}",
                 components=None, embed=None
             )
         else:
@@ -1053,7 +1053,7 @@ class Owner(commands.Cog):
         await player.process_next()
 
     @commands.is_owner()
-    @commands.command(hidden=True, aliases=["setbotavatar"], description="Alterar o avatar do bot usando anexo ou link direto de uma imagem jpg ou gif.")
+    @commands.command(hidden=True, aliases=["setbotavatar"], description="To change the bot's avatar, please provide an attachment or a direct link to a jpg or gif image.")
     async def setavatar(self, ctx: CustomContext, url: str = ""):
 
         url = url.strip("<>")
@@ -1061,15 +1061,15 @@ class Owner(commands.Cog):
         if not url:
 
             if not ctx.message.attachments:
-                raise GenericError("Você deve informar o link de uma imagem ou gif (ou anexar uma) no comando.")
+                raise GenericError("You should provide the link to an image or gif (or attach one) in the command.")
 
             url = ctx.message.attachments[0].url
 
             if not url.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")):
-                raise GenericError("Você deve anexar um arquivo válido: png, jpg, jpeg, webp, gif, bmp.")
+                raise GenericError("You must attach a valid file: png, jpg, jpeg, webp, gif, bmp.")
 
         elif not URL_REG.match(url):
-            raise GenericError("Você informou um link inválido.")
+            raise GenericError("You provided an invalid link.")
 
         inter, bot = await select_bot_pool(ctx, return_new=True)
 
@@ -1091,7 +1091,7 @@ class Owner(commands.Cog):
             except AttributeError:
                 func = inter.send
 
-        await func(f"O [avatar]({bot.user.display_avatar.with_static_format('png').url}) do bot {bot.user.mention} foi alterado com sucesso.", view=None, embed=None)
+        await func(f"The [avatar]({bot.user.display_avatar.with_static_format('png').url}) of bot {bot.user.mention} has been successfully changed.", view=None, embed=None)
 
     async def cog_check(self, ctx: CustomContext) -> bool:
         return await check_requester_channel(ctx)

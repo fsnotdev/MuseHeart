@@ -1142,7 +1142,7 @@ class BotCore(commands.AutoShardedBot):
                     break
 
             if not available_bot:
-                await inter.send("**Não há bots disponíveis no servidor, Adicione pelo menos um clicando no botão abaixo.**",
+                await inter.send("**There are no bots available on the server, add at least one by clicking the button below.**",
                                  ephemeral=True, components=[disnake.ui.Button(custom_id="bot_invite", label="Adicionar bots")])
                 return
 
