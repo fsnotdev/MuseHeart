@@ -20,8 +20,12 @@ from config_loader import DEFAULT_CONFIG, load_config
 from utils.client import BotCore
 from utils.db import DBModel
 from utils.music.checks import check_voice, check_requester_channel, can_connect
-from utils.music.errors import GenericError
-from utils.others import sync_message, CustomContext, string_to_file, token_regex, CommandArgparse, get_inter_guild_data
+from utils.music.converters import URL_REG
+from utils.music.errors import GenericError, NoVoice
+from utils.music.interactions import SelectBotVoice
+from utils.music.models import LavalinkPlayer
+from utils.others import sync_message, CustomContext, string_to_file, token_regex, CommandArgparse, \
+    select_bot_pool
 from utils.owner_panel import panel_command, PanelView
 
 
@@ -952,33 +956,142 @@ class Owner(commands.Cog):
         except KeyError:
             pass
 
-        can_connect(channel=ctx.author.voice.channel, guild=ctx.guild)
+        bot = ctx.bot
+        guild = ctx.guild
+        channel = ctx.channel
+        msg = None
 
-        node: wavelink.Node = self.bot.music.get_best_node()
+        if bot.user.id not in ctx.author.voice.channel.voice_states:
+
+            free_bots = []
+
+            for b in self.bot.pool.bots:
+
+                if not b.bot_ready:
+                    continue
+
+                g = b.get_guild(ctx.guild_id)
+
+                if not g:
+                    continue
+
+                p = b.music.players.get(ctx.guild_id)
+
+                if p and ctx.author.id not in p.last_channel.voice_states:
+                    continue
+
+                free_bots.append(b)
+
+            if len(free_bots) > 1:
+
+                v = SelectBotVoice(ctx, guild, free_bots)
+
+                msg = await ctx.send(
+                    embed=disnake.Embed(
+                        description=f"**Escolha qual bot você deseja usar no canal {ctx.author.voice.channel.mention}**",
+                        color=self.bot.get_color(guild.me)), view=v
+                )
+
+                ctx.store_message = msg
+
+                await v.wait()
+
+                if v.status is None:
+                    await msg.edit(embed=disnake.Embed(description="### Tempo esgotado...", color=self.bot.get_color(guild.me)), view=None)
+                    return
+
+                if v.status is False:
+                    await msg.edit(embed=disnake.Embed(description="### Operação cancelada.",
+                                                   color=self.bot.get_color(guild.me)), view=None)
+                    return
+
+                if not v.inter.author.voice:
+                    await msg.edit(embed=disnake.Embed(description="### Você não está conectado em um canal de voz...",
+                                                   color=self.bot.get_color(guild.me)), view=None)
+                    return
+
+                if not v.inter.author.voice:
+                    raise NoVoice()
+
+                bot = v.bot
+                ctx = v.inter
+                guild = v.guild
+                channel = bot.get_channel(ctx.channel.id)
+
+        can_connect(channel=ctx.author.voice.channel, guild=guild)
+
+        node: wavelink.Node = bot.music.get_best_node()
 
         if not node:
             raise GenericError("**No music servers available!**")
 
-        player = await ctx.bot.get_cog("Music").create_player(
-            inter=ctx, bot=ctx.bot, guild=ctx.guild, channel=ctx.channel
+        player: LavalinkPlayer = await bot.get_cog("Music").create_player(
+            inter=ctx, bot=bot, guild=guild, channel=channel
         )
 
         await player.connect(ctx.author.voice.channel.id)
 
-        self.bot.loop.create_task(ctx.message.add_reaction("👍"))
+        if msg:
+            await msg.edit(
+                f"Sessão de música iniciada no canal {ctx.author.voice.channel.mention}\nVia: {bot.user.mention}{player.controller_link}",
+                components=None, embed=None
+            )
+        else:
+            self.bot.loop.create_task(ctx.message.add_reaction("👍"))
 
         while not ctx.guild.me.voice:
             await asyncio.sleep(1)
 
         if isinstance(ctx.author.voice.channel, disnake.StageChannel):
 
-            stage_perms = ctx.author.voice.channel.permissions_for(ctx.guild.me)
+            stage_perms = ctx.author.voice.channel.permissions_for(guild.me)
             if stage_perms.manage_permissions:
-                await ctx.guild.me.edit(suppress=False)
+                await guild.me.edit(suppress=False)
 
             await asyncio.sleep(1.5)
 
         await player.process_next()
+
+    @commands.is_owner()
+    @commands.command(hidden=True, aliases=["setbotavatar"], description="Alterar o avatar do bot usando anexo ou link direto de uma imagem jpg ou gif.")
+    async def setavatar(self, ctx: CustomContext, url: str = ""):
+
+        url = url.strip("<>")
+
+        if not url:
+
+            if not ctx.message.attachments:
+                raise GenericError("Você deve informar o link de uma imagem ou gif (ou anexar uma) no comando.")
+
+            url = ctx.message.attachments[0].url
+
+            if not url.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")):
+                raise GenericError("Você deve anexar um arquivo válido: png, jpg, jpeg, webp, gif, bmp.")
+
+        elif not URL_REG.match(url):
+            raise GenericError("Você informou um link inválido.")
+
+        inter, bot = await select_bot_pool(ctx, return_new=True)
+
+        if not bot:
+            return
+
+        await inter.response.defer(ephemeral=True)
+
+        async with ctx.bot.session.get(url) as r:
+            image_bytes = await r.read()
+
+        await bot.user.edit(avatar=image_bytes)
+
+        try:
+            func = inter.edit_original_message
+        except AttributeError:
+            try:
+                func = inter.response.edit_message
+            except AttributeError:
+                func = inter.send
+
+        await func(f"O [avatar]({bot.user.display_avatar.with_static_format('png').url}) do bot {bot.user.mention} foi alterado com sucesso.", view=None, embed=None)
 
     async def cog_check(self, ctx: CustomContext) -> bool:
         return await check_requester_channel(ctx)

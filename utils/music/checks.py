@@ -87,7 +87,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
     elif isinstance(inter, disnake.ModalInteraction):
         return
 
-    if len(inter.bot.pool.bots) < 2:
+    if len(inter.bot.pool.bots) < 2 and inter.guild:
         try:
             inter.music_bot = inter.bot
             inter.music_guild = inter.guild
@@ -573,9 +573,9 @@ async def check_player_perm(inter, bot: BotCore, channel):
     if inter.author.guild_permissions.manage_channels:
         return True
 
-    if player.keep_connected:
-        raise GenericError(f"**Error!** Only members with **manage server**  "
-                            "permission can use this command/button with **24/7 mode** active...")
+    if player.keep_connected and not (await bot.is_owner(inter.author)):
+        raise GenericError(f"**Error!** Only members with the **manage server** permission "
+                            "can use this command/button with the **24/7 mode active**...")
 
     user_roles = [r.id for r in inter.author.roles]
 
@@ -596,7 +596,7 @@ async def check_player_perm(inter, bot: BotCore, channel):
     if not vc and inter.author.voice:
         player.dj.add(inter.author.id)
 
-    elif not [m for m in vc.members if not m.bot and (m.guild_permissions.manage_channels or (m.id in player.dj) or m.id == player.player_creator)]:
+    elif not [m for m in vc.members if not m.bot and (vc.permissions_for(m).move_members or (m.id in player.dj) or m.id == player.player_creator)]:
         player.dj.add(inter.author.id)
         await channel.send(embed=disnake.Embed(
             description=f"{inter.author.mention} has been added to the list of DJs as there isn't one in the channel <#{vc.id}>.",

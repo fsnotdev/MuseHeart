@@ -927,36 +927,6 @@ class LavalinkPlayer(wavelink.Player):
                 await self.connect(vc_id)
                 return
 
-            if event.code == 4014:
-                await asyncio.sleep(5)
-
-                vc = self.bot.get_channel(self.last_channel.id)
-
-                if not vc:
-
-                    msg = "The voice channel was deleted...."
-
-                    if self.static:
-                        self.command_log = msg
-                        await self.destroy()
-
-                    else:
-                        embed = disnake.Embed(
-                            description=msg,
-                            color=self.bot.get_color(self.guild.me))
-                        try:
-                            self.bot.loop.create_task(self.text_channel.send(embed=embed, delete_after=7))
-                        except:
-                            traceback.print_exc()
-                        await self.destroy()
-
-                elif not self.guild.me.voice:
-                    await self.connect(vc.id)
-
-                return
-
-            return
-
         if isinstance(event, wavelink.TrackStuck):
 
             await self.bot.wait_until_ready()
@@ -977,6 +947,9 @@ class LavalinkPlayer(wavelink.Player):
 
             await self.process_next()
 
+            return
+
+        elif isinstance(event, wavelink.WebsocketClosed):
             return
 
         print(f"Unknown Wavelink event: {repr(event)}")
@@ -1404,7 +1377,8 @@ class LavalinkPlayer(wavelink.Player):
         except:
             return None
 
-    async def process_next(self, start_position: Union[int, float] = 0, inter: disnake.MessageInteraction = None, force_np=False):
+    async def process_next(self, start_position: Union[int, float] = 0, inter: disnake.MessageInteraction = None,
+                           force_np=False, clear_autoqueue = True):
 
         if self.locked or self.is_closing:
             return
@@ -1433,8 +1407,6 @@ class LavalinkPlayer(wavelink.Player):
             self.idle_task = None
         except:
             pass
-
-        clear_autoqueue = True
 
         if len(self.queue):
             track = self.queue.popleft()
@@ -1990,7 +1962,7 @@ class LavalinkPlayer(wavelink.Player):
                         emoji="⏭️", custom_id=PlayerControls.skip),
                     disnake.ui.Button(
                         emoji="<:music_queue:703761160679194734>", custom_id=PlayerControls.queue,
-                        disabled=not self.queue),
+                        disabled=not (self.queue or self.queue_autoplay)),
                     disnake.ui.Select(
                         placeholder="More options:",
                         custom_id="musicplayer_dropdown_inter",
@@ -2654,6 +2626,7 @@ class LavalinkPlayer(wavelink.Player):
                 "bot_id": self.bot.user.id,
                 "bot_name": str(self.bot.user),
                 "thumb": thumb,
+                "guild": self.guild.name,
                 "auth_enabled": self.bot.config["ENABLE_RPC_AUTH"],
                 "listen_along_invite": self.listen_along_invite
             }

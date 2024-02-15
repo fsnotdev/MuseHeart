@@ -30,12 +30,12 @@ from utils.music.converters import time_format, fix_characters, string_to_second
 from utils.music.errors import GenericError, MissingVoicePerms, NoVoice, PoolException, parse_error, \
     EmptyFavIntegration
 from utils.music.interactions import VolumeInteraction, QueueInteraction, SelectInteraction, FavMenuView, ViewMode, \
-    SetStageTitle
+    SetStageTitle, SelectBotVoice
 from utils.music.models import LavalinkPlayer, LavalinkTrack, LavalinkPlaylist, PartialTrack
 from utils.music.spotify import process_spotify, spotify_regex_w_user
 from utils.others import check_cmd, send_idle_embed, CustomContext, PlayerControls, queue_track_index, \
     pool_command, string_to_file, CommandArgparse, music_source_emoji_url, SongRequestPurgeMode, song_request_buttons, \
-    select_bot_pool, get_inter_guild_data
+    select_bot_pool, get_inter_guild_data, update_inter
 
 
 class Music(commands.Cog):
@@ -608,10 +608,9 @@ class Music(commands.Cog):
     stage_flags.add_argument('-server', '-sv', type=str, default=None, help='Use a specific music server.')
 
     @can_send_message_check()
-    @check_voice()
     @commands.bot_has_guild_permissions(send_messages=True)
     @commands.max_concurrency(1, commands.BucketType.member)
-    @pool_command(name="play", description="Play music in a voice channel.", aliases=["p"], check_player=False,
+    @pool_command(name="play", description="Play music in a voice channel.", aliases=["p"], return_first=True,
                   cooldown=play_cd, max_concurrency=play_mc, extras={"flags": stage_flags},
                   usage="{prefix}{cmd} [name|link]\nEx: {prefix}{cmd} sekai - burn me down")
     async def play_legacy(self, ctx: CustomContext, *, flags: str = ""):
@@ -632,10 +631,9 @@ class Music(commands.Cog):
         )
 
     @can_send_message_check()
-    @check_voice()
     @commands.bot_has_guild_permissions(send_messages=True)
     @pool_command(name="search", description="Search for songs and choose one from the results to play.",
-                  aliases=["sc"], check_player=False, cooldown=play_cd, max_concurrency=play_mc,
+                  aliases=["sc"], return_first=True, cooldown=play_cd, max_concurrency=play_mc,
                   usage="{prefix}{cmd} [name]\nEx: {prefix}{cmd} sekai - burn me down")
     async def search_legacy(self, ctx: CustomContext, *, query):
 
@@ -643,11 +641,10 @@ class Music(commands.Cog):
                                  manual_selection=True, source=None, repeat_amount=0, server=None)
 
     @can_send_message_check()
-    @check_voice()
     @commands.slash_command(
         name="play_music_file", dm_permission=False,
-        description=f"{desc_prefix}Play a music file in a voice channel.",
-        extras={"check_player": False}, cooldown=play_cd, max_concurrency=play_mc
+        description=f"{desc_prefix}Play music file in a voice channel.",
+        extras={"return_first": True}, cooldown=play_cd, max_concurrency=play_mc
     )
     async def play_file(
             self,
@@ -713,10 +710,9 @@ class Music(commands.Cog):
         return tracks
 
     @can_send_message_check()
-    @check_voice()
     @commands.slash_command(
         description=f"{desc_prefix}Play music in a voice channel.", dm_permission=False,
-        extras={"check_player": False}, cooldown=play_cd, max_concurrency=play_mc
+        extras={"return_first": True}, cooldown=play_cd, max_concurrency=play_mc
     )
     async def play(
             self,
@@ -751,11 +747,148 @@ class Music(commands.Cog):
         try:
             bot = inter.music_bot
             guild = inter.music_guild
-            channel = bot.get_channel(inter.channel.id)
         except AttributeError:
             bot = inter.bot
             guild = inter.guild
-            channel = inter.channel
+
+        msg = None
+        inter, guild_data = await get_inter_guild_data(inter, bot)
+        ephemeral = None
+        channel = None
+
+        if not inter.response.is_done():
+            ephemeral = await self.is_request_channel(inter, data=guild_data, ignore_thread=True)
+            await inter.response.defer(ephemeral=ephemeral, with_message=True)
+
+        if not inter.author.voice:
+
+            if not (c for c in guild.channels if c.permissions_for(inter.author).connect):
+                raise GenericError(f"**You are not connected to a voice channel, and there are no voice channels/stages "
+                                   "available on the server that grant permission for you to connect.**")
+
+            color = self.bot.get_color(guild.me)
+
+            if isinstance(inter, CustomContext):
+                func = inter.send
+            else:
+                func = inter.edit_original_message
+
+            msg = await func(
+                embed=disnake.Embed(
+                    description=f"**{inter.author.mention} please join a voice channel to play your music.**\n"
+                                f"**If you don't connect to a channel within 25 seconds, this operation will be canceled.**",
+                    color=color
+                )
+            )
+
+            if msg:
+                inter.store_message = msg
+
+            try:
+                await bot.wait_for("voice_state_update", timeout=25, check=lambda m, b, a: m.id == inter.author.id and m.voice)
+            except asyncio.TimeoutError:
+                try:
+                    func = msg.edit
+                except:
+                    func = inter.edit_original_message
+                await func(
+                    embed=disnake.Embed(
+                        description=f"**{inter.author.mention} operation canceled.**\n"
+                                    f"**You took too long to connect to a voice/stage channel.**", color=color
+                    )
+                )
+                return
+
+            await asyncio.sleep(1)
+
+        else:
+            channel = bot.get_channel(inter.channel.id)
+            if not channel:
+                raise GenericError(f"**The channel <#{inter.channel.id}> was not found (or was deleted).**")
+            await check_pool_bots(inter, check_player=False)
+
+        if bot.user.id not in inter.author.voice.channel.voice_states and str(inter.channel.id) != guild_data['player_controller']['channel']:
+
+            free_bots = []
+
+            for b in self.bot.pool.bots:
+
+                if not b.bot_ready:
+                    continue
+
+                g = b.get_guild(inter.guild_id)
+
+                if not g:
+                    continue
+
+                p: LavalinkPlayer = b.music.players.get(inter.guild_id)
+
+                if p:
+                    try:
+                        vc = g.me.voice.channel
+                    except AttributeError:
+                        vc = p.last_channel
+                    if not vc or inter.author.id not in vc.voice_states:
+                        continue
+
+                free_bots.append(b)
+
+            if len(free_bots) > 1:
+
+                v = SelectBotVoice(inter, guild, free_bots)
+
+                try:
+                    func = msg.edit
+                except AttributeError:
+                    try:
+                        func = inter.edit_original_message
+                    except AttributeError:
+                        func = inter.send
+
+                newmsg = await func(
+                    embed=disnake.Embed(
+                        description=f"**Choose which bot you want to use in the channel {inter.author.voice.channel.mention}**",
+                        color=self.bot.get_color(guild.me)), view=v
+                )
+                await v.wait()
+
+                if newmsg:
+                    msg = newmsg
+
+                if v.status is None:
+                    try:
+                        func = msg.edit
+                    except AttributeError:
+                        func = inter.edit_original_message
+                    await func(embed=disnake.Embed(description="### Time is up...", color=self.bot.get_color(guild.me)), view=None)
+                    return
+
+                if v.status is False:
+                    try:
+                        func = msg.edit
+                    except AttributeError:
+                        func = inter.edit_original_message
+                    await func(embed=disnake.Embed(description="### Operation canceled.",
+                                                   color=self.bot.get_color(guild.me)), view=None)
+                    return
+
+                if not v.inter.author.voice:
+                    try:
+                        func = msg.edit
+                    except AttributeError:
+                        func = inter.edit_original_message
+                    await func(embed=disnake.Embed(description="### You are not connected to a voice channel...",
+                                                   color=self.bot.get_color(guild.me)), view=None)
+                    return
+
+                bot = v.bot
+                inter = v.inter
+                guild = v.guild
+                channel = bot.get_channel(inter.channel.id)
+                await inter.response.defer()
+
+        if not channel:
+            channel = bot.get_channel(inter.channel.id)
 
         if force_play == "yes":
             await check_player_perm(inter=inter, bot=bot, channel=channel)
@@ -767,9 +900,7 @@ class Music(commands.Cog):
 
         await self.check_player_queue(inter.author, bot, guild.id)
 
-        msg = None
         query = query.replace("\n", " ").strip()
-        ephemeral = None
         warn_message = None
         queue_loaded = False
         reg_query = None
@@ -899,6 +1030,9 @@ class Music(commands.Cog):
             if user_data["last_tracks"]:
                 opts.append(disnake.SelectOption(label="Add recent song", value=">> [📑 Recent songs 📑] <<", emoji="📑"))
                 
+            if isinstance(inter, disnake.MessageInteraction) and not inter.response.is_done():
+                await inter.response.defer(ephemeral=ephemeral)
+
             if not guild_data:
 
                 if inter.bot == bot:
@@ -911,24 +1045,29 @@ class Music(commands.Cog):
 
             view = SelectInteraction(user=inter.author, timeout=45, opts=opts)
 
-            if isinstance(inter, disnake.MessageInteraction) and not inter.response.is_done():
-                await inter.response.defer(ephemeral=ephemeral)
-
             try:
-                msg = await inter.followup.send(ephemeral=ephemeral, view=view, wait=True, **kwargs)
-            except (disnake.InteractionTimedOut, AttributeError):
-                msg = await inter.channel.send(view=view, **kwargs)
+                await msg.edit(view=view, **kwargs)
+            except AttributeError:
+                try:
+                    await inter.edit_original_message(view=view, **kwargs)
+                except AttributeError:
+                    msg = await inter.send(view=view, **kwargs)
 
             await view.wait()
 
             select_interaction = view.inter
+
+            try:
+                func = inter.edit_original_message
+            except AttributeError:
+                func = msg.edit
 
             if not select_interaction or view.selected is False:
 
                 text = "### Selection time expired!" if view.selected is not False else "### Cancelled by the user."
 
                 try:
-                    await msg.edit(embed=disnake.Embed(description=text, color=self.bot.get_color(guild.me)),
+                    await func(embed=disnake.Embed(description=text, color=self.bot.get_color(guild.me)),
                                    components=song_request_buttons)
                 except AttributeError:
                     traceback.print_exc()
@@ -936,7 +1075,7 @@ class Music(commands.Cog):
                 return
 
             if select_interaction.data.values[0] == "cancel":
-                await msg.edit(
+                await func(
                     embed=disnake.Embed(
                         description="**Selection canceled!**",
                         color=self.bot.get_color(guild.me)
@@ -1476,6 +1615,10 @@ class Music(commands.Cog):
                     except AttributeError:
                         reg_query = {"name": tracks[0].title, "url": tracks[0].uri}
 
+                await select_interaction.response.defer()
+
+                inter = select_interaction
+
             elif not queue_loaded:
 
                 tracks = tracks[0]
@@ -1838,20 +1981,31 @@ class Music(commands.Cog):
             except IndexError:
                 raise GenericError(f"**There are no songs in the queue with the name.: {query}**")
 
-            track = player.queue[index]
-
-            player.queue.append(player.last_track)
+            if player.last_track.autoplay:
+                track: LavalinkTrack = player.queue_autoplay[index - len(player.queue)]
+                index += 1
+                player.queue_autoplay.appendleft(player.last_track)
+            else:
+                track: LavalinkTrack = player.queue[index]
+                player.queue.append(player.last_track)
             player.last_track = None
 
             if player.loop == "current":
                 player.loop = False
 
             if play_only == "yes":
-                del player.queue[index]
-                player.queue.appendleft(track)
+                if track.autoplay:
+                    del player.queue_autoplay[index]
+                    player.queue_autoplay.appendleft(track)
+                else:
+                    del player.queue[index]
+                    player.queue.appendleft(track)
 
             elif index > 0:
-                player.queue.rotate(0 - index)
+                if track.autoplay:
+                    player.queue_autoplay.rotate(0 - index)
+                else:
+                    player.queue.rotate(0 - index)
 
             player.set_command_log(emoji="⤵️", text=f"{inter.author.mention} skipped to the current song.")
 
@@ -2604,19 +2758,25 @@ class Music(commands.Cog):
 
         player: LavalinkPlayer = bot.music.players[inter.guild_id]
 
-        track = player.queue[index]
+        track = (player.queue + player.queue_autoplay)[index]
 
         if index <= 0:
             raise GenericError(f"**The song **[`{track.title}`]({track.uri or track.search_uri}) is already next in the queue.")
 
-        player.queue.rotate(0 - (index))
+        if track.autoplay:
+            player.queue_autoplay.rotate(0 - (index - len(player.queue)))
+        else:
+            player.queue.rotate(0 - (index))
 
         txt = [
             f"rotated the queue to the song [`{(fix_characters(track.title, limit=25))}`]({track.uri or track.search_uri}).",
             f"🔃 **⠂{inter.author.mention} rotated the queue to the song:**\n╰[`{track.title}`]({track.uri or track.search_uri})."
         ]
 
-        await self.interaction_message(inter, txt, emoji="🔃")
+        if isinstance(inter, disnake.MessageInteraction):
+            player.set_command_log(text=f"{inter.author.mention} " + txt[0], emoji="🔃")
+        else:
+            await self.interaction_message(inter, txt, emoji="🔃")
 
         await player.update_message()
 
@@ -3158,10 +3318,10 @@ class Music(commands.Cog):
 
         player: LavalinkPlayer = bot.music.players[inter.guild_id]
 
-        if not player.queue:
+        if not player.queue and not player.queue_autoplay:
             raise GenericError("**There are no songs in the queue.**")
 
-        view = QueueInteraction(player, inter.author)
+        view = QueueInteraction(bot, inter.author)
         embed = view.embed
 
         try:
@@ -3893,7 +4053,7 @@ class Music(commands.Cog):
             return
 
         try:
-            player = inter.music_bot.music.players[inter.guild_id]
+            player: LavalinkPlayer = inter.music_bot.music.players[inter.guild_id]
         except KeyError:
             return
 
@@ -3901,7 +4061,7 @@ class Music(commands.Cog):
 
         count = 0
 
-        for track in player.queue:
+        for track in player.queue + player.queue_autoplay:
 
             if count == 20:
                 break
@@ -3923,7 +4083,7 @@ class Music(commands.Cog):
                 results.append(f"{track.title[:81]} || ID > {track.unique_id}")
                 count += 1
 
-        return results or [f"{track.title[:81]} || ID > {track.unique_id}" for n, track in enumerate(player.queue)
+        return results or [f"{track.title[:81]} || ID > {track.unique_id}" for n, track in enumerate(player.queue + player.queue_autoplay)
                            if query.lower() in track.title.lower()][:20]
 
     @move.autocomplete("song_author")
@@ -4276,39 +4436,6 @@ class Music(commands.Cog):
 
         player.message = None
         await thread.edit(archived=True, locked=True, name=f"archived: {thread.name}")
-
-    @commands.Cog.listener('on_resumed')
-    async def resume_players_ready(self):
-
-        for guild_id in list(self.bot.music.players):
-
-            try:
-
-                player: LavalinkPlayer = self.bot.music.players[guild_id]
-
-                try:
-                    channel_id = player.guild.me.voice.channel.id
-                except AttributeError:
-                    channel_id = player.channel_id
-
-                vc = self.bot.get_channel(channel_id) or player.last_channel
-
-                if not vc:
-                    print(
-                        f"{self.bot.user} - {player.guild.name} [{guild_id}] - Player finished due to lack of voice channel")
-                    try:
-                        await player.destroy()
-                    except:
-                        traceback.print_exc()
-                    continue
-
-                await player.connect(vc.id)
-
-                if not player.is_paused and not player.is_playing:
-                    await player.process_next()
-                print(f"{self.bot.user} - {player.guild.name} [{guild_id}] - Player reconnected to the voice channel")
-            except:
-                traceback.print_exc()
 
     async def is_request_channel(self, ctx: Union[disnake.AppCmdInter, disnake.MessageInteraction, CustomContext], *,
                                  data: dict = None, ignore_thread=False) -> bool:
@@ -4915,6 +5042,9 @@ class Music(commands.Cog):
                 return
 
             if control == PlayerControls.enqueue_fav:
+
+                if not interaction.user.voice:
+                    raise GenericError("**You must join a voice channel to use this button.**")
 
                 cmd_kwargs = {
                     "query": kwargs.get("query", ""),
@@ -5721,8 +5851,13 @@ class Music(commands.Cog):
 
         if static_player['channel']:
 
-            static_channel = bot.get_channel(int(static_player['channel'])) or await bot.fetch_channel(
-                int(static_player['channel']))
+            try:
+                static_channel = bot.get_channel(int(static_player['channel'])) or await bot.fetch_channel(
+                    int(static_player['channel']))
+            except disnake.NotFound:
+                await self.reset_controller_db(inter.guild_id, guild_data, inter)
+                player.static = False
+                static_channel = None
 
             allowed_channel = None
 
@@ -6418,6 +6553,51 @@ class Music(commands.Cog):
         except KeyError:
             return
 
+        if member.bot:
+            # ignorar outros bots
+            if player.bot.user.id == member.id and not after.channel and not player.is_closing:
+
+                last_channel_id = int(player.last_channel.id)
+
+                await asyncio.sleep(3)
+
+                vc = self.bot.get_channel(last_channel_id)
+
+                if not vc:
+
+                    msg = "The voice channel was deleted..."
+
+                    if player.static:
+                        player.set_command_log(msg)
+                        await player.destroy()
+
+                    else:
+                        embed = disnake.Embed(
+                            description=msg,
+                            color=self.bot.get_color(member))
+                        try:
+                            self.bot.loop.create_task(self.text_channel.send(embed=embed, delete_after=7))
+                        except:
+                            traceback.print_exc()
+                        await player.destroy()
+
+                else:
+                    while not member.voice:
+                        if not player._new_node_task:
+                            try:
+                                await player.connect(vc.id)
+                                player.set_command_log(text="I noticed an attempt to disconnect me from the channel. "
+                                                            "If you want to disconnect me, use the command/button: **stop**.",
+                                                       emoji="⚠️")
+                                player.update = True
+                                break
+                            except Exception:
+                                traceback.print_exc()
+                        if player.is_closing:
+                            return
+                        await asyncio.sleep(30)
+            return
+
         if before.channel == after.channel:
             try:
                 vc = player.guild.me.voice.channel
@@ -6435,20 +6615,41 @@ class Music(commands.Cog):
                 player.members_timeout_task = player.bot.loop.create_task(player.members_timeout(check=bool(check)))
             return
 
-        if member.bot and player.bot.user.id != member.id:
-            # ignorar outros bots
-            return
-
         try:
             player.members_timeout_task.cancel()
             player.members_timeout_task = None
         except AttributeError:
             pass
 
-        if member.id == player.bot.user.id and member.guild.voice_client and after.channel:
-            # tempfix para channel do voice_client não ser setado ao mover bot do canal.
-            player.guild.voice_client.channel = after.channel
-            player.last_channel = after.channel
+        if member.id == player.bot.user.id:
+
+            for b in self.bot.pool.bots:
+                if b == player.bot:
+                    continue
+                try:
+                    try:
+                        after.channel.voice_states[b.user.id]
+                    except KeyError:
+                        continue
+                    if before.channel.permissions_for(member.guild.me).connect:
+                        await asyncio.sleep(1)
+                        await player.guild.voice_client.move_to(before.channel)
+                    else:
+                        player.set_command_log(text="The player was terminated because I was moved to the channel "
+                                                    f"{after.channel.mention} where the bot {b.user.mention} "
+                                                    "was also connected, causing incompatibility with "
+                                                    "my multi-voice system.", emoji="⚠️")
+                        await player.destroy()
+                    return
+                except AttributeError:
+                    pass
+                except Exception:
+                    traceback.print_exc()
+
+            if member.guild.voice_client and after.channel:
+                # tempfix para channel do voice_client não ser setado ao mover bot do canal.
+                player.guild.voice_client.channel = after.channel
+                player.last_channel = after.channel
 
         try:
             check = [m for m in player.guild.me.voice.channel.members if not m.bot and not (m.voice.deaf or m.voice.self_deaf)]
@@ -6626,7 +6827,7 @@ def setup(bot: BotCore):
                 'no_warnings': True,
                 'lazy_playlist': True,
                 'simulate': True,
-                'cachedir': False,
+                'cachedir': "./.ytdl_cache",
                 'allowed_extractors': [
                     r'.*youtube.*',
                     r'.*soundcloud.*',

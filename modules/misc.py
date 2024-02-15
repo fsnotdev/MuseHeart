@@ -943,7 +943,7 @@ class GuildLog(commands.Cog):
         if str(self.bot.user.id) in self.bot.config["INTERACTION_BOTS_CONTROLLER"]:
             return
 
-        print(f"New server: {guild.name} - [{guild.id}]")
+        print(f"{self.bot.user.name} - Added to the server: {guild.name} - [{guild.id}]")
 
         try:
             guild_data = await self.bot.get_data(guild.id, db_name=DBModel.guilds)
