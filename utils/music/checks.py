@@ -570,12 +570,23 @@ async def check_player_perm(inter, bot: BotCore, channel):
     if inter.author.id == player.player_creator or inter.author.id in player.dj:
         return True
 
+    try:
+        vc = player.guild.me.voice.channel
+    except AttributeError:
+        vc = player.last_channel
+
+    try:
+        if vc.permissions_for(inter.author).move_members:
+            return True
+    except AttributeError:
+        pass
+
     if inter.author.guild_permissions.manage_channels:
         return True
 
     if player.keep_connected and not (await bot.is_owner(inter.author)):
-        raise GenericError(f"**Error!** Only members with the **manage server** permission "
-                            "can use this command/button with the **24/7 mode active**...")
+        raise GenericError("Only members with the **move members** permission "
+                           "can use this command/button with the **24/7 mode** active...")
 
     user_roles = [r.id for r in inter.author.roles]
 
@@ -585,13 +596,8 @@ async def check_player_perm(inter, bot: BotCore, channel):
         return True
 
     if player.restrict_mode:
-        raise GenericError(f"**Error!** Only DJs or members with the **manage server** permission "
-                        "can use this command/button with **restricted mode** active...")
-
-    try:
-        vc = player.guild.me.voice.channel
-    except AttributeError:
-        vc = player.last_channel
+        raise GenericError("Only DJ's or members with the **move members** permission "
+                           "can use this command/button with **restricted mode** active...")
 
     if not vc and inter.author.voice:
         player.dj.add(inter.author.id)

@@ -651,6 +651,9 @@ class LavalinkPlayer(wavelink.Player):
 
             self.start_time = disnake.utils.utcnow()
 
+            if not self.current.autoplay:
+                self.queue_autoplay.clear()
+
             if self.auto_pause:
                 return
 
@@ -810,6 +813,7 @@ class LavalinkPlayer(wavelink.Player):
             if event.cause.startswith((
                     "java.lang.IllegalStateException: Failed to get media URL: 2000: An error occurred while decoding track token",
                     "java.net.SocketTimeoutException: Read timed out",
+                    "java.lang.RuntimeException: Not success status code: 204",
                     "java.net.SocketTimeoutException: Connect timed out",
                     "java.lang.IllegalArgumentException: Invalid bitrate",
                     "java.net.UnknownHostException:",
@@ -1322,7 +1326,7 @@ class LavalinkPlayer(wavelink.Player):
 
                 try:
                     embed = disnake.Embed(
-                        description=f"**Failed to retrieve autoplay data:\n"
+                        description=f"**Failed to retrieve autoplay data:**\n"
                                     f"{error_msg}",
                         color=disnake.Colour.red())
                     await self.text_channel.send(embed=embed, delete_after=10)
@@ -1408,10 +1412,10 @@ class LavalinkPlayer(wavelink.Player):
         except:
             pass
 
-        if len(self.queue):
+        try:
             track = self.queue.popleft()
 
-        else:
+        except:
 
             try:
 
@@ -1649,7 +1653,7 @@ class LavalinkPlayer(wavelink.Player):
             )
 
         embed = disnake.Embed(
-            description=f"**There are no songs in the queue... Add a song or use one of the options below.",
+            description="**There are no songs in the queue... Add a song or use one of the options below.**",
             color=self.bot.get_color(self.guild.me)
         )
 

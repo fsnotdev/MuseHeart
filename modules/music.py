@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import datetime
+import itertools
 import json
 import os.path
 import pickle
@@ -35,7 +36,7 @@ from utils.music.models import LavalinkPlayer, LavalinkTrack, LavalinkPlaylist, 
 from utils.music.spotify import process_spotify, spotify_regex_w_user
 from utils.others import check_cmd, send_idle_embed, CustomContext, PlayerControls, queue_track_index, \
     pool_command, string_to_file, CommandArgparse, music_source_emoji_url, SongRequestPurgeMode, song_request_buttons, \
-    select_bot_pool, get_inter_guild_data, update_inter
+    select_bot_pool, get_inter_guild_data, update_inter, ProgressBar
 
 
 class Music(commands.Cog):
@@ -2891,13 +2892,117 @@ class Music(commands.Cog):
 
         await self.interaction_message(inter, txt, emoji="🇳")
 
+
+    np_cd = commands.CooldownMapping.from_cooldown(1, 5, commands.BucketType.member)
+    np_mc = commands.MaxConcurrency(1, per=commands.BucketType.member, wait=False)
+
+    @has_source()
+    @check_voice()
+    @pool_command(name="nowplaying", aliases=["np", "npl", "current", "tocando", "playing"], only_voiced=True,
+                 description="Display information about the currently playing song.", cooldown=np_cd,
+                  max_concurrency=np_mc)
+    async def now_playing_legacy(self, ctx: CustomContext):
+        await self.now_playing.callback(self=self, inter=ctx)
+
+    @has_source()
+    @check_voice()
+    @commands.slash_command(description=f"{desc_prefix}Display information about the currently playing song.",
+                            extras={"only_voiced": True}, dm_permission=False, cooldown=np_cd, max_concurrency=np_mc)
+    async def now_playing(self, inter: disnake.AppCmdInter):
+
+        try:
+            bot = inter.music_bot
+            guild = inter.music_guild
+        except AttributeError:
+            bot = inter.bot
+            guild = inter.guild
+
+        player: LavalinkPlayer = bot.music.players[guild.id]
+
+        txt = f"### [{player.current.title}]({player.current.uri or player.current.search_uri})\n"
+
+        if player.current.is_stream:
+            txt += "> `🔴` **⠂Live streaming**\n"
+        else:
+            progress = ProgressBar(
+                player.position,
+                player.current.duration,
+                bar_count=24
+            )
+
+            txt += f"```ansi\n[34;1m[{time_format(player.position)}] {('=' * progress.start)}[0m🔴️[36;1m{'-' * progress.end} " \
+                       f"[{time_format(player.current.duration)}][0m```\n"
+
+        txt += f"> `👤` **⠂Uploader/Artist(s):** `{player.current.authors_md}`\n"
+
+        if player.current.album_name:
+            txt += f"> `💽` **⠂Album:** [`{fix_characters(player.current.album_name, limit=20)}`]({player.current.album_url})\n"
+
+        if not player.current.autoplay:
+            txt += f"> `✋` **⠂Requested by:** <@{player.current.requester}>\n"
+        else:
+            try:
+                mode = f" [`Recommendation`]({player.current.info['extra']['related']['uri']})"
+            except:
+                mode = "`Recommendation`"
+            txt += f"> `👍` **⠂Added via:** {mode}\n"
+
+        if player.current.playlist_name:
+            txt += f"> `📑` **⠂Playlist:** [`{fix_characters(player.current.playlist_name, limit=20)}`]({player.current.playlist_url})\n"
+
+        if player.queue or player.queue_autoplay:
+            txt += "### 🎶 ⠂Next songs:\n" + "\n".join(f"> `{n+1}) [{time_format(t.duration) if not t.is_stream else '🔴 Live'}]` [`{fix_characters(t.title, 30)}`]({t.uri})" for n, t in enumerate(itertools.islice(player.queue + player.queue_autoplay, 5)))
+
+        components = [disnake.ui.Button(custom_id=f"np_{inter.author.id}", label="Update", emoji="🔄")]
+
+        if player.static:
+            if player.message:
+                components.append(disnake.ui.Button(url=player.message.jump_url, label="Go to player-controller", emoji="🔳"))
+            elif player.text_channel:
+                txt += f"\n\n`Access the player-controller on the channel:` {player.text_channel.mention}"
+
+        embed = disnake.Embed(description=txt, color=self.bot.get_color(guild.me))
+
+        embed.set_author(name="⠂Playing now:" if not player.paused else "⠂Current music:",
+                         icon_url=music_source_image(player.current.info["sourceName"]))
+
+        embed.set_thumbnail(url=player.current.thumb)
+
+        try:
+            if bot.user.id != self.bot.user.id:
+                embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+        except AttributeError:
+            pass
+
+        if isinstance(inter, disnake.MessageInteraction):
+            await inter.response.edit_message(embed=embed, components=components)
+        else:
+            await inter.send(embed=embed, ephemeral=True, components=components)
+
+    @commands.Cog.listener("on_button_click")
+    async def relaod_np(self, inter: disnake.MessageInteraction):
+
+        if not inter.data.custom_id.startswith("np_"):
+            return
+
+        if inter.data.custom_id != f"np_{inter.author.id}":
+            await inter.send("You cannot click on this button...", ephemeral=True)
+            return
+
+        try:
+            await check_cmd(self.now_playing_legacy, inter)
+            await self.now_playing_legacy(inter)
+        except Exception as e:
+            self.bot.dispatch('interaction_player_error', inter, e)
+
+
     controller_cd = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.member)
     controller_mc = commands.MaxConcurrency(1, per=commands.BucketType.member, wait=False)
 
     @has_source()
     @check_voice()
-    @pool_command(name="controller", aliases=["np", "ctl"], only_voiced=True, cooldown=controller_cd,
-                  max_concurrency=controller_mc, description="Send Player controller to a specific/current channel.")
+    @pool_command(name="controller", aliases=["ctl"], only_voiced=True, cooldown=controller_cd,
+                  max_concurrency=controller_mc, description="Send player controller to a specific/current channel.")
     async def controller_legacy(self, ctx: CustomContext):
         await self.controller.callback(self=self, inter=ctx)
 
@@ -6582,19 +6687,46 @@ class Music(commands.Cog):
                         await player.destroy()
 
                 else:
-                    while not member.voice:
+                    while True:
+
+                        try:
+                            player = self.bot.music.players[member.guild.id]
+                        except KeyError:
+                            return
+
+                        if player.guild.me.voice:
+                            if isinstance(before.channel, disnake.StageChannel) \
+                                    and member not in before.channel.speakers \
+                                    and before.channel.permissions_for(member).manage_permissions:
+                                try:
+                                    await member.guild.me.edit(suppress=False)
+                                except Exception:
+                                    traceback.print_exc()
+                            return
+
+                        if player.is_closing:
+                            return
+
                         if not player._new_node_task:
+
+                            try:
+                                can_connect(before.channel, player.guild, bot=player.bot)
+                            except Exception as e:
+                                player.set_command_log(f"The player was terminated due to an error: {e}")
+                                await player.destroy()
+                                return
+
                             try:
                                 await player.connect(vc.id)
                                 player.set_command_log(text="I noticed an attempt to disconnect me from the channel. "
                                                             "If you want to disconnect me, use the command/button: **stop**.",
                                                        emoji="⚠️")
                                 player.update = True
-                                break
+                                await asyncio.sleep(5)
+                                continue
                             except Exception:
                                 traceback.print_exc()
-                        if player.is_closing:
-                            return
+
                         await asyncio.sleep(30)
             return
 
@@ -6678,10 +6810,11 @@ class Music(commands.Cog):
 
         if member.bot and isinstance(after.channel, disnake.StageChannel) and after.channel.permissions_for(member).manage_permissions:
             await asyncio.sleep(1.5)
-            try:
-                await member.guild.me.edit(suppress=False)
-            except Exception:
-                traceback.print_exc()
+            if member not in after.channel.speakers:
+                try:
+                    await member.guild.me.edit(suppress=False)
+                except Exception:
+                    traceback.print_exc()
 
         player.members_timeout_task = player.bot.loop.create_task(player.members_timeout(check=bool(check)))
 
