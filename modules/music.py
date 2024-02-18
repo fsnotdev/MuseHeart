@@ -2950,10 +2950,25 @@ class Music(commands.Cog):
         if player.current.playlist_name:
             txt += f"> `📑` **⠂Playlist:** [`{fix_characters(player.current.playlist_name, limit=20)}`]({player.current.playlist_url})\n"
 
-        if player.queue or player.queue_autoplay:
-            txt += "### 🎶 ⠂Next songs:\n" + "\n".join(f"> `{n+1}) [{time_format(t.duration) if not t.is_stream else '🔴 Live'}]` [`{fix_characters(t.title, 30)}`]({t.uri})" for n, t in enumerate(itertools.islice(player.queue + player.queue_autoplay, 5)))
+        try:
+            txt += f"> `*️⃣` **⠂Voice channel:** {player.guild.me.voice.channel.mention}\n"
+        except AttributeError:
+            pass
+
+        txt += f"> `🔊` **⠂Volume:** `{player.volume}%`\n"
 
         components = [disnake.ui.Button(custom_id=f"np_{inter.author.id}", label="Update", emoji="🔄")]
+
+        if player.queue or player.queue_autoplay:
+            txt += f"### 🎶 ⠂Next songs ({(qsize:=len(player.queue + player.queue_autoplay))}):\n" + ("\n> `" + ("-"*38) + "`\n").join(
+                f"> `{n+1})` [`{fix_characters(t.title, limit=38)}`]({t.uri})\n" \
+                f"> `⏲️ {time_format(t.duration) if not t.is_stream else '🔴 Live'}`" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
+                f" **|** " + (f"`✋` <@{t.requester}>" if not t.autoplay else f"`👍⠂Recommended`") for n, t in enumerate(itertools.islice(player.queue + player.queue_autoplay, 3))
+            )
+
+            if qsize > 3:
+                components.append(disnake.ui.Button(custom_id=PlayerControls.queue, label="See full list",
+                                                    emoji="<:music_queue:703761160679194734>"))
 
         if player.static:
             if player.message:
@@ -2980,7 +2995,7 @@ class Music(commands.Cog):
             await inter.send(embed=embed, ephemeral=True, components=components)
 
     @commands.Cog.listener("on_button_click")
-    async def relaod_np(self, inter: disnake.MessageInteraction):
+    async def reload_np(self, inter: disnake.MessageInteraction):
 
         if not inter.data.custom_id.startswith("np_"):
             return
@@ -4542,6 +4557,47 @@ class Music(commands.Cog):
         player.message = None
         await thread.edit(archived=True, locked=True, name=f"archived: {thread.name}")
 
+    @commands.Cog.listener('on_ready')
+    async def resume_players_ready(self):
+
+        if not self.bot.bot_ready:
+            return
+
+        for guild_id in list(self.bot.music.players):
+
+            try:
+
+                player: LavalinkPlayer = self.bot.music.players[guild_id]
+
+                try:
+                    channel_id = player.guild.me.voice.channel.id
+                except AttributeError:
+                    channel_id = player.channel_id
+
+                vc = self.bot.get_channel(channel_id) or player.last_channel
+
+                try:
+                    player.guild.voice_client.cleanup()
+                except:
+                    pass
+
+                if not vc:
+                    print(
+                        f"{self.bot.user} - {player.guild.name} [{guild_id}] - Player terminated due to lack of voice channel")
+                    try:
+                        await player.destroy()
+                    except:
+                        traceback.print_exc()
+                    continue
+
+                await player.connect(vc.id)
+
+                if not player.is_paused and not player.is_playing:
+                    await player.process_next()
+                print(f"{self.bot.user} - {player.guild.name} [{guild_id}] - Player reconnected to the voice channel")
+            except:
+                traceback.print_exc()
+
     async def is_request_channel(self, ctx: Union[disnake.AppCmdInter, disnake.MessageInteraction, CustomContext], *,
                                  data: dict = None, ignore_thread=False) -> bool:
 
@@ -4816,7 +4872,7 @@ class Music(commands.Cog):
 
     async def player_controller(self, interaction: disnake.MessageInteraction, control: str, **kwargs):
 
-        if not self.bot.bot_ready:
+        if not self.bot.bot_ready and not not self.bot.is_closed():
             await interaction.send("I am still initializing...", ephemeral=True)
             return
 
@@ -5175,7 +5231,8 @@ class Music(commands.Cog):
                     return
 
                 if interaction.message != player.message:
-                    return
+                    if control != PlayerControls.queue:
+                        return
 
                 if player.interaction_cooldown:
                     raise GenericError("The player is on cooldown, please try again later.")
@@ -6661,73 +6718,13 @@ class Music(commands.Cog):
         if member.bot:
             # ignorar outros bots
             if player.bot.user.id == member.id and not after.channel and not player.is_closing:
-
-                last_channel_id = int(player.last_channel.id)
-
                 await asyncio.sleep(3)
+                try:
+                    player.reconnect_voice_channel_task.cancel()
+                except:
+                    pass
+                player.reconnect_voice_channel_task = player.bot.loop.create_task(player.reconnect_voice_channel())
 
-                vc = self.bot.get_channel(last_channel_id)
-
-                if not vc:
-
-                    msg = "The voice channel was deleted..."
-
-                    if player.static:
-                        player.set_command_log(msg)
-                        await player.destroy()
-
-                    else:
-                        embed = disnake.Embed(
-                            description=msg,
-                            color=self.bot.get_color(member))
-                        try:
-                            self.bot.loop.create_task(self.text_channel.send(embed=embed, delete_after=7))
-                        except:
-                            traceback.print_exc()
-                        await player.destroy()
-
-                else:
-                    while True:
-
-                        try:
-                            player = self.bot.music.players[member.guild.id]
-                        except KeyError:
-                            return
-
-                        if player.guild.me.voice:
-                            if isinstance(before.channel, disnake.StageChannel) \
-                                    and member not in before.channel.speakers \
-                                    and before.channel.permissions_for(member).manage_permissions:
-                                try:
-                                    await member.guild.me.edit(suppress=False)
-                                except Exception:
-                                    traceback.print_exc()
-                            return
-
-                        if player.is_closing:
-                            return
-
-                        if not player._new_node_task:
-
-                            try:
-                                can_connect(before.channel, player.guild, bot=player.bot)
-                            except Exception as e:
-                                player.set_command_log(f"The player was terminated due to an error: {e}")
-                                await player.destroy()
-                                return
-
-                            try:
-                                await player.connect(vc.id)
-                                player.set_command_log(text="I noticed an attempt to disconnect me from the channel. "
-                                                            "If you want to disconnect me, use the command/button: **stop**.",
-                                                       emoji="⚠️")
-                                player.update = True
-                                await asyncio.sleep(5)
-                                continue
-                            except Exception:
-                                traceback.print_exc()
-
-                        await asyncio.sleep(30)
             return
 
         if before.channel == after.channel:
