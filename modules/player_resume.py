@@ -192,63 +192,6 @@ class PlayerSession(commands.Cog):
         except:
             traceback.print_exc()
 
-    def process_track_cls(self, data: list, playlists: dict = None):
-
-        if not playlists:
-            playlists = {}
-
-        tracks = []
-
-        for info in data:
-
-            if info["sourceName"] == "spotify":
-
-                if playlist := info.pop("playlist", None):
-
-                    try:
-                        playlist = playlists[playlist["url"]]
-                    except KeyError:
-                        playlist_cls = PartialPlaylist(
-                            {
-                                'loadType': 'PLAYLIST_LOADED',
-                                'playlistInfo': {
-                                    'name': playlist["name"],
-                                    'selectedTrack': -1
-                                },
-                                'tracks': []
-                            }, url=playlist["url"]
-                        )
-                        playlists[playlist["url"]] = playlist_cls
-                        playlist = playlist_cls
-
-                t = PartialTrack(info=info, playlist=playlist)
-
-            else:
-
-                if playlist := info.pop("playlist", None):
-
-                    try:
-                        playlist = playlists[playlist["url"]]
-                    except KeyError:
-                        playlist_cls = LavalinkPlaylist(
-                            {
-                                'loadType': 'PLAYLIST_LOADED',
-                                'playlistInfo': {
-                                    'name': playlist["name"],
-                                    'selectedTrack': -1
-                                },
-                                'tracks': []
-                            }, url=playlist["url"]
-                        )
-                        playlists[playlist["url"]] = playlist_cls
-                        playlist = playlist_cls
-
-                t = LavalinkTrack(id_=info.get("id", ""), info=info, playlist=playlist, requester=info["extra"]["requester"])
-
-            tracks.append(t)
-
-        return tracks, playlists
-
     async def resume_players(self):
 
         try:
@@ -324,9 +267,11 @@ class PlayerSession(commands.Cog):
                 return
 
             if not guild:
-                print(f"{self.bot.user} - Player Ignored: {data['_id']} | Server does not exist...")
-                if (disnake.utils.utcnow() - data.get("time", disnake.utils.utcnow())).total_seconds() > 172800:
+                if not (db_date:=data.get("time")) or (disnake.utils.utcnow() - db_date).total_seconds() > 172800:
+                    print(f"{self.bot.user} - Cleaning player information: {data['_id']} | Server not found...")
                     await self.delete_data(data["_id"])
+                else:
+                    print(f"{self.bot.user} - Player Ignored: {data['_id']} | Server not found...")
                 return
 
             message = None
@@ -521,19 +466,19 @@ class PlayerSession(commands.Cog):
                     print(f"{self.bot.user} - Failure to speak on the server stage {guild.name}. Error: {repr(e)}")
                     return
 
-            tracks, playlists = self.process_track_cls(data["queue"])
+            tracks, playlists = self.bot.pool.process_track_cls(data["queue"])
 
             player.queue.extend(tracks)
 
-            played_tracks, playlists = self.process_track_cls(data["played"], playlists)
+            played_tracks, playlists = self.bot.pool.process_track_cls(data["played"], playlists)
 
             player.played.extend(played_tracks)
 
-            queue_autoplay_tracks, playlists = self.process_track_cls(data.get("queue_autoplay", []))
+            queue_autoplay_tracks, playlists = self.bot.pool.process_track_cls(data.get("queue_autoplay", []))
 
             player.queue_autoplay.extend(queue_autoplay_tracks)
 
-            failed_tracks, playlists = self.process_track_cls(data.get("failed_tracks", []), playlists)
+            failed_tracks, playlists = self.bot.pool.process_track_cls(data.get("failed_tracks", []), playlists)
 
             player.failed_tracks.extend(failed_tracks)
 

@@ -149,18 +149,19 @@ class Owner(commands.Cog):
         if not node and not args.force:
             raise GenericError("**The LOCAL server is not being used!**")
 
-        download_urls = [self.bot.config["LAVALINK_FILE_URL"]]
+        download_list = [["Lavalink.jar", self.bot.config["LAVALINK_FILE_URL"]]]
 
         if args.yml:
-            download_urls.append("https://github.com/zRitsu/LL-binaries/releases/download/0.0.1/application.yml")
+            download_list.append(["application.yml", "https://github.com/zRitsu/LL-binaries/releases/download/0.0.1/application.yml"])
 
         async with ctx.typing():
 
-            for url in download_urls:
+            for download_data in download_list:
                 async with ClientSession() as session:
+                    filename, url = download_data
                     async with session.get(url) as r:
                         lavalink_jar = await r.read()
-                        with open(url.split("/")[-1], "wb") as f:
+                        with open(filename, "wb") as f:
                             f.write(lavalink_jar)
 
         await self.bot.pool.start_lavalink()
@@ -179,7 +180,7 @@ class Owner(commands.Cog):
 
         self.bot.pool.load_cfg()
 
-        txt = "Bot configuration has been reloaded successfully!"
+        txt = "**The bot settings have been reloaded successfully!**"
 
         if isinstance(ctx, CustomContext):
             embed = disnake.Embed(colour=self.bot.get_color(ctx.me), description=txt)
@@ -190,7 +191,7 @@ class Owner(commands.Cog):
     @commands.is_owner()
     @panel_command(aliases=["rd"], description="Reload modules.", emoji="🔄",
                    alt_name="Load/Reload modules.")
-    async def reload(self, ctx: Union[CustomContext, disnake.MessageInteraction]):
+    async def reload(self, ctx: Union[CustomContext, disnake.MessageInteraction], *modules):
 
         for m in list(sys.modules):
             if not m.startswith("utils.music.skins."):
@@ -200,7 +201,9 @@ class Owner(commands.Cog):
             except:
                 continue
 
-        data = self.bot.load_modules()
+        modules = [f"{m}.py" for m in modules]
+
+        data = self.bot.load_modules(modules)
         self.bot.load_skins()
 
         await self.bot.sync_app_commands(force=self.bot == self.bot.pool.controller_bot)
@@ -209,7 +212,7 @@ class Owner(commands.Cog):
 
             if bot.user.id != self.bot.user.id:
                 bot.load_skins()
-                bot.load_modules()
+                bot.load_modules(modules)
                 await bot.sync_app_commands(force=bot == self.bot.pool.controller_bot)
 
         self.bot.sync_command_cooldowns()

@@ -165,3 +165,5 @@ application.yml
 /.gitbak/
 /.tempjar/
 /emojis.json
+/.spotipy_cache
+/.playlist_cache.pkl
