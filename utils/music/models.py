@@ -995,6 +995,14 @@ class LavalinkPlayer(wavelink.Player):
                 await self.connect(vc_id)
                 return
 
+            if event.code == 4014:
+                await asyncio.sleep(1)
+                if self.guild and self.guild.me.voice:
+                    return
+                self.set_command_log(f"The player was disconnected due to loss of connection with the channel {self.last_channel.mention}...")
+                await self.destroy(force=True)
+                return
+
         if isinstance(event, wavelink.TrackStuck):
 
             try:
@@ -1013,9 +1021,6 @@ class LavalinkPlayer(wavelink.Player):
 
             await self.process_next()
 
-            return
-
-        elif isinstance(event, wavelink.WebsocketClosed):
             return
 
         print(f"Unknown Wavelink event: {repr(event)}")
@@ -1231,7 +1236,7 @@ class LavalinkPlayer(wavelink.Player):
             if self.is_closing:
                 return
 
-            msg = f"**The Player stopped as there were no members in the channel" + (f"<#{self.guild.me.voice.channel.id}>"
+            msg = "**The Player stopped as there were no members in the channel" + (f" <#{self.guild.me.voice.channel.id}>"
                                                                                if self.guild.me.voice else '') + "...**"
             self.command_log = msg
             if not self.static and not self.has_thread:
@@ -2299,6 +2304,11 @@ class LavalinkPlayer(wavelink.Player):
 
         self.queue.clear()
         self.played.clear()
+
+        try:
+            self.reconnect_voice_channel_task.cancel()
+        except:
+            pass
 
         try:
             self.members_timeout_task.cancel()

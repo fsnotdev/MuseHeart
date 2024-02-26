@@ -124,7 +124,6 @@ class Misc(commands.Cog):
             .replace("{uptime}", time_format((disnake.utils.utcnow() - self.bot.uptime).total_seconds() * 1000,
                                              use_names=True))
 
-
     async def presences(self):
 
         try:
@@ -163,6 +162,8 @@ class Misc(commands.Cog):
             activities = cycle(activities)
 
             ignore_sleep = False
+
+            await asyncio.sleep(120)
 
             while True:
 
