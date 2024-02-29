@@ -49,11 +49,12 @@ async def run_command(cmd: str):
         cmd, stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
+        env=os.environ
     )
     stdout, stderr = await p.communicate()
     r = ShellResult(p.returncode, stdout, stderr)
     if r.status != 0:
-        raise GenericError(f"{r.stderr or r.stdout}\n\nStatus Code: {r.status}")
+        raise Exception(f"{r.stderr or r.stdout}\n\nStatus Code: {r.status}")
     return str(r.stdout)
 
 
@@ -93,7 +94,7 @@ class Owner(commands.Cog):
             "git init",
             f'git remote add origin {self.bot.config["SOURCE_REPO"]}',
             'git fetch origin',
-            'git checkout -b main -f --track origin/main'
+            'git --work-tree=. checkout -b main -f --track origin/main'
         ]
         self.owner_view: Optional[PanelView] = None
         self.extra_hints = bot.config["EXTRA_HINTS"].split("||")
@@ -282,68 +283,44 @@ class Owner(commands.Cog):
         except:
             pass
 
-        update_git = True
-        rename_git_bak = False
+        if args.force or not os.path.exists(os.environ["GIT_DIR"]):
+            out_git += await self.cleanup_git(force=args.force)
 
-        if args.force or not os.path.exists("./.git"):
+        try:
+            await run_command("git --work-tree=. reset --hard")
+        except:
+            pass
 
-            if rename_git_bak:=os.path.exists("./.gitbak") and os.environ.get("HOSTNAME") == "squarecloud.app":
-                pass
-            else:
-                update_git = False
-                out_git += await self.cleanup_git(force=args.force)
+        try:
+            pull_log = await run_command("git --work-tree=. pull --allow-unrelated-histories -X theirs")
+            if "Already up to date" in pull_log:
+                raise GenericError("**I already have the latest updates installed....**")
+            out_git += pull_log
 
-        if update_git:
+        except GenericError as e:
+            raise e
 
-            if rename_git_bak or os.environ.get("HOSTNAME") == "squarecloud.app" and os.path.isdir("./.gitbak"):
-                try:
-                    shutil.rmtree("./.git")
-                except:
-                    pass
-                os.rename("./.gitbak", "./.git")
+        except Exception as e:
 
-            try:
-                await run_command("git reset --hard")
-            except:
-                pass
+            if "Already up to date" in str(e):
+                raise GenericError("I already have the latest updates installed....")
 
-            try:
-                pull_log = await run_command("git pull --allow-unrelated-histories -X theirs")
-                if "Already up to date" in pull_log:
-                    raise GenericError("**I already have the latest updates installed...**")
-                out_git += pull_log
+            elif not "Fast-forward" in str(e):
+                out_git += await self.cleanup_git(force=True)
 
-            except GenericError as e:
-                raise e
+            elif "Need to specify how to reconcile divergent branches" in str(e):
+                out_git += await run_command("git --work-tree=. rebase --no-ff")
 
-            except Exception as e:
+        commit = ""
 
-                if "Already up to date" in str(e):
-                    raise GenericError("I already have the latest updates installed...")
+        for l in out_git.split("\n"):
+            if l.startswith("Updating"):
+                commit = l.replace("Updating ", "").replace("..", "...")
+                break
 
-                elif not "Fast-forward" in str(e):
-                    out_git += await self.cleanup_git(force=True)
+        data = (await run_command(f"git --work-tree=. log {commit} {self.git_format}")).split("\n")
 
-                elif "Need to specify how to reconcile divergent branches" in str(e):
-                    out_git += await run_command("git rebase --no-ff")
-
-            commit = ""
-
-            for l in out_git.split("\n"):
-                if l.startswith("Updating"):
-                    commit = l.replace("Updating ", "").replace("..", "...")
-                    break
-
-            data = (await run_command(f"git log {commit} {self.git_format}")).split("\n")
-
-            git_log += format_git_log(data)
-
-        if os.environ.get("HOSTNAME") == "squarecloud.app":
-            try:
-                shutil.rmtree("./.gitbak")
-            except:
-                pass
-            shutil.copytree("./.git", "./.gitbak")
+        git_log += format_git_log(data)
 
         text = "`I will need to restart after the changes.`"
 
@@ -473,7 +450,7 @@ class Owner(commands.Cog):
 
         if force:
             try:
-                shutil.rmtree("./.git")
+                shutil.rmtree(os.environ["GIT_DIR"])
             except FileNotFoundError:
                 pass
 
@@ -496,7 +473,7 @@ class Owner(commands.Cog):
                 alt_name="Latest updates", hidden=False)
     async def updatelog(self, ctx: Union[CustomContext, disnake.MessageInteraction], amount: int = 10):
 
-        if not os.path.isdir("./.git"):
+        if not os.path.isdir(os.environ["GIT_DIR"]):
             raise GenericError("No repository initiated in the bot's directory...\nNote: Use the update command.")
 
         if not self.bot.pool.remote_git_url:
@@ -730,7 +707,7 @@ class Owner(commands.Cog):
                 alt_name="Export source code.")
     async def exportsource(self, ctx: Union[CustomContext, disnake.MessageInteraction], *, flags: str = ""):
 
-        if not os.path.isdir("./.git"):
+        if not os.path.isdir(os.environ['GIT_DIR']):
             await self.cleanup_git(force=True)
 
         try:
@@ -1067,9 +1044,11 @@ class Owner(commands.Cog):
     @commands.command(hidden=True, aliases=["setbotavatar"], description="To change the bot's avatar, please provide an attachment or a direct link to a jpg or gif image.")
     async def setavatar(self, ctx: CustomContext, url: str = ""):
 
-        url = url.strip("<>")
-
         use_hyperlink = False
+
+        if re.match(r'^<.*>$', url):
+            use_hyperlink = True
+            url = url.strip("<>")
 
         if not url:
 
@@ -1083,9 +1062,6 @@ class Owner(commands.Cog):
 
         elif not URL_REG.match(url):
             raise GenericError("You provided an invalid link.")
-
-        elif re.match(r'^<.*>$', url):
-            use_hyperlink = True
 
         inter, bot = await select_bot_pool(ctx, return_new=True)
 
@@ -1127,7 +1103,6 @@ class Owner(commands.Cog):
                 ini_file = await r.read()
                 with open("lavalink.ini", "wb") as f:
                     f.write(ini_file)
-
 
 def setup(bot: BotCore):
     bot.add_cog(Owner(bot))

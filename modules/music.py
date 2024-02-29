@@ -2,7 +2,6 @@
 import asyncio
 import datetime
 import itertools
-import json
 import os.path
 import pickle
 import re
@@ -6547,7 +6546,7 @@ class Music(commands.Cog):
             while not self.bot.is_closed():
                 if retries >= max_retries:
                     print(
-                        f"{self.bot.user} - All attempts to connect to server [{data['identifier']}] failed.\n"
+                        f"❌ - {self.bot.user} - All attempts to connect to the server [{data['identifier']}] failed.\n"
                         f"Cause: {repr(exception)}")
                     return
                 else:
@@ -6563,7 +6562,7 @@ class Music(commands.Cog):
                     except Exception as e:
                         exception = e
                         if data["identifier"] != "LOCAL":
-                            print(f'{self.bot.user} - Failed to connect to server [{data["identifier"]}], '
+                            print(f'⚠️ - {self.bot.user} - Failed to connect to the server [{data["identifier"]}], '
                                   f'new attempt [{retries}/{max_retries}] in {backoff} seconds.')
                         backoff += 2
                         retries += 1
@@ -6578,7 +6577,7 @@ class Music(commands.Cog):
                     elif r.status != 404:
                         raise Exception(f"{self.bot.user} - [{r.status}]: {await r.text()}"[:300])
             except Exception as e:
-                print(f"Failed to connect to server {data['identifier']}: {repr(e)}"[:300])
+                print(f"❌ - {self.bot.user} - Failed to connect to the server {data['identifier']}: {repr(e)}"[:300])
                 return
 
         data["identifier"] = data["identifier"].replace(" ", "_")
