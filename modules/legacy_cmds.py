@@ -14,6 +14,7 @@ import dotenv
 import humanize
 from aiohttp import ClientSession
 from disnake.ext import commands
+from disnake.http import Route
 
 import wavelink
 from config_loader import DEFAULT_CONFIG, load_config
@@ -122,8 +123,6 @@ class Owner(commands.Cog):
         )
 
     updatelavalink_flags = CommandArgparse()
-    updatelavalink_flags.add_argument('-force', '--force', action='store_true',
-                                    help="Ignore execution/usage of the LOCAL server.")
     updatelavalink_flags.add_argument('-yml', '--yml', action='store_true',
                                     help="Download the application.yml file.")
     updatelavalink_flags.add_argument("-resetids", "-reset", "--resetids", "--reset",
@@ -131,44 +130,53 @@ class Owner(commands.Cog):
                                         "changes in lavaplayer/lavalink).", action="store_true")
 
     @commands.is_owner()
-    @commands.max_concurrency(1, commands.BucketType.user)
-    @commands.command(hidden=True, aliases=["ull", "updatell", "llupdate", "llu"], extras={"flags": updatelavalink_flags})
-    async def updatelavalink(self, ctx: CustomContext, flags: str = ""):
+    @commands.max_concurrency(1, commands.BucketType.default)
+    @commands.command(hidden=True, aliases=["restartll", "rtll", "rll"])
+    async def restartlavalink(self, ctx: CustomContext):
 
-        args, unknown = ctx.command.extras['flags'].parse_known_args(flags.split())
-
-        node: Optional[wavelink.Node] = None
-
-        for bot in self.bot.pool.bots:
-            try:
-                node = bot.music.nodes["LOCAL"]
-                break
-            except KeyError:
-                continue
-
-        if not node and not args.force:
+        if not self.bot.pool.lavalink_instance:
             raise GenericError("**The LOCAL server is not being used!**")
-
-        download_list = [["Lavalink.jar", self.bot.config["LAVALINK_FILE_URL"]]]
-
-        if args.yml:
-            download_list.append(["application.yml", "https://github.com/zRitsu/LL-binaries/releases/download/0.0.1/application.yml"])
-
-        async with ctx.typing():
-
-            for download_data in download_list:
-                async with ClientSession() as session:
-                    filename, url = download_data
-                    async with session.get(url) as r:
-                        lavalink_jar = await r.read()
-                        with open(filename, "wb") as f:
-                            f.write(lavalink_jar)
 
         await self.bot.pool.start_lavalink()
 
         await ctx.send(
             embed=disnake.Embed(
-                description="**The Lavalink.jar file has been successfully updated!**",
+                description="**Restarting the local Lavalink server.**",
+                color=self.bot.get_color(ctx.guild.me)
+            )
+        )
+
+    @commands.is_owner()
+    @commands.max_concurrency(1, commands.BucketType.default)
+    @commands.command(hidden=True, aliases=["ull", "updatell", "llupdate", "llu"], extras={"flags": updatelavalink_flags})
+    async def updatelavalink(self, ctx: CustomContext, flags: str = ""):
+
+        if not self.bot.pool.lavalink_instance:
+            raise GenericError("**The LOCAL server is not being used!**")
+
+        args, unknown = ctx.command.extras['flags'].parse_known_args(flags.split())
+
+        try:
+            self.bot.pool.lavalink_instance.kill()
+        except:
+            pass
+
+        async with ctx.typing():
+
+            await asyncio.sleep(1.5)
+
+            if os.path.isfile("./Lavalink.jar"):
+                os.remove("./Lavalink.jar")
+
+            if args.yml and os.path.isfile("./application.yml"):
+                os.remove("./application.yml")
+
+            await self.bot.pool.start_lavalink()
+
+        await ctx.send(
+            embed=disnake.Embed(
+                description="**The Lavalink.jar file will be updated "
+                            "and the local Lavalink server will be restarted.**",
                 color=self.bot.get_color(ctx.guild.me)
             )
         )
@@ -1061,6 +1069,8 @@ class Owner(commands.Cog):
 
         url = url.strip("<>")
 
+        use_hyperlink = False
+
         if not url:
 
             if not ctx.message.attachments:
@@ -1068,11 +1078,14 @@ class Owner(commands.Cog):
 
             url = ctx.message.attachments[0].url
 
-            if not url.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")):
+            if not url.split("?ex=")[0].endswith((".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")):
                 raise GenericError("You must attach a valid file: png, jpg, jpeg, webp, gif, bmp.")
 
         elif not URL_REG.match(url):
             raise GenericError("You provided an invalid link.")
+
+        elif re.match(r'^<.*>$', url):
+            use_hyperlink = True
 
         inter, bot = await select_bot_pool(ctx, return_new=True)
 
@@ -1086,6 +1099,10 @@ class Owner(commands.Cog):
 
         await bot.user.edit(avatar=image_bytes)
 
+        await bot.http.request(Route('PATCH', '/applications/@me'), json={
+            "icon": disnake.utils._bytes_to_base64_data(image_bytes)
+        })
+
         try:
             func = inter.edit_original_message
         except AttributeError:
@@ -1094,7 +1111,9 @@ class Owner(commands.Cog):
             except AttributeError:
                 func = inter.send
 
-        await func(f"The [avatar]({bot.user.display_avatar.with_static_format('png').url}) of bot {bot.user.mention} has been successfully changed.", view=None, embed=None)
+        avatar_txt = "avatar" if not use_hyperlink else f"[avatar]({bot.user.display_avatar.with_static_format('png').url})"
+
+        await func(f"The {avatar_txt} of the bot {bot.user.mention} has been successfully changed.", view=None, embed=None)
 
     async def cog_check(self, ctx: CustomContext) -> bool:
         return await check_requester_channel(ctx)
