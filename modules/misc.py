@@ -620,16 +620,18 @@ class Misc(commands.Cog):
             node_txt_final += "\n"
         node_txt_final += "\n".join(nodes_unavailable)
 
-        embed.description += "### Statistics (current bot):\n" \
-                            f"> 🏙️ **⠂Servers:** `{len(bot.guilds)}`\n" \
-                            f"> 👥 **⠂Users:** `{user_count:,}`\n"
+        if len(bot.pool.bots) < 2:
 
-        if bot_count:
-            embed.description += f"> 🤖 **⠂Bots:** `{bot_count:,}`\n"
+            embed.description += "### Statistics (current bot):\n" \
+                                 f"> 🏙️ **⠂Servers:** `{len(bot.guilds)}`\n" \
+                                 f"> 👥 **⠂Users:** `{user_count:,}`\n"
 
-        if len(bot.pool.bots) > 1:
+            if bot_count:
+                embed.description += f"> 🤖 **⠂Bots:** `{bot_count:,}`\n"
 
-            embed.description += "### Total statistics across all bots:\n"
+        else:
+
+            embed.description += "### Statistics (totals across all bots):\n"
 
             if public_bot_count:
                 embed.description += f"> 🤖 **⠂Public additional bot(s):** `{public_bot_count:,}`\n"
