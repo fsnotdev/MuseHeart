@@ -76,11 +76,13 @@ class QueueInteraction(disnake.ui.View):
         self.update_pages()
         self.update_embed()
 
-    def update_pages(self):
+    def update_pages(self, reset_page=True):
 
         player: LavalinkPlayer = self.bot.music.players[self.user.guild.id]
 
-        self.current_page = 0
+        if reset_page:
+            self.current_page = 0
+
         self.track_pages.clear()
         self.track_pages = list(disnake.utils.as_chunks(player.queue + player.queue_autoplay, max_size=self.max_items))
         self.current_track = self.track_pages[self.current_page][0]
@@ -142,6 +144,10 @@ class QueueInteraction(disnake.ui.View):
         play.callback = self.invoke_command
         self.add_item(play)
 
+        move = disnake.ui.Button(emoji="↪️", label="Move", style=disnake.ButtonStyle.grey, custom_id="queue_move")
+        move.callback = self.move_callback
+        self.add_item(move)
+
         rotate_q = disnake.ui.Button(emoji='🔃', label="Rotate Queue", style=disnake.ButtonStyle.grey, custom_id="queue_rotate")
         rotate_q.callback = self.invoke_command
         self.add_item(rotate_q)
@@ -149,6 +155,61 @@ class QueueInteraction(disnake.ui.View):
         update_q = disnake.ui.Button(emoji='🔄', label="Reload", style=disnake.ButtonStyle.grey)
         update_q.callback = self.update_q
         self.add_item(update_q)
+
+    async def move_callback(self, inter: disnake.MessageInteraction):
+        await inter.response.send_modal(
+            ViewModal(
+                view=self, title="Move selected music", custom_id="queue_move_modal",
+                components=[
+                    disnake.ui.TextInput(
+                        style=disnake.TextInputStyle.short,
+                        label="Position in the queue:",
+                        custom_id="queue_move_position",
+                        max_length=4,
+                        required=True
+                    ),
+                ]
+            )
+        )
+
+    async def modal_handler(self, inter: disnake.ModalInteraction):
+
+        try:
+            if inter.data.custom_id == "queue_move_modal":
+
+                if not inter.text_values["queue_move_position"].isdigit():
+                    await inter.send("You must use a valid number...", ephemeral=True)
+                    return
+
+                await check_cmd(self.bot.get_slash_command("move"), inter)
+
+                player: LavalinkPlayer = self.bot.music.players[self.user.guild.id]
+
+                try:
+                    player.queue.remove(self.current_track)
+                except ValueError:
+                    pass
+                else:
+                    player.queue.insert((int(inter.text_values["queue_move_position"]) or 1)-1, self.current_track)
+
+                self.update_pages(reset_page=False)
+
+                if self.current_page > self.max_page:
+                    self.current_page = 0
+
+                self.update_embed()
+
+                if self.message:
+                    await inter.response.edit_message(embed=self.embed, view=self)
+                else:
+                    await inter.edit_original_message(embed=self.embed, view=self)
+
+            else:
+                await inter.send(f"Method not yet implemented: {inter.data.custom_id}", ephemeral=True)
+
+        except Exception as e:
+            self.bot.dispatch('interaction_player_error', inter, e)
+
 
     def update_embed(self):
 
@@ -1840,7 +1901,7 @@ class SkinSettingsButton(disnake.ui.View):
 
 class ViewModal(disnake.ui.Modal):
 
-    def __init__(self, view: SkinEditorMenu, title: str, components: List[disnake.TextInput], custom_id: str):
+    def __init__(self, view: Union[SkinEditorMenu, QueueInteraction], title: str, components: List[disnake.TextInput], custom_id: str):
         self.view = view
         super().__init__(title=title, components=components, custom_id=custom_id)
     async def callback(self, inter: disnake.ModalInteraction, /) -> None:
@@ -1953,15 +2014,20 @@ class SetStageTitle(disnake.ui.View):
                     p = b.music.players[inter.guild_id]
                 except KeyError:
                     continue
-                p.stage_title_event = True
+                p.stage_title_event = bool(inter.text_values["status_voice_value"])
                 p.stage_title_template = inter.text_values["status_voice_value"]
                 p.start_time = disnake.utils.utcnow()
                 p.set_command_log(
-                    text=("enabled" if inter.text_values["status_voice_value"] else "disabled") + " automatic status",
+                    text=f"{inter.author.mention} " + ("enabled" if inter.text_values["status_voice_value"] else "disabled") + "automatic status",
                     emoji="📢",
                 )
                 p.update = True
-                await p.update_stage_topic()
+
+                if p.stage_title_event:
+                    await p.update_stage_topic()
+                else:
+                    await p.update_stage_topic(clear=True)
+
                 await p.process_save_queue()
                 await asyncio.sleep(3)
 
@@ -1975,18 +2041,21 @@ class SetStageTitle(disnake.ui.View):
                 await inter.send("**I am not playing music in a voice/stage channel...**", ephemeral=True)
                 return
 
-            player.stage_title_event = True
+            player.stage_title_event = bool(inter.text_values["status_voice_value"])
             player.stage_title_template = inter.text_values["status_voice_value"]
             player.start_time = disnake.utils.utcnow()
 
             await inter.response.defer(ephemeral=True)
 
-            await player.update_stage_topic()
+            if player.stage_title_event:
+                await player.update_stage_topic()
+            else:
+                await player.update_stage_topic(clear=True)
 
             await player.process_save_queue()
 
             player.set_command_log(
-                text=("enabled" if inter.text_values["status_voice_value"] else "disabled") + " automatic status",
+                text=f"{inter.author.mention} " + ("enabled" if inter.text_values["status_voice_value"] else "disabled") + " automatic status",
                 emoji="📢",
             )
 
@@ -2233,7 +2302,7 @@ class SkinEditorMenu(disnake.ui.View):
             except KeyError:
                 continue
 
-        data = skin_converter(self.message_data, ctx=self.ctx, player=player)
+        data = skin_converter(self.message_data, guild=self.guild, ctx=self.ctx, player=player)
         return {"content": data.get("content", ""), "embeds": data.get("embeds", [])}
 
     async def embed_select_callback(self, inter: disnake.MessageInteraction):

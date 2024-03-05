@@ -28,7 +28,9 @@ async def process_spotify(bot: BotCore, requester: int, query: str):
 
     if spotify_link_regex.match(query):
         async with bot.session.get(query, allow_redirects=False) as r:
-            query = str(r).split("Location': \'")[1].split("\'")[0]
+            if 'location' not in r.headers:
+                raise GenericError("**Failed to retrieve result for the provided link...**")
+            query = str(r.headers["location"])
 
     if not (matches := spotify_regex.match(query)):
         return

@@ -35,7 +35,7 @@ from utils.music.models import LavalinkPlayer, LavalinkTrack, LavalinkPlaylist, 
 from utils.music.spotify import process_spotify, spotify_regex_w_user
 from utils.others import check_cmd, send_idle_embed, CustomContext, PlayerControls, queue_track_index, \
     pool_command, string_to_file, CommandArgparse, music_source_emoji_url, SongRequestPurgeMode, song_request_buttons, \
-    select_bot_pool, get_inter_guild_data, ProgressBar
+    select_bot_pool, get_inter_guild_data, ProgressBar, update_inter
 
 
 class Music(commands.Cog):
@@ -290,7 +290,7 @@ class Music(commands.Cog):
         if not author.guild_permissions.manage_guild and not (await bot.is_owner(author)):
             raise GenericError("**You do not have permission to manage the server to enable/disable this system.**")
 
-        await inter.response.defer(ephemeral=True)
+        await inter.response.defer(ephemeral=True, with_message=True)
 
         global_data = await self.bot.get_global_data(inter.guild_id, db_name=DBModel.guilds)
 
@@ -301,8 +301,6 @@ class Music(commands.Cog):
         else:
             if not any(p in template for p in SetStageTitle.placeholders):
                 raise GenericError(f"**You must use at least one valid placeholder:** {SetStageTitle.placeholder_text}")
-
-            await inter.response.defer(ephemeral=True)
 
             player = bot.music.players[inter.guild_id]
             player.stage_title_event = True
@@ -451,7 +449,6 @@ class Music(commands.Cog):
             check_other_bots_in_vc: bool = False,
             bot: BotCore = None,
             me: disnake.Member = None,
-            check_pool: bool = True,
     ):
 
         if not channel:
@@ -881,10 +878,13 @@ class Music(commands.Cog):
                                                    color=self.bot.get_color(guild.me)), view=None)
                     return
 
+                update_inter(inter, v.inter)
+
                 bot = v.bot
                 inter = v.inter
                 guild = v.guild
                 channel = bot.get_channel(inter.channel.id)
+
                 await inter.response.defer()
 
         if not channel:
@@ -1829,13 +1829,10 @@ class Music(commands.Cog):
                 else:
                     guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
 
-            if not inter.author.voice:
-                raise NoVoice()
-
             await self.do_connect(
                 inter, channel=voice_channel,
                 check_other_bots_in_vc=guild_data["check_other_bots_in_vc"],
-                bot=bot, me=guild.me, check_pool=True
+                bot=bot, me=guild.me
             )
 
         await self.process_music(inter=inter, force_play=force_play, ephemeral=ephemeral, user_data=user_data, player=player,
@@ -1872,7 +1869,7 @@ class Music(commands.Cog):
 
         return await google_search(self.bot, query, max_entries=20) or favs[:20]
 
-    skip_back_cd = commands.CooldownMapping.from_cooldown(2, 13, commands.BucketType.member)
+    skip_back_cd = commands.CooldownMapping.from_cooldown(4, 13, commands.BucketType.member)
     skip_back_mc = commands.MaxConcurrency(1, per=commands.BucketType.member, wait=False)
 
     case_sensitive_args = CommandArgparse()
@@ -2913,6 +2910,9 @@ class Music(commands.Cog):
                 break
 
         if not player:
+
+            if not (await self.bot.is_owner(inter.author)):
+                raise GenericError("**You must be connected to a voice channel where there is an active player...**")
 
             for bot in self.bot.pool.bots:
 
@@ -4442,14 +4442,27 @@ class Music(commands.Cog):
         if node == player.node.identifier:
             raise GenericError(f"The player is already on the music server **{node}**.")
 
+        await inter.response.defer(ephemeral=True)
+
         await player.change_node(node)
 
-        await self.interaction_message(
-            inter,
-            [f"Migrated the player to the music server **{node}**",
-             f"**The player has been migrated to the music server:** `{node}`"],
+        embed = disnake.Embed(description=f"**The player was migrated to the music server:** `{node}`",
+                              color=self.bot.get_color(player.guild.me))
+
+        try:
+            if bot.user.id != self.bot.user.id:
+                embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+        except AttributeError:
+            pass
+
+        player.set_command_log(
+            text=f"{inter.author.mention} moved the player to music server **{node}**",
             emoji="🌎"
         )
+
+        player.update = True
+
+        await inter.edit_original_message(embed=embed)
 
     @search.autocomplete("server")
     @play.autocomplete("server")
@@ -6432,7 +6445,10 @@ class Music(commands.Cog):
             return
 
         for k, v in data.items():
-            self.bot.loop.create_task(self.connect_node(v))
+            if v.get("enqueue_connect"):
+                await self.bot.pool.lavalink_connect_queue[v["identifier"]].put([self.bot, v])
+            else:
+                self.bot.loop.create_task(self.connect_node(v))
 
         if start_local:
             self.connect_local_lavalink()
@@ -6442,32 +6458,33 @@ class Music(commands.Cog):
 
         retries = 0
         backoff = 7
+        reconnect_players = True
 
         print(f"{self.bot.user} - [{node.identifier} / v{node.version}] Connection lost - reconnecting in {int(backoff)} seconds.")
-
-        for player in list(node.players.values()):
-
-            try:
-                player._new_node_task.cancel()
-            except:
-                pass
-
-            player._new_node_task = player.bot.loop.create_task(player._wait_for_new_node())
-
-        await asyncio.sleep(2)
 
         while True:
 
             if node.is_available:
                 return
 
-            if self.bot.config["LAVALINK_RECONNECT_RETRIES"] and retries == self.bot.config["LAVALINK_RECONNECT_RETRIES"]:
-                print(f"{self.bot.user} - [{node.identifier}] All reconnection attempts have failed...")
+            if retries == 1:
+
+                for player in list(node.players.values()):
+
+                    try:
+                        player._new_node_task.cancel()
+                    except:
+                        pass
+
+                    player._new_node_task = player.bot.loop.create_task(player._wait_for_new_node())
+
+                reconnect_players = False
+
+            elif self.bot.config["LAVALINK_RECONNECT_RETRIES"] and retries == self.bot.config["LAVALINK_RECONNECT_RETRIES"]:
+                print(f"{self.bot.user} - [{node.identifier}] All attempts to reconnect have failed...")
                 return
 
             await self.bot.wait_until_ready()
-
-            error = None
 
             try:
                 async with self.bot.session.get(f"{node.rest_uri}/v4/info", timeout=45, headers=node.headers) as r:
@@ -6478,8 +6495,13 @@ class Music(commands.Cog):
                         raise Exception(f"{self.bot.user} - [{r.status}]: {await r.text()}"[:300])
                     else:
                         node.version = 3
-                    await node.connect()
-                    return
+
+                await node.connect()
+
+                if reconnect_players:
+                    for player in node.players.values():
+                        await player.change_node(node.identifier)
+                return
             except Exception as e:
                 error = repr(e)
 
@@ -6831,6 +6853,7 @@ class Music(commands.Cog):
                 # tempfix para channel do voice_client não ser setado ao mover bot do canal.
                 player.guild.voice_client.channel = after.channel
                 player.last_channel = after.channel
+                player.update = True
 
         try:
             check = [m for m in player.guild.me.voice.channel.members if not m.bot and not (m.voice.deaf or m.voice.self_deaf)]
