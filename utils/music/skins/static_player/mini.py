@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import datetime
-import itertools
 from os.path import basename
 
 import disnake
@@ -16,7 +15,7 @@ class MiniStaticSkin:
 
     def __init__(self):
         self.name = basename(__file__)[:-3] + "_static"
-        self.preview = "https://cdn.discordapp.com/attachments/554468640942981147/1047187413702807552/mini_static_skin.png"
+        self.preview = "https://i.ibb.co/F3NTnPc/mini-static-skin.png"
 
     def setup_features(self, player: LavalinkPlayer):
         player.mini_queue_feature = False
@@ -66,9 +65,9 @@ class MiniStaticSkin:
             embed.description += f" `[`<@{player.current.requester}>`]`"
         else:
             try:
-                embed.description = f" [`[Recomendada]`]({player.current.info['extra']['related']['uri']})"
+                embed.description += f" [`[Recommended]`]({player.current.info['extra']['related']['uri']})"
             except:
-                embed.description = "` [Recomendada]`"
+                embed.description += "` [Recommended]`"
 
         duration = "🔴 Livestream" if player.current.is_stream else \
             time_format(player.current.duration)
@@ -89,7 +88,7 @@ class MiniStaticSkin:
 
             has_stream = False
 
-            current_time = disnake.utils.utcnow() - datetime.timedelta(milliseconds=player.position + player.current.duration)
+            current_time = disnake.utils.utcnow() - datetime.timedelta(milliseconds=player.position) + datetime.timedelta(milliseconds=player.current.duration)
 
             queue_duration = 0
 
@@ -133,7 +132,7 @@ class MiniStaticSkin:
 
             has_stream = False
 
-            current_time = disnake.utils.utcnow() - datetime.timedelta(milliseconds=player.position + player.current.duration)
+            current_time = disnake.utils.utcnow() - datetime.timedelta(milliseconds=player.position) + datetime.timedelta(milliseconds=player.current.duration)
 
             queue_duration = 0
 

@@ -77,7 +77,7 @@ class ClassicStaticSkin:
                                   itertools.islice(player.queue, 15)))
 
             if qsize > 15:
-                data["content"] += f"\n\n[0;37mAnd more[0m [0;35m{qsize}[0m [0;37msong(s).[0m"
+                data["content"] += f"\n\n[0;37mAnd more[0m [0;35m{qsize}[0m [0;37msong{'s'[:qsize^1]}.[0m"
 
             data["content"] += "```"
 

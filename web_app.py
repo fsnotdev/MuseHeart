@@ -365,9 +365,9 @@ class WSClient:
 
             except Exception as e:
                 if isinstance(e, aiohttp.WSServerHandshakeError):
-                    print(f"Failed to connect to RPC server, trying again in {int(self.backoff)} second(s).")
+                    print(f"Failed to connect to RPC server, trying again in {(b:=int(self.backoff))} second{'s'[:b^1]}.")
                 else:
-                    print(f"Lost connection to RPC server - Reconnecting in {int(self.backoff)} second(s).")
+                    print(f"Lost connection to RPC server - Reconnecting in {(b:=int(self.backoff))} second{'s'[:b^1]}.")
 
                 await asyncio.sleep(self.backoff)
                 self.backoff *= 2.5

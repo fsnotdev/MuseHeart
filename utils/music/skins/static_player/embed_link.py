@@ -91,8 +91,8 @@ class EmbedLinkStaticSkin:
                         for n, t in enumerate(
                             itertools.islice(player.queue, 4)))
 
-            if qsize > 4:
-                qtext += f"\n╚═ [0;37mAnd more[0m [0;35m{qsize}[0m [0;37msong(s).[0m"
+            if qsize  > 4:
+                qtext += f"\n╚═ [0;37mAnd more[0m [0;35m{qsize}[0m [0;37msong{'s'[:qsize^1]}.[0m"
 
             txt = qtext + "```" + txt
 

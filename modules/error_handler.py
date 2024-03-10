@@ -149,6 +149,29 @@ class ErrorHandler(commands.Cog):
         except:
             traceback.print_exc()
 
+    async def do_playcmd(self, ctx: CustomContext):
+        query = str(ctx.message.content)
+
+        for m in ctx.message.mentions:
+            query = query.replace(m.mention, "", 1)
+
+        query = query.strip()
+
+        if query:
+
+            play_cmd = self.bot.get_slash_command("play")
+
+            try:
+                await play_cmd.callback(
+                    inter=ctx, query=query,
+                    self=play_cmd.cog, position=0, options=False, force_play="no",
+                    manual_selection=False, source=None, repeat_amount=0, server=None
+                )
+            except commands.CommandNotFound:
+                return
+            except Exception as e:
+                await self.on_legacy_command_error(ctx, e)
+
     @commands.Cog.listener("on_command_error")
     async def on_legacy_command_error(self, ctx: CustomContext, error: Exception):
 
@@ -158,7 +181,12 @@ class ErrorHandler(commands.Cog):
             except:
                 pass"""
 
-        if isinstance(error, (commands.CommandNotFound, PoolException)):
+        if isinstance(error, PoolException):
+            return
+
+        if isinstance(error, commands.CommandNotFound):
+            if ctx.prefix.startswith(self.bot.user.mention):
+                await self.do_playcmd(ctx)
             return
 
         if isinstance(error, commands.NotOwner):
@@ -170,6 +198,21 @@ class ErrorHandler(commands.Cog):
                 await ctx.reinvoke()
             except Exception as e:
                 await self.on_legacy_command_error(ctx, e)
+            return
+
+        if isinstance(error, commands.TooManyArguments):
+            if ctx.prefix.startswith(self.bot.user.mention):
+                await self.do_playcmd(ctx)
+            else:
+                if ctx.cog:
+                    try:
+                        ctx.args.remove(ctx.cog)
+                    except:
+                        pass
+                try:
+                    await ctx.command(*ctx.args, **ctx.kwargs)
+                except Exception as e:
+                    await self.on_legacy_command_error(ctx, e)
             return
 
         error_msg, full_error_msg, kill_process, components, mention_author = parse_error(ctx, error)

@@ -95,7 +95,7 @@ class DefaultSkin:
             txt += f"\n> 📑 **⠂** [`{fix_characters(player.current.playlist_name, limit=36)}`]({player.current.playlist_url})"
 
         if (qlenght:=len(player.queue)) and not player.mini_queue_enabled:
-            txt += f"\n> 🎶 **⠂** `{qlenght} song(s) in queue`"
+            txt += f"\n> 🎶 **⠂** `{qlenght} song{'s'[:qlenght^1]} in queue`"
 
         if player.keep_connected:
             txt += "\n> ♾️ **⠂** `24/7 Mode enabled`"

@@ -52,7 +52,7 @@ class CommandArgparse(argparse.ArgumentParser):
             for arg_name in e.argument_name.split("/"):
                 for c, a in enumerate(args):
                     if a.startswith(arg_name):
-                        args[c] = a.replace("-", "", count=1)
+                        args[c] = a.replace("-", "", 1)
                         return self.parse_known_args(args, namespace)
 
     def error(self, message: str):
@@ -279,11 +279,12 @@ async def check_cmd(cmd, inter: Union[disnake.Interaction, disnake.ModalInteract
             if not c:
                 raise commands.CheckFailure()
 
-    bucket = cmd._buckets.get_bucket(inter)  # type: ignore
-    if bucket:
-        retry_after = bucket.update_rate_limit()
-        if retry_after:
-            raise commands.CommandOnCooldown(cooldown=bucket, retry_after=retry_after, type=cmd._buckets.type)
+    if cmd._buckets._cooldown:
+        bucket = cmd._buckets.get_bucket(inter)  # type: ignore
+        if bucket:
+            retry_after = bucket.update_rate_limit()
+            if retry_after:
+                raise commands.CommandOnCooldown(cooldown=bucket, retry_after=retry_after, type=cmd._buckets.type)
 
     """try:
         chkcmd = list(cmd.children.values())[0]
@@ -634,10 +635,10 @@ async def select_bot_pool(inter: Union[CustomContext, disnake.MessageInteraction
 
     if not bots:
 
-        if [b for b in inter.bot.pool.bots if b.appinfo and b.appinfo.bot_public]:
+        if (bcount:=len([b for b in inter.bot.pool.bots if b.appinfo and b.appinfo.bot_public])):
             raise GenericError(
-                f"**You will need to add to the server at least one compatible bot by clicking the button below:**",
-                components=[disnake.ui.Button(custom_id="bot_invite", label="Add Bot(s)")]
+                f"**You will need to add at least one compatible bot to the server by clicking the button below:**",
+                components=[disnake.ui.Button(custom_id="bot_invite", label=f"Add Bot{'s'[:bcount^1]}")]
             )
         else:
             raise GenericError("**There are no bots compatible with my commands on the server...**")
@@ -787,7 +788,11 @@ def update_inter(old: Union[disnake.Interaction, CustomContext], new: disnake.In
     else:
         old.token = new.token
         old.id = new.id
-        old.response = new.response
+
+        try:
+            old.response = new.response
+        except AttributeError:
+            pass
 
         try:
             old.self_mod = True

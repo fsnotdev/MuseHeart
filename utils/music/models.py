@@ -1119,19 +1119,19 @@ class LavalinkPlayer(wavelink.Player):
 
             if bots_in_guild:
                 hints.append(
-                    "If any member wants to use me in another voice channel without having to "
-                    f"wait for me to be disconnected or interrupted from the current channel, there are {bots_in_guild} more bot(s) on the server "
-                    "that work(s) with the same system/commands as me (using the same prefix/slash commands). "
+                    "If any member wants to use me in another voice channel without having to wait for me "
+                    f"to be disconnected or interrupted from the current channel, there are {bots_in_guild} more bot{'s'[:bots_in_guild^1]} on the server "
+                    "that works with the same system/commands (using the same prefix/slash commands). "
                     f"Try joining a different voice channel than my current one and use the command "
-                    f"{self.prefix_info}play or /play command."
+                    f"{self.prefix_info}play or /play."
                 )
 
             elif bots_outside_guild:
                 hints.append(
-                    "If any member wants to use me in another voice channel without having to "
-                    f"wait for me to be disconnected or interrupted from the current channel. You can add {bots_outside_guild} extra bot(s) "
-                    f"to the current server that work(s) with the same system/commands as me (using the same "
-                    f"prefix/slash commands). Use the {self.prefix_info}invite or /invite command to add them."
+                    "If any member wants to use me in another voice channel without needing to wait for me to "
+                    f"be disconnected or interrupted from the current channel. It's possible to add {bots_outside_guild} extra bot{'s'[:bots_outside_guild^1]} "
+                    f"to the current server that work(s) with the same system/commands as mine (using the same "
+                    f"prefix/slash commands). Use the command {self.prefix_info}invite or /invite to add them."
                 )
 
         if self.controller_mode:

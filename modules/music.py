@@ -813,6 +813,10 @@ class Music(commands.Cog):
                 if not b.bot_ready:
                     continue
 
+                if b.user.id in inter.author.voice.channel.voice_states:
+                    bot = b
+                    break
+
                 g = b.get_guild(inter.guild_id)
 
                 if not g:
@@ -966,6 +970,8 @@ class Music(commands.Cog):
             ephemeral = await self.is_request_channel(inter, data=guild_data, ignore_thread=True)
 
         is_pin = None
+
+        original_query = query or ""
 
         if not query:
 
@@ -1437,7 +1443,14 @@ class Music(commands.Cog):
                         except AttributeError:
                             pass
 
-                        msg = await inter.send(embed=embed, view=view, ephemeral=ephemeral)
+                        try:
+                            func = inter.edit_original_message
+                            kwargs = {}
+                        except AttributeError:
+                            func = inter.send
+                            kwargs = {"ephemeral": ephemeral}
+
+                        msg = await func(embed=embed, view=view, **kwargs)
 
                         await view.wait()
 
@@ -1530,6 +1543,8 @@ class Music(commands.Cog):
         position -= 1
 
         embed_description = ""
+
+        track_url = ""
 
         if isinstance(tracks, list):
 
@@ -1630,6 +1645,9 @@ class Music(commands.Cog):
 
                     tracks.uri = ""
 
+                elif url_check:=URL_REG.match(original_query.strip("<>")):
+                    track_url = url_check.group()
+
             if not isinstance(tracks, list):
 
                 if force_play == "yes":
@@ -1642,13 +1660,16 @@ class Music(commands.Cog):
 
                 duration = time_format(tracks.duration) if not tracks.is_stream else '🔴 Livestream'
 
-                log_text = f"{inter.author.mention} added [`{fix_characters(tracks.title, 20)}`]({tracks.uri or tracks.search_uri}){pos_txt} `({duration})`."
+                if not track_url:
+                    track_url = tracks.uri or tracks.search_uri
+
+                log_text = f"{inter.author.mention} added [`{fix_characters(tracks.title, 20)}`]({track_url}){pos_txt} `({duration})`."
 
                 loadtype = "track"
 
                 embed.set_author(
                     name="⠂" + fix_characters(tracks.single_title, 35),
-                    url=tracks.uri or tracks.search_uri,
+                    url=track_url,
                     icon_url=music_source_image(tracks.info['sourceName'])
                 )
                 embed.set_thumbnail(url=tracks.thumb)
@@ -1691,7 +1712,7 @@ class Music(commands.Cog):
                                 tracks_playlists[t.playlist_url] = {"name": t.playlist_name, "count": 1}
 
                     if tracks_playlists:
-                        embed_description += "\n### Loaded playlists:\n" + "\n".join(f"[`{info['name']}`]({url}) `- {info['count']} song(s)` " for url, info in tracks_playlists.items()) + "\n"
+                        embed_description += "\n### Loaded playlists:\n" + "\n".join(f"[`{info['name']}`]({url}) `- {info['count']} song{'s'[:info['count']^1]}` " for url, info in tracks_playlists.items()) + "\n"
 
                 else:
                     query = fix_characters(query.replace(f"{source}:", '', 1), 25)
@@ -1707,7 +1728,7 @@ class Music(commands.Cog):
 
                 embed.set_author(name="⠂" + title, icon_url=icon_url)
                 embed.set_thumbnail(url=tracks[0].thumb)
-                embed.description = f"`{len(tracks)} song(s)`**┃**`{time_format(total_duration)}`**┃**{inter.author.mention}"
+                embed.description = f"`{(tcount:=len(tracks))} song{'s'[:tcount^1]}`**┃**`{time_format(total_duration)}`**┃**{inter.author.mention}"
                 emoji = "🎶"
 
         else:
@@ -1762,7 +1783,7 @@ class Music(commands.Cog):
                     icon_url=music_source_image(tracks.tracks[0].info['sourceName'])
                 )
             embed.set_thumbnail(url=tracks.thumb)
-            embed.description = f"`{len(tracks.tracks)} song(s)`**┃**`{time_format(total_duration)}`**┃**{inter.author.mention}"
+            embed.description = f"`{(tcount:=len(tracks.tracks))} song{'s'[:tcount^1]}`**┃**`{time_format(total_duration)}`**┃**{inter.author.mention}"
             emoji = "🎶"
 
             if reg_query is not None:
@@ -2690,8 +2711,8 @@ class Music(commands.Cog):
         player.failed_tracks.clear()
 
         txt = [
-            f"re-added [{qsize}] played song(s) to the queue.",
-            f"🎶 **⠂{inter.author.mention} re-added {qsize} song(s) to the queue.**"
+            f"re-added [{qsize}] song{(s:='s'[:qsize^1])} to the queue.",
+            f"🎶 **⠂{inter.author.mention} re-added {qsize} song{s} to the queue.**"
         ]
 
         await self.interaction_message(inter, txt, emoji="🎶")
@@ -3063,8 +3084,18 @@ class Music(commands.Cog):
             return
 
         try:
+            inter.application_command = self.now_playing_legacy
+            await self.now_playing_legacy._max_concurrency.acquire(inter)
+        except AttributeError:
+            pass
+
+        try:
             await check_cmd(self.now_playing_legacy, inter)
             await self.now_playing_legacy(inter)
+            try:
+                await self.now_playing_legacy._max_concurrency.release(inter)
+            except AttributeError:
+                pass
         except Exception as e:
             self.bot.dispatch('interaction_player_error', inter, e)
 
@@ -3823,14 +3854,14 @@ class Music(commands.Cog):
             except:
                 pass
 
-            msg_txt = f"### ♻️ ⠂{inter.author.mention} removed {deleted_tracks} song(s) from the queue:\n" + "\n".join(f"[`{fix_characters(t.title, 45)}`]({t.uri})" for t in tracklist[:7])
+            msg_txt = f"### ♻️ ⠂{inter.author.mention} removed {deleted_tracks} song{'s'[:deleted_tracks^1]} from the queue:\n" + "\n".join(f"[`{fix_characters(t.title, 45)}`]({t.uri})" for t in tracklist[:7])
 
             if (trackcount:=(len(tracklist) - 7)) > 0:
-                msg_txt += f"\n`and {trackcount} more song(s).`"
+                msg_txt += f"\n`and {trackcount} more song{'s'[:trackcount^1]}.`"
 
-            msg_txt += f"\n### ✅ ⠂Filter(s) used:\n" + '\n'.join(txt)
+            msg_txt += f"\n### ✅ ⠂Filter{(t:='s'[:len(txt)^1])} used{t}:\n" + '\n'.join(txt)
 
-            txt = [f"removed {deleted_tracks} song(s) from the queue via clear.", msg_txt]
+            txt = [f"removed {deleted_tracks} song{'s'[:deleted_tracks^1]} from the queue via clear.", msg_txt]
 
         try:
             kwargs = {"thumb": tracklist[0].thumb}
@@ -4172,14 +4203,14 @@ class Music(commands.Cog):
 
             moved_tracks_txt = moved_tracks if moved_tracks == 1 else f"[{position}-{position+moved_tracks-1}]"
 
-            msg_txt = f"### ↪️ ⠂{inter.author.mention} moved {moved_tracks} track(s) to position {moved_tracks_txt} in the queue:\n" + "\n".join(f"`{position+n}.` [`{fix_characters(t.title, 45)}`]({t.uri})" for n, t in enumerate(tracklist[:7]))
+            msg_txt = f"### ↪️ ⠂{inter.author.mention} moved {moved_tracks} song{'s'[:moved_tracks^1]} to position {moved_tracks_txt} in the queue:\n" + "\n".join(f"`{position+n}.` [`{fix_characters(t.title, 45)}`]({t.uri})" for n, t in enumerate(tracklist[:7]))
 
             if (track_extra:=(moved_tracks - 7)) > 0:
-                msg_txt += f"\n`and {track_extra} more track(s).`"
+                msg_txt += f"\n`and {track_extra} more song{'s'[:track_extra^1]}.`"
 
-            msg_txt += f"\n### ✅ ⠂Filter(s) used:\n" + '\n'.join(txt)
+            msg_txt += f"\n### ✅ ⠂Filter{(t:='s'[:len(txt)^1])} used{t}:\n" + '\n'.join(txt)
 
-            txt = [f"moved {moved_tracks} track(s) to position **[{position}]** in the queue.", msg_txt]
+            txt = [f"Moved {moved_tracks} song{'s'[:moved_tracks^1]} to position **[{position}]** in the queue.", msg_txt]
 
             await self.interaction_message(inter, txt, emoji="↪️", force=True, thumb=tracklist[0].thumb)
 
@@ -4852,6 +4883,12 @@ class Music(commands.Cog):
         if not command:
             raise GenericError("Command not found/implemented.")
 
+        try:
+            interaction.application_command = command
+            await command._max_concurrency.acquire(interaction)
+        except AttributeError:
+            pass
+
         await check_cmd(command, interaction)
 
         await command(interaction, **kwargs)
@@ -5030,7 +5067,7 @@ class Music(commands.Cog):
 
                     if (retry_after := self.bot.pool.enqueue_playlist_embed_cooldown.get_bucket(interaction).update_rate_limit()):
                         raise GenericError(
-                            f"**You will have to wait {int(retry_after)} second(s) to add a playlist to the current player.**")
+                            f"**You will have to wait {(rta:=int(retry_after))} second{'s'[:rta^1]} to add a playlist to the current player.**")
 
                     if not player:
                         player = await self.create_player(inter=interaction, bot=bot, guild=channel.guild,
@@ -5091,7 +5128,7 @@ class Music(commands.Cog):
 
                             if (retry_after := self.bot.pool.enqueue_track_embed_cooldown.get_bucket(interaction).update_rate_limit()):
                                 raise GenericError(
-                                    f"**You will have to wait {int(retry_after)} second(s) to add a new song to the queue.**")
+                                    f"**You will have to wait {(rta:=int(retry_after))} second{'s'[:rta^1]} to add a new song to the queue.**")
 
                             if control == PlayerControls.embed_enqueue_track:
                                 await self.check_player_queue(interaction.author, bot, interaction.guild_id)
@@ -5148,7 +5185,7 @@ class Music(commands.Cog):
 
             if (retry_after := self.bot.pool.add_fav_embed_cooldown.get_bucket(interaction).update_rate_limit()):
                 await interaction.send(
-                    f"**You will have to wait {int(retry_after)} second(s) to add a new favorite.**",
+                    f"**You will have to wait {(rta:=int(retry_after))} second{'s'[:rta^1]} to add a new favorite.**",
                     ephemeral=True)
                 return
 
@@ -5345,11 +5382,12 @@ class Music(commands.Cog):
                     await player.invoke_np(interaction=interaction)
                     return
 
-                try:
-                    await self.player_interaction_concurrency.acquire(interaction)
-                except commands.MaxConcurrencyReached:
-                    raise GenericError(
-                        "**You have an ongoing interaction!**\n`If it's a hidden message, avoid clicking \"Dismiss message\".`")
+                if control != PlayerControls.queue:
+                    try:
+                        await self.player_interaction_concurrency.acquire(interaction)
+                    except commands.MaxConcurrencyReached:
+                        raise GenericError(
+                            "**You have an ongoing interaction!**\n`If it's a hidden message, avoid clicking on \"Dismiss message\".`")
 
                 if control == PlayerControls.add_favorite:
 
@@ -6179,9 +6217,6 @@ class Music(commands.Cog):
         except AttributeError:
             pass
 
-        tracks, node = await self.get_tracks(message.content, message.author, source=source)
-        tracks = await self.check_player_queue(message.author, self.bot, message.guild.id, tracks)
-
         try:
             message_id = int(data['player_controller']['message_id'])
         except TypeError:
@@ -6189,11 +6224,15 @@ class Music(commands.Cog):
 
         try:
             player = self.bot.music.players[message.guild.id]
+            await check_player_perm(message, self.bot, message.channel)
             destroy_message = True
         except KeyError:
             destroy_message = False
             player = await self.create_player(inter=message, bot=self.bot, guild=message.guild, channel=text_channel,
-                                              node=node, guild_data=data)
+                                              guild_data=data)
+
+        tracks, node = await self.get_tracks(message.content, message.author, source=source)
+        tracks = await self.check_player_queue(message.author, self.bot, message.guild.id, tracks)
 
         if not player.message:
             try:
@@ -6217,8 +6256,9 @@ class Music(commands.Cog):
             if (isinstance(message.channel, disnake.Thread) and
                     (not isinstance(message.channel.parent, disnake.ForumChannel) or
                      data['player_controller']['purge_mode'] != SongRequestPurgeMode.on_message)):
+                tcount = len(tracks.tracks)
                 embed.description = f"✋ **⠂ Requested by:** {message.author.mention}\n" \
-                                    f"🎼 **⠂ Track(s):** `[{len(tracks.tracks)}]`"
+                                    f"🎼 **⠂ Track{'s'[:tcount^1]}:** `[{tcount}]`"
                 embed.set_thumbnail(url=tracks.tracks[0].thumb)
                 embed.set_author(name="⠂" + fix_characters(tracks.tracks[0].playlist_name, 35), url=message.content,
                                  icon_url=music_source_image(tracks.tracks[0].info["sourceName"]))
@@ -6247,7 +6287,7 @@ class Music(commands.Cog):
 
             elif data['player_controller']['purge_mode'] != SongRequestPurgeMode.on_message:
 
-                txt = f"> 🎼 **⠂** [`{fix_characters(tracks.tracks[0].playlist_name, 35)}`](<{message.content}>) `[{len(tracks.tracks)} track(s)]` {message.author.mention}"
+                txt = f"> 🎼 **⠂** [`{fix_characters(tracks.tracks[0].playlist_name, 35)}`](<{message.content}>) `[{(tcount:=len(tracks.tracks))} track{'s'[:tcount^1]}]` {message.author.mention}"
 
                 try:
                     txt += f" `|` {message.author.voice.channel.mention}"

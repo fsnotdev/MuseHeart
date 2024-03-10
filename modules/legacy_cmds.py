@@ -217,14 +217,14 @@ class Owner(commands.Cog):
 
         await self.bot.sync_app_commands(force=self.bot == self.bot.pool.controller_bot)
 
-        for bot in self.bot.pool.bots:
+        for bot in set(self.bot.pool.bots + [self.bot.pool.controller_bot]):
 
             if bot.user.id != self.bot.user.id:
                 bot.load_skins()
                 bot.load_modules(modules)
                 await bot.sync_app_commands(force=bot == self.bot.pool.controller_bot)
 
-        self.bot.sync_command_cooldowns()
+        self.bot.sync_command_cooldowns(force=True)
 
         txt = ""
 
@@ -859,7 +859,7 @@ class Owner(commands.Cog):
                     counter += 1
 
         if not counter:
-            raise GenericError(f"**No message was deleted from {amount} checked message(s)...**")
+            raise GenericError(f"**No message was deleted from {amount} checked message{'s'[:amount^1]}...**")
 
         if counter == 1:
             txt = "**One message was deleted from your DM.**"

@@ -14,7 +14,7 @@ class MiniSkin:
 
     def __init__(self):
         self.name = basename(__file__)[:-3]
-        self.preview = "https://cdn.discordapp.com/attachments/554468640942981147/1119823641190858792/image.png"
+        self.preview = "https://i.ibb.co/ZBTbdvT/mini.png"
 
     def setup_features(self, player: LavalinkPlayer):
         player.mini_queue_feature = True
@@ -64,9 +64,9 @@ class MiniSkin:
             embed.description += f" `[`<@{player.current.requester}>`]`"
         else:
             try:
-                embed.description = f" [`[Recomendada]`]({player.current.info['extra']['related']['uri']})"
+                embed.description += f" [`[Recommended]`]({player.current.info['extra']['related']['uri']})"
             except:
-                embed.description = "` [Recomendada]`"
+                embed.description += "` [Recommended]`"
 
         duration = "🔴 Livestream" if player.current.is_stream else \
             time_format(player.current.duration)

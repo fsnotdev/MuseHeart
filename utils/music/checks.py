@@ -8,7 +8,6 @@ from typing import Union, Optional, TYPE_CHECKING
 import disnake
 from disnake.ext import commands
 
-from utils.db import DBModel
 from utils.music.converters import time_format
 from utils.music.errors import NoVoice, NoPlayer, NoSource, NotRequester, NotDJorStaff, \
     GenericError, MissingVoicePerms, DiffVoiceChannel, PoolException
@@ -265,7 +264,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
     if free_bot:
         inter.music_bot, inter.music_guild = free_bot.pop(0)
 
-        if isinstance(inter, CustomContext) and not mention_prefixed and inter.music_bot.user.id != inter.bot.user.id:
+        if isinstance(inter, CustomContext) and not mention_prefixed and not bypass_prefix and inter.music_bot.user.id != inter.bot.user.id:
             try:
                 await inter.music_bot.wait_for(
                     "pool_payload_ready", timeout=10,
@@ -321,7 +320,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
 
         if extra_bots_counter:
             msg += f"\n\nYou will need to add at least one compatible bot by clicking the button below:"
-            components = [disnake.ui.Button(custom_id="bot_invite", label="Add bot(s).")]
+            components = [disnake.ui.Button(custom_id="bot_invite", label=f"Add bot{'s'[:extra_bots_counter^1]}.")]
 
     else:
 
@@ -564,11 +563,13 @@ def user_cooldown(rate: int, per: int):
 async def check_player_perm(inter, bot: BotCore, channel):
 
     try:
-        player: LavalinkPlayer = bot.music.players[inter.guild_id]
-    except KeyError:
-        return True
+        guild_id = inter.guild_id
+    except AttributeError:
+        guild_id = inter.guild.id
 
-    if inter.author.id == player.player_creator or inter.author.id in player.dj:
+    try:
+        player: LavalinkPlayer = bot.music.players[guild_id]
+    except KeyError:
         return True
 
     try:
@@ -576,18 +577,21 @@ async def check_player_perm(inter, bot: BotCore, channel):
     except AttributeError:
         vc = player.last_channel
 
+    if inter.author.guild_permissions.manage_channels:
+        return True
+
+    if player.keep_connected and not (await bot.is_owner(inter.author)):
+        raise GenericError("Only members with the permission to **manage channels** "
+                           "can use this command/button with the **24/7 mode** active...")
+
+    if inter.author.id == player.player_creator or inter.author.id in player.dj:
+        return True
+
     try:
         if vc.permissions_for(inter.author).move_members:
             return True
     except AttributeError:
         pass
-
-    if inter.author.guild_permissions.manage_channels:
-        return True
-
-    if player.keep_connected and not (await bot.is_owner(inter.author)):
-        raise GenericError("Only members with the **move members** permission "
-                           "can use this command/button with the **24/7 mode** active...")
 
     user_roles = [r.id for r in inter.author.roles]
 
