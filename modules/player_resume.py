@@ -17,6 +17,7 @@ from disnake.ext import commands
 import wavelink
 from utils.client import BotCore
 from utils.music.checks import can_connect, can_send_message
+from utils.music.filters import AudioFilter
 from utils.music.models import LavalinkPlayer
 from utils.others import SongRequestPurgeMode, send_idle_embed, CustomContext
 
@@ -254,10 +255,81 @@ class PlayerSession(commands.Cog):
 
         self.bot.player_resumed = True
 
+    async def update_player(
+            self,
+            player: LavalinkPlayer,
+            voice_channel: Union[disnake.VoiceChannel, disnake.StageChannel],
+            pause: bool,
+            position: int
+    ):
+
+        if not player.current:
+            try:
+                player.current = player.queue.popleft()
+            except:
+                pass
+
+            if not player.current and player.autoplay:
+                try:
+                    player.current = await player.get_autoqueue_tracks()
+                except:
+                    traceback.print_exc()
+
+        player._temp_data.update(
+            {
+                "volume": player.volume,
+                "filters": player.filters,
+            }
+        )
+        if player.current:
+            player._temp_data.update(
+                {
+                    "encodedTrack": player.current.id,
+                    "position": position,
+                    "paused": pause,
+                }
+            )
+            await player.connect(voice_channel.id)
+            await self.voice_check(voice_channel)
+        else:
+            await player.connect(voice_channel.id)
+            await self.voice_check(voice_channel)
+            await player.node.update_player(player.guild.id, data=player._temp_data)
+            await player.process_next()
+
+    async def voice_check(self, voice_channel: Union[disnake.VoiceChannel, disnake.StageChannel]):
+
+        wait_counter = 30
+
+        guild = voice_channel.guild
+
+        while wait_counter > 1:
+            if not guild.me.voice:
+                wait_counter -= 1
+                await asyncio.sleep(1)
+                continue
+            break
+
+        if not wait_counter:
+            print(f"{self.bot.user} - {guild.name}: Player ignored due to delay in connecting to the voice channel.")
+            return
+
+        if isinstance(voice_channel, disnake.StageChannel) and \
+                voice_channel.permissions_for(guild.me).mute_members:
+
+            await asyncio.sleep(3)
+
+            try:
+                await guild.me.edit(suppress=False)
+            except Exception as e:
+                print(f"{self.bot.user} - Failure to speak on the server stage {guild.name}. Error: {repr(e)}")
+
     async def resume_player(self, data: dict, hints: list = None):
 
         if hints is None:
             hints = []
+
+        voice_channel = self.bot.get_channel(data["voice_channel"])
 
         try:
             guild = self.bot.get_guild(data["_id"])
@@ -288,8 +360,6 @@ class PlayerSession(commands.Cog):
                     except (disnake.NotFound, TypeError):
                         text_channel = None
                         data["message_id"] = None
-
-                voice_channel = self.bot.get_channel(data["voice_channel"])
 
                 if not text_channel:
                     data['static'] = False
@@ -404,7 +474,6 @@ class PlayerSession(commands.Cog):
                         stage_title_event=data.get("stage_title_event", False),
                         stage_title_template=data.get("stage_title_template"),
                         restrict_mode=data["restrict_mode"],
-                        volume=int(data["volume"]),
                         prefix=data["prefix_info"],
                         purge_mode=data["purge_mode"],
                         session_resuming=True,
@@ -433,39 +502,24 @@ class PlayerSession(commands.Cog):
                 player.dj = set(data["dj"])
                 player.loop = data["loop"]
 
+                player.volume = int(data["volume"])
+
+                if player.volume != 100 and player.node.version == 3:
+                    player.filters["volume"] = max(min(player.volume, 1000), 0)
+
                 player.nightcore = data.get("nightcore")
 
                 if player.nightcore:
-                    await player.set_timescale(pitch=1.2, speed=1.1)
+                    player.filters.update(AudioFilter.timescale(pitch=1.2, speed=1.1))
 
-                if player.nightcore:
-                    await player.set_timescale(pitch=1.2, speed=1.1)
+                if node.version == 3:
 
-                await player.connect(voice_channel.id)
+                    if player.filters:
+                        await player.update_filters()
 
-                wait_counter = 30
+                    await player.connect(voice_channel.id)
 
-                while wait_counter > 1:
-                    if not guild.me.voice:
-                        wait_counter -= 1
-                        await asyncio.sleep(1)
-                        continue
-                    break
-
-                if not wait_counter:
-                    print(f"{self.bot.user} - {guild.name}: Player ignored due to delay in connecting to the voice channel.")
-                    return
-
-                if isinstance(voice_channel, disnake.StageChannel) and \
-                        voice_channel.permissions_for(guild.me).mute_members:
-
-                    await asyncio.sleep(3)
-
-                    try:
-                        await guild.me.edit(suppress=False)
-                    except Exception as e:
-                        print(f"{self.bot.user} - Failure to speak on the server stage {guild.name}. Error: {repr(e)}")
-                        return
+                    await self.voice_check(voice_channel)
 
             tracks, playlists = self.bot.pool.process_track_cls(data["queue"])
 
@@ -512,7 +566,7 @@ class PlayerSession(commands.Cog):
                     check = None
 
                 try:
-                    if data.get("paused") and check:
+                    if (pause:=data.get("paused") and check):
 
                         try:
                             track = player.queue.popleft()
@@ -522,19 +576,34 @@ class PlayerSession(commands.Cog):
                         if track:
                             player.current = track
                             position = int(float(data.get("position", 0)))
-                            await player.play(track, start=position if not track.is_stream else 0)
+                            if player.node.version == 3:
+                                await player.play(track, start=position if not track.is_stream else 0)
+                                await player.set_pause(True)
+                            else:
+                                await self.update_player(
+                                    player=player, voice_channel=voice_channel, pause=pause, position=position
+                                )
                             player.last_position = position
                             player.last_track = track
-                            await player.set_pause(True)
                             await player.invoke_np(rpc_update=True)
                             await player.update_stage_topic()
 
                         else:
-                            await player.process_next(clear_autoqueue=False)
+                            if player.node.version > 3:
+                                await self.update_player(
+                                    player=player, voice_channel=voice_channel, pause=pause, position=0
+                                )
+                            else:
+                                await player.process_next(clear_autoqueue=False)
 
                     else:
                         position = int(float(data.get("position", 0)))
-                        await player.process_next(start_position=position, clear_autoqueue=False)
+                        if player.node.version > 3:
+                            await self.update_player(
+                                player=player, voice_channel=voice_channel, pause=pause, position=position
+                            )
+                        else:
+                            await player.process_next(start_position=position, clear_autoqueue=False)
                         player._session_resuming = False
                 except Exception:
                     print(f"{self.bot.user} - Failure to play music when resuming player from server {guild.name} [{guild.id}]:\n{traceback.format_exc()}")

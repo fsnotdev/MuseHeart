@@ -313,11 +313,6 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
 
         msg = "**There are no compatible music bots on the server...**"
 
-        for b in inter.bot.pool.bots:
-
-            if str(b.user.id) in inter.bot.config["INTERACTION_BOTS"]:
-                continue
-
         if extra_bots_counter:
             msg += f"\n\nYou will need to add at least one compatible bot by clicking the button below:"
             components = [disnake.ui.Button(custom_id="bot_invite", label=f"Add bot{'s'[:extra_bots_counter^1]}.")]
@@ -560,7 +555,7 @@ def user_cooldown(rate: int, per: int):
 
 #######################################################################
 
-async def check_player_perm(inter, bot: BotCore, channel):
+async def check_player_perm(inter, bot: BotCore, channel, guild_data: dict = None):
 
     try:
         guild_id = inter.guild_id
@@ -595,7 +590,8 @@ async def check_player_perm(inter, bot: BotCore, channel):
 
     user_roles = [r.id for r in inter.author.roles]
 
-    inter, guild_data = await get_inter_guild_data(inter, bot)
+    if not guild_data:
+        inter, guild_data = await get_inter_guild_data(inter, bot)
 
     if [r for r in guild_data['djroles'] if int(r) in user_roles]:
         return True

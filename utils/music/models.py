@@ -399,7 +399,7 @@ class LavalinkPlayer(wavelink.Player):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.version = 1.1
-        self.volume = kwargs.get("volume", 100)
+        self.volume = 100
         self.guild: disnake.Guild = kwargs.pop('guild')
         self.text_channel: Union[disnake.TextChannel,
         disnake.VoiceChannel, disnake.Thread] = kwargs.pop('channel')
@@ -512,9 +512,6 @@ class LavalinkPlayer(wavelink.Player):
             self.initial_hints.extend(kwargs.pop("extra_hints"))
         except:
             pass
-
-        if self.volume != 100:
-            self.bot.loop.create_task(self.set_volume(self.volume))
 
         self.hints: cycle = []
         self.current_hint: str = ""
@@ -1636,6 +1633,7 @@ class LavalinkPlayer(wavelink.Player):
 
         if self.auto_pause:
             self.last_update = time() * 1000
+            self.current = track
         else:
             await self.play(track, start=start_position)
             # TODO: rever essa parte caso adicione função de ativar track loops em músicas da fila

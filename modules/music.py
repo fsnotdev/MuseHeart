@@ -807,32 +807,63 @@ class Music(commands.Cog):
         if bot.user.id not in inter.author.voice.channel.voice_states and str(inter.channel.id) != guild_data['player_controller']['channel']:
 
             free_bots = []
+            voice_channels = []
+            bot_count = 0
 
             for b in self.bot.pool.bots:
 
                 if not b.bot_ready:
                     continue
 
-                if b.user.id in inter.author.voice.channel.voice_states:
-                    bot = b
+                if b.user in inter.author.voice.channel.members:
+                    free_bots.append(b)
                     break
 
                 g = b.get_guild(inter.guild_id)
 
                 if not g:
+                    bot_count += 1
                     continue
 
                 p: LavalinkPlayer = b.music.players.get(inter.guild_id)
 
                 if p:
+
                     try:
                         vc = g.me.voice.channel
                     except AttributeError:
                         vc = p.last_channel
-                    if not vc or inter.author.id not in vc.voice_states:
+
+                    if not vc:
+                        continue
+
+                    if inter.author in vc.members:
+                        free_bots.append(b)
+                        break
+                    else:
+                        voice_channels.append(vc.mention)
                         continue
 
                 free_bots.append(b)
+
+            if not free_bots:
+
+                if bot_count:
+                    txt = "**All the bots are currently in use...**"
+                    if voice_channels:
+                        txt += "\n\n**You can connect to one of the channels below where there are active sessions:**\n" + ", ".join(voice_channels)
+                        if inter.author.guild_permissions.manage_guild:
+                            txt += "\n\n**If you prefer: Add more music bots to the current server by clicking the button below:**"
+                        else:
+                            txt += "\n\n**If you prefer: Ask a server administrator/manager to click the button below " \
+                                   "to add more music bots to the current server.**"
+                else:
+                    txt = "**There are no compatible music bots on the server...**" \
+                           "\n\nYou will need to add at least one compatible bot by clicking the button below:"
+
+                await inter.send(
+                    txt, ephemeral=True, components=[disnake.ui.Button(custom_id="bot_invite", label="Add bots")])
+                return
 
             if len(free_bots) > 1:
 
@@ -884,12 +915,26 @@ class Music(commands.Cog):
 
                 update_inter(inter, v.inter)
 
-                bot = v.bot
+                current_bot = v.bot
                 inter = v.inter
                 guild = v.guild
-                channel = bot.get_channel(inter.channel.id)
+                channel = current_bot.get_channel(inter.channel.id)
 
                 await inter.response.defer()
+
+            else:
+                current_bot = free_bots.pop()
+
+            if bot != current_bot:
+                guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
+                try:
+                    inter.guild_data = guild_data
+                except AttributeError:
+                    pass
+            else:
+                inter, guild_data = await get_inter_guild_data(inter, bot)
+
+            bot = current_bot
 
         if not channel:
             channel = bot.get_channel(inter.channel.id)
@@ -4571,9 +4616,12 @@ class Music(commands.Cog):
         if isinstance(inter, CustomContext):
             prefix = inter.clean_prefix
 
-            if inter.invoked_with in ("serverplaylist", "spl", "svp", "svpl") and inter.author.guild_permissions.manage_guild:
+            if inter.invoked_with in ("serverplaylist", "spl", "svp", "svpl") and (inter.author.guild_permissions.manage_guild or await bot.is_owner(inter.author)):
 
                 interaction, bot = await select_bot_pool(inter, return_new=True)
+
+                if not bot:
+                    return
 
                 mode = ViewMode.guild_fav_manager
 
@@ -4599,7 +4647,7 @@ class Music(commands.Cog):
             interaction = inter
 
         if not interaction.response.is_done():
-            await inter.response.defer(ephemeral=True)
+            await interaction.response.defer(ephemeral=True)
 
         try:
             user_data = inter.global_user_data
@@ -4610,27 +4658,19 @@ class Music(commands.Cog):
             except:
                 pass
 
-        view = FavMenuView(bot=bot, ctx=inter, data=user_data, prefix=prefix, mode=mode)
+        view = FavMenuView(bot=bot, ctx=interaction, data=user_data, prefix=prefix, mode=mode, is_owner=await bot.is_owner(inter.author))
         view.guild_data = guild_data
 
         embed = view.build_embed()
 
         if not embed:
-            await inter.send("**This feature is not supported at the moment...**\n\n"
-                             "`Spotify and YTDL support are not enabled.`", ephemeral=True)
-            return
+            raise GenericError("**This feature is not supported at the moment...**\n\n"
+                             "`Spotify and YTDL support is not enabled..`")
 
-        if isinstance(inter, CustomContext):
-            try:
-                view.message = inter.store_message
-                await inter.store_message.edit(embed=embed, view=view)
-            except:
-                view.message = await inter.send(embed=embed, view=view)
-        else:
-            try:
-                await inter.edit_original_message(embed=embed, view=view)
-            except:
-                await inter.response.edit_message(embed=embed, view=view)
+        try:
+            await interaction.edit_original_message(embed=embed, view=view)
+        except AttributeError:
+            view.message = await inter.send(embed=embed, view=view, ephemeral=True)
 
         await view.wait()
 
@@ -6112,12 +6152,14 @@ class Music(commands.Cog):
             extra_hints=self.extra_hints,
             restrict_mode=guild_data['enable_restrict_mode'],
             listen_along_invite=invite,
-            volume=int(guild_data['default_player_volume']),
             autoplay=guild_data["autoplay"],
             prefix=global_data["prefix"] or bot.default_prefix,
             purge_mode=guild_data['player_controller']['purge_mode'],
             stage_title_template=global_data['voice_channel_status'],
         )
+
+        if (vol:=int(guild_data['default_player_volume'])) != 100:
+            await player.set_volume(vol)
 
         if static_player['channel']:
 
@@ -6224,7 +6266,7 @@ class Music(commands.Cog):
 
         try:
             player = self.bot.music.players[message.guild.id]
-            await check_player_perm(message, self.bot, message.channel)
+            await check_player_perm(message, self.bot, message.channel, guild_data=data)
             destroy_message = True
         except KeyError:
             destroy_message = False
@@ -6496,9 +6538,17 @@ class Music(commands.Cog):
     @commands.Cog.listener("on_wavelink_node_connection_closed")
     async def node_connection_closed(self, node: wavelink.Node):
 
+        try:
+            self.bot.wavelink_node_reconnect_tasks[node.identifier].cancel()
+        except:
+            pass
+
+        self.bot.wavelink_node_reconnect_tasks[node.identifier] = self.bot.loop.create_task(self.node_reconnect(node))
+
+    async def node_reconnect(self, node: wavelink.Node):
+
         retries = 0
         backoff = 7
-        reconnect_players = True
 
         print(f"{self.bot.user} - [{node.identifier} / v{node.version}] Connection lost - reconnecting in {int(backoff)} seconds.")
 
@@ -6507,21 +6557,17 @@ class Music(commands.Cog):
             if node.is_available:
                 return
 
-            if retries == 1:
+            for player in list(node.players.values()):
 
-                for player in list(node.players.values()):
+                try:
+                    player._new_node_task.cancel()
+                except:
+                    pass
 
-                    try:
-                        player._new_node_task.cancel()
-                    except:
-                        pass
+                player._new_node_task = player.bot.loop.create_task(player._wait_for_new_node())
 
-                    player._new_node_task = player.bot.loop.create_task(player._wait_for_new_node())
-
-                reconnect_players = False
-
-            elif self.bot.config["LAVALINK_RECONNECT_RETRIES"] and retries == self.bot.config["LAVALINK_RECONNECT_RETRIES"]:
-                print(f"{self.bot.user} - [{node.identifier}] All attempts to reconnect have failed...")
+            if self.bot.config["LAVALINK_RECONNECT_RETRIES"] and retries == self.bot.config["LAVALINK_RECONNECT_RETRIES"]:
+                print(f"{self.bot.user} - [{node.identifier}] All attempts to reconnect have failed....")
                 return
 
             await self.bot.wait_until_ready()
@@ -6537,10 +6583,6 @@ class Music(commands.Cog):
                         node.version = 3
 
                 await node.connect()
-
-                if reconnect_players:
-                    for player in node.players.values():
-                        await player.change_node(node.identifier)
                 return
             except Exception as e:
                 error = repr(e)
