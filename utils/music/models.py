@@ -452,7 +452,7 @@ class LavalinkPlayer(wavelink.Player):
         self.is_purging = False
         self.auto_pause = False
         self._session_resuming = kwargs.pop("session_resuming", False)
-        self.last_channel: Optional[disnake.VoiceChannel] = None
+        self._last_channel: Optional[disnake.VoiceChannel] = None
         self._rpc_update_task: Optional[asyncio.Task] = None
         self._new_node_task: Optional[asyncio.Task] = None
         self._queue_updater_task: Optional[asyncio.Task] = None
@@ -1059,8 +1059,15 @@ class LavalinkPlayer(wavelink.Player):
                 pass
 
     async def connect(self, channel_id: int, self_mute: bool = False, self_deaf: bool = False):
-        self.last_channel = self.bot.get_channel(channel_id)
+        self._last_channel = self.bot.get_channel(channel_id)
         await super().connect(channel_id, self_mute=self_mute, self_deaf=True)
+
+    @property
+    def last_channel(self):
+        try:
+            return self.guild.me.voice.channel
+        except AttributeError:
+            return self._last_channel
 
     def process_hint(self):
 

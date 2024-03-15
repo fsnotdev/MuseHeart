@@ -1041,8 +1041,13 @@ class Owner(commands.Cog):
         await player.process_next()
 
     @commands.is_owner()
-    @commands.command(hidden=True, aliases=["setbotavatar"], description="To change the bot's avatar, please provide an attachment or a direct link to a jpg or gif image.")
-    async def setavatar(self, ctx: CustomContext, url: str = ""):
+    @commands.command(hidden=True, aliases=["setbotbanner"], description="Change the bot's banner using an attachment or direct link to a jpg or gif image.")
+    async def setbanner(self, ctx: CustomContext, url: str = ""):
+        await self.setavatar.callback(self=self, ctx=ctx, url=url, mode="banner")
+
+    @commands.is_owner()
+    @commands.command(hidden=True, aliases=["setbotavatar"], description="Change the bot's avatar using an attachment or direct link to a jpg or gif image.")
+    async def setavatar(self, ctx: CustomContext, url: str = "", mode="avatar"):
 
         use_hyperlink = False
 
@@ -1073,11 +1078,16 @@ class Owner(commands.Cog):
         async with ctx.bot.session.get(url) as r:
             image_bytes = await r.read()
 
-        await bot.user.edit(avatar=image_bytes)
+        if mode == "avatar":
 
-        await bot.http.request(Route('PATCH', '/applications/@me'), json={
-            "icon": disnake.utils._bytes_to_base64_data(image_bytes)
-        })
+            await bot.user.edit(banner=image_bytes)
+
+            await bot.http.request(Route('PATCH', '/applications/@me'), json={
+                "icon": disnake.utils._bytes_to_base64_data(image_bytes)
+            })
+        else:
+            payload = {"banner": await disnake.utils._assetbytes_to_base64_data(image_bytes)}
+            await bot.http.edit_profile(payload)
 
         try:
             func = inter.edit_original_message
@@ -1087,7 +1097,7 @@ class Owner(commands.Cog):
             except AttributeError:
                 func = inter.send
 
-        avatar_txt = "avatar" if not use_hyperlink else f"[avatar]({bot.user.display_avatar.with_static_format('png').url})"
+        avatar_txt = mode if not use_hyperlink else f"[{mode}]({url})"
 
         await func(f"The {avatar_txt} of the bot {bot.user.mention} has been successfully changed.", view=None, embed=None)
 
