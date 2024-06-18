@@ -41,13 +41,13 @@ class EmbedLinkSkin:
         else:
             duration_txt = f"\n> `⏰` **⠂Duration:** `{time_format(player.current.duration)}`"
 
-        title = f"`{player.current.title}`" if not player.current.uri else f"[`{fix_characters(player.current.title, 40)}`]({player.current.uri})"
+        title = f"`{fix_characters(player.current.title)}`" if not player.current.uri else f"[`{fix_characters(player.current.title, 40)}`]({player.current.uri})"
 
         if player.paused:
-            txt += f"\n> `⏸️` **⠂Paused:** {title}{duration_txt}"
+            txt += f"\n> ⏸️ **⠂Paused:** {title}{duration_txt}"
 
         else:
-            txt += f"\n> `▶️` **⠂Playing Now:** {title}{duration_txt}"
+            txt += f"\n> ▶️ **⠂Now Playing :** {title}{duration_txt}"
             if not player.current.is_stream:
                 txt += f" `[`<t:{int((disnake.utils.utcnow() + datetime.timedelta(milliseconds=player.current.duration - player.position)).timestamp())}:R>`]`" \
                 if not player.paused else ''
@@ -152,12 +152,11 @@ class EmbedLinkSkin:
 
 
         if isinstance(player.last_channel, disnake.VoiceChannel):
-            txt = "Disable" if player.stage_title_event else "Enable"
             data["components"][5].options.append(
                 disnake.SelectOption(
-                    label= f"{txt} automatic status", emoji="📢",
-                    value=PlayerControls.stage_announce,
-                    description=f"{txt} automatic status of the voice channel."
+                    label="Automatic status", emoji="📢",
+                    value=PlayerControls.set_voice_status,
+                    description="Set up automatic voice channel status."
                 )
             )
 

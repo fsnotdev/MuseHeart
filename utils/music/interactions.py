@@ -84,7 +84,7 @@ class QueueInteraction(disnake.ui.View):
             self.current_page = 0
 
         self.track_pages.clear()
-        self.track_pages = list(disnake.utils.as_chunks(player.queue + player.queue_autoplay, max_size=self.max_items))
+        self.track_pages = list(disnake.utils.as_chunks(player.queue or player.queue_autoplay, max_size=self.max_items))
         self.current_track = self.track_pages[self.current_page][0]
         self.max_page = len(self.track_pages) - 1
         self.update_components()
@@ -185,12 +185,20 @@ class QueueInteraction(disnake.ui.View):
 
                 player: LavalinkPlayer = self.bot.music.players[self.user.guild.id]
 
+                move_func = None
+
                 try:
                     player.queue.remove(self.current_track)
+                    move_func = player.queue.insert
                 except ValueError:
-                    pass
-                else:
-                    player.queue.insert((int(inter.text_values["queue_move_position"]) or 1)-1, self.current_track)
+                    try:
+                        player.queue_autoplay.remove(self.current_track)
+                        move_func = player.queue_autoplay.insert
+                    except ValueError:
+                        pass
+
+                if move_func:
+                    move_func((int(inter.text_values["queue_move_position"]) or 1)-1, self.current_track)
                     player.update = True
 
                 self.update_pages(reset_page=False)
@@ -906,7 +914,10 @@ class FavModalAdd(disnake.ui.Modal):
                 if name != self.name:
                     del self.view.data["fav_links"][self.name]
             except KeyError:
-                pass
+                if len(self.view.data["fav_links"]) >= self.view.bot.config["MAX_USER_FAVS"]:
+                    await inter.edit_original_message(
+                        "**There is no available space to add new favorites (remove some and try again).**")
+                    return
 
             self.view.data["fav_links"][name] = valid_url
 
@@ -963,7 +974,9 @@ class FavModalAdd(disnake.ui.Modal):
                 if name != self.name:
                     del self.view.guild_data["player_controller"]["fav_links"][self.name]
             except KeyError:
-                pass
+                if len(self.view.guild_data["player_controller"]["fav_links"]) > 24:
+                    await inter.edit_original_message("**There is no available space to add new favorites (remove some and try again).**")
+                    return
 
             self.view.guild_data["player_controller"]["fav_links"][name] = {'url': valid_url, "description": description}
 
@@ -979,50 +992,58 @@ class FavModalAdd(disnake.ui.Modal):
             await process_idle_embed(self.view.bot, guild, guild_data=self.view.guild_data)
 
         elif self.view.mode == ViewMode.integrations_manager:
+
+            try:
+                await inter.response.defer(ephemeral=True, with_message=True)
+            except:
+                pass
+
+            self.view.data = await self.view.bot.get_global_data(inter.author.id, db_name=DBModel.users)
+
+            if len(self.view.data["integration_links"]) >= self.view.bot.config["MAX_USER_FAVS"]:
+                await inter.edit_original_message(
+                    "**There is no available space to add new integrations (remove some and try again).**")
+                return
+
             url = inter.text_values["user_integration_url"].strip()
 
             try:
                 url = URL_REG.findall(url)[0]
             except IndexError:
-                await inter.send(
+                await inter.edit_original_message(
                     embed=disnake.Embed(
                         description=f"**No valid link found:** {url}",
                         color=disnake.Color.red()
-                    ), ephemeral=True
+                    )
                 )
                 return
 
             if (matches := spotify_regex_w_user.match(url)):
 
                 if not self.view.bot.spotify:
-                    await inter.send(
+                    await inter.edit_original_message(
                         embed=disnake.Embed(
                             description="**Spotify support is currently unavailable...**",
                             color=disnake.Color.red()
-                        ), ephemeral=True
+                        )
                     )
                     return
 
                 url_type, user_id = matches.groups()
 
                 if url_type != "user":
-                    await inter.send(
+                    await inter.edit_original_message(
                         embed=disnake.Embed(
                             description=f"**You must use a link to a Spotify user profile.** {url}",
                             color=disnake.Color.red()
-                        ), ephemeral=True
+                        )
                     )
                     return
 
                 try:
-                    await inter.response.defer(ephemeral=True)
-                except:
-                    pass
-
-                try:
                     result = await self.view.bot.loop.run_in_executor(None, lambda: self.view.bot.spotify.user(user_id))
                 except Exception as e:
-                    await inter.send(
+                    await inter.edit_original_message(
                         embed=disnake.Embed(
                             description="**An error occurred while retrieving Spotify information:** ```py\n"
                                         f"{repr(e)}```",
@@ -1033,7 +1054,7 @@ class FavModalAdd(disnake.ui.Modal):
                     return
 
                 if not result:
-                    await inter.send(
+                    await inter.edit_original_message(
                         embed=disnake.Embed(
                             description="**The user from the provided link does not have any public playlists...**",
                             color=self.view.bot.get_color()
@@ -1046,7 +1067,7 @@ class FavModalAdd(disnake.ui.Modal):
             else:
 
                 if not self.view.bot.config["USE_YTDL"]:
-                    await inter.send(
+                    await inter.edit_original_message(
                         embed=disnake.Embed(
                             description="**There is no support for that type of link at the moment...**",
                             color=self.view.bot.get_color()
@@ -1065,22 +1086,17 @@ class FavModalAdd(disnake.ui.Modal):
                         group = match.group(1)
                         base_url = f"https://soundcloud.com/{group}/sets"
                     else:
-                        await inter.send(
+                        await inter.edit_original_message(
                             embed=disnake.Embed(
                                 description=f"**The provided link is not supported:** {url}",
                                 color=disnake.Color.red()
-                            ), ephemeral=True
+                            )
                         )
                         return
 
                     source = "[SC]:"
 
                 loop = self.view.bot.loop or asyncio.get_event_loop()
-
-                try:
-                    await inter.response.defer(ephemeral=True)
-                except:
-                    pass
 
                 try:
                     info = await loop.run_in_executor(None, lambda: self.view.bot.pool.ytdl.extract_info(base_url, download=False))
@@ -1114,8 +1130,6 @@ class FavModalAdd(disnake.ui.Modal):
                     return
 
                 data = {"title": f"{source} {info['title']}", "url": info["original_url"]}
-
-            self.view.data = await self.view.bot.get_global_data(inter.author.id, db_name=DBModel.users)
 
             title = fix_characters(data['title'], 80)
 
@@ -1165,7 +1179,7 @@ class FavMenuView(disnake.ui.View):
         self.is_owner = is_owner
 
         if not self.guild:
-            for b in self.bot.pool.bots:
+            for b in self.bot.pool.get_guild_bots(ctx.guild_id):
                 guild = b.get_guild(ctx.guild_id)
                 if guild:
                     self.guild = guild
@@ -1174,10 +1188,6 @@ class FavMenuView(disnake.ui.View):
     def update_components(self):
 
         self.clear_items()
-
-        if not self.guild:
-            self.bot.loop.create_task(self.on_timeout())
-            return
 
         mode_select = disnake.ui.Select(
             options=[
@@ -1192,7 +1202,7 @@ class FavMenuView(disnake.ui.View):
                                      default=self.mode == ViewMode.integrations_manager)
             )
 
-        if self.ctx.author.guild_permissions.manage_guild or self.is_owner:
+        if self.guild and (self.ctx.author.guild_permissions.manage_guild or self.is_owner):
             mode_select.options.insert(1, disnake.SelectOption(label="Server Playlist Manager",
                                                                value=f"fav_view_mode_{ViewMode.guild_fav_manager}", emoji="📌",
                                                                default=self.mode == ViewMode.guild_fav_manager))
@@ -1208,19 +1218,21 @@ class FavMenuView(disnake.ui.View):
             if self.data["fav_links"]:
                 fav_select = disnake.ui.Select(options=[
                     disnake.SelectOption(label=k, emoji=music_source_emoji_url(v)) for k, v in
-                    self.data["fav_links"].items()
+                    list(self.data["fav_links"].items())[:25] # TODO: Lidar depois com os dados existentes que excedem a quantidade permitida
                 ], min_values=1, max_values=1)
                 fav_select.options[0].default = True
                 self.current = fav_select.options[0].label
                 fav_select.callback = self.select_callback
                 self.add_item(fav_select)
 
-        elif self.mode == ViewMode.guild_fav_manager:
+        elif self.mode == ViewMode.guild_fav_manager and self.guild:
 
             bots_in_guild = []
 
-            for b in sorted(self.bot.pool.bots, key=lambda b: b.identifier):
+            for b in sorted(self.bot.pool.get_guild_bots(self.guild.id), key=lambda b: b.identifier):
                 if b.bot_ready and b.user in self.guild.members:
+                    if not bots_in_guild:
+                        self.bot = b
                     bots_in_guild.append(disnake.SelectOption(emoji="🎶",
                                                               label=f"Bot: {b.user.display_name}"[:25],
                                                               value=f"bot_select_{b.user.id}",
@@ -1235,7 +1247,7 @@ class FavMenuView(disnake.ui.View):
                 fav_select = disnake.ui.Select(options=[
                     disnake.SelectOption(label=k, emoji=music_source_emoji_url(v['url']),
                                          description=v.get("description")) for k, v in
-                    self.guild_data["player_controller"]["fav_links"].items()
+                    list(self.guild_data["player_controller"]["fav_links"].items())[:25] # TODO: Lidar depois com os dados existentes que excedem a quantidade permitida
                 ], min_values=1, max_values=1)
                 fav_select.options[0].default = True
                 self.current = fav_select.options[0].label
@@ -1247,7 +1259,9 @@ class FavMenuView(disnake.ui.View):
             if self.data["integration_links"]:
 
                 integration_select = disnake.ui.Select(options=[
-                    disnake.SelectOption(label=k[5:], value=k, emoji=music_source_emoji_id(k)) for k, v in self.data["integration_links"].items()
+                    disnake.SelectOption(
+                        label=k[5:], value=k,
+                        emoji=music_source_emoji_id(k)) for k, v in list(self.data["integration_links"].items())[:25] # TODO: Lidar depois com os dados existentes que excedem a quantidade permitida
                 ], min_values=1, max_values=1)
                 integration_select.options[0].default = True
                 self.current = integration_select.options[0].label
@@ -1597,7 +1611,7 @@ class FavMenuView(disnake.ui.View):
     async def bot_select(self, inter: disnake.MessageInteraction):
 
         value = int(inter.values[0][11:])
-        for b in self.bot.pool.bots:
+        for b in self.bot.pool.get_guild_bots(inter.guild_id):
             try:
                 if b.user.id == value:
                     self.bot = b
@@ -1920,13 +1934,13 @@ class SetStageTitle(disnake.ui.View):
     placeholder_text = "```ansi\n[34;1m{track.title}[0m -> Song name\n" \
                "[34;1m{track.author}[0m -> Artist/Uploader/Author of the song.\n" \
                "[34;1m{track.duration}[0m -> Song duration.\n" \
-               "[34;1m{track.timestamp}[0m -> Song duration in countdown format (only in voice channel).\n" \
+               "[34;1m{track.timestamp}[0m -> Song duration in countdown format (voice channel only).\n" \
                "[34;1m{track.source}[0m -> Song source (Youtube/Spotify/Soundcloud etc)\n" \
-               "[34;1m{track.emoji}[0m -> Emoji of the song source (only in voice channel).\n" \
-               "[34;1m{track.playlist}[0m -> Name of the original playlist of the song (if any)\n" \
+               "[34;1m{track.emoji}[0m -> Emoji for song source (only in voice channel).\n" \
+               "[34;1m{track.playlist}[0m -> Name of the playlist where the song originated (if any)\n" \
                "[34;1m{requester.name}[0m -> Name/Nickname of the member who requested the song\n" \
                "[34;1m{requester.id}[0m -> ID of the member who requested the song```\n" \
-               "Example: Playing {track.title} | By: {track.author}" \
+               "Example: Playing {track.title} | By: {track.author}\n\n" \
                "`Note: In the voice channel, you can use custom emojis in the status message (including emojis from servers that I am not in and servers that you are not in).`"
 
     def __init__(self, ctx: Union[CustomContext, disnake.Interaction], bot: BotCore, guild: disnake.Guild, data: dict):
@@ -1979,16 +1993,26 @@ class SetStageTitle(disnake.ui.View):
             )
         )
 
-    def build_embed(self):
+    def build_embeds(self):
 
-        txt = "### Set automatic status in voice channel or stage\n"
+        embeds = []
+
+        color = self.bot.get_color(self.guild.me)
+
+        embeds.append(
+            disnake.Embed(
+                description="### Set automatic status on voice channel or stage.\n"
+                            "**Placeholders:** `At least one placeholder must be included in the status message.`\n"
+                            f"{self.placeholder_text}",
+                color=color)
+        )
 
         if self.data['voice_channel_status']:
-            txt += f"**Current permanent template:**\n{self.data['voice_channel_status']}"
+            embeds.append(
+                disnake.Embed(title="**Current permanent template:**", description=self.data['voice_channel_status'])
+            )
 
-        txt += f"**Placeholders:** `(At least one placeholder must be included in the status message)`\n{self.placeholder_text}"
-
-        return disnake.Embed(description=txt, color=self.bot.get_color(self.guild.me))
+        return embeds
 
     async def modal_handler(self, inter: disnake.ModalInteraction):
 
@@ -2005,13 +2029,30 @@ class SetStageTitle(disnake.ui.View):
                 await inter.send("**The current permanent status is the same as the one provided...**", ephemeral=True)
                 return
 
+            guild: Optional[disnake.Guild] = None
+
+            for b in self.bot.pool.get_guild_bots(inter.guild_id):
+                if (guild:=b.get_guild(inter.guild_id)):
+                    break
+
+            if not guild:
+                await inter.send("**There are no bots available on the server. Add at least one by clicking the button below.**",
+                                components=[disnake.ui.Button(custom_id="bot_invite", label="Adicionar bots")], ephemeral=True)
+                return
+
+            inter.author = guild.get_member(inter.author.id)
+
+            if not inter.author.guild_permissions.manage_guild:
+                await inter.send("**You do not have permission to manage server to change the voice channel status**", ephemeral=True)
+                return
+
             self.data["voice_channel_status"] = inter.text_values["status_voice_value"]
 
             await inter.response.defer(ephemeral=True)
 
             await self.bot.update_global_data(inter.guild_id, self.data, db_name=DBModel.guilds)
 
-            for b in self.bot.pool.bots:
+            for b in self.bot.pool.get_guild_bots(inter.guild_id):
                 try:
                     p = b.music.players[inter.guild_id]
                 except KeyError:
@@ -2020,7 +2061,7 @@ class SetStageTitle(disnake.ui.View):
                 p.stage_title_template = inter.text_values["status_voice_value"]
                 p.start_time = disnake.utils.utcnow()
                 p.set_command_log(
-                    text=f"{inter.author.mention} " + ("enabled" if inter.text_values["status_voice_value"] else "disabled") + "automatic status",
+                    text=f"{inter.author.mention} " + ("enabled" if inter.text_values["status_voice_value"] else "disabled") + " automatic status",
                     emoji="📢",
                 )
                 p.update = True
@@ -2037,10 +2078,27 @@ class SetStageTitle(disnake.ui.View):
 
         elif inter.data.custom_id == "status_voice_channel_temp":
 
-            try:
-                player: LavalinkPlayer = self.bot.music.players[inter.guild_id]
-            except KeyError:
+            player: Optional[LavalinkPlayer] = None
+
+            for bot in self.bot.pool.get_guild_bots(inter.guild_id):
+                try:
+                    player = bot.music.players[inter.guild_id]
+                except KeyError:
+                    continue
+
+                if inter.author.id not in player.guild.me.voice.channel.voice_states:
+                    continue
+
+                break
+
+            if not player:
                 await inter.send("**I am not playing music in a voice/stage channel...**", ephemeral=True)
+                return
+
+            inter.author = player.guild.get_member(inter.author.id)
+
+            if not inter.author.guild_permissions.manage_guild:
+                await inter.send("You do not have permission to manage server to change the voice channel status", ephemeral=True)
                 return
 
             player.stage_title_event = bool(inter.text_values["status_voice_value"])
@@ -2297,7 +2355,7 @@ class SkinEditorMenu(disnake.ui.View):
     def build_embeds(self) -> dict:
 
         player = None
-        for b in self.bot.pool.bots:
+        for b in self.bot.pool.get_guild_bots(self.ctx.guild_id):
             try:
                 player = b.music.players[self.ctx.guild_id]
                 break
@@ -2880,7 +2938,7 @@ class SkinEditorMenu(disnake.ui.View):
 
             await self.bot.update_global_data(id_=inter.guild_id, data=self.global_data, db_name=DBModel.guilds)
 
-            for bot in self.bot.pool.bots:
+            for bot in self.bot.pool.get_guild_bots(inter.guild_id):
 
                 try:
                     player = bot.music.players[inter.guild_id]
@@ -2963,7 +3021,7 @@ class SelectBotVoice(disnake.ui.View):
             bot_select_opts.extend([disnake.SelectOption(label=b.user.display_name, value=f"bot_voice_{b.user.id}") for b in freebots])
 
         else:
-            for b in self.inter.bot.pool.bots:
+            for b in self.inter.bot.pool.get_guild_bots(self.guild.id):
 
                 if not b.bot_ready:
                     continue
@@ -3018,7 +3076,7 @@ class SelectBotVoice(disnake.ui.View):
         bot_id = int(inter.values[0][10:])
 
         try:
-            bot = [b for b in self.inter.bot.pool.bots if b.bot_ready and b.user.id == bot_id][0]
+            bot = [b for b in self.inter.bot.pool.get_guild_bots(inter.guild_id) if b.bot_ready and b.user.id == bot_id][0]
         except IndexError:
             await inter.send(f"<@{bot_id}> is no longer on the server...", ephemeral=True)
             await self.update_message()

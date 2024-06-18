@@ -65,6 +65,10 @@ class NotRequester(commands.CheckFailure):
     pass
 
 
+class YoutubeSourceDisabled(commands.CheckFailure):
+    pass
+
+
 def parse_error(
         ctx: Union[disnake.ApplicationCommandInteraction, commands.Context, disnake.MessageInteraction],
         error: Exception
@@ -186,6 +190,10 @@ def parse_error(
 
     elif isinstance(error, TrackNotFound):
         error_txt = "**No results were found for your search...**"
+
+    elif isinstance(error, YoutubeSourceDisabled):
+        error_txt = "Support for YouTube links/searches is disabled due to stricter measures by YouTube " \
+                     "that prevent the native functioning of YT links. If you want to check YouTube's post about this, you can [click here](<https://support.google.com/youtube/thread/269521462/enforcement-on-third-party-apps?hl=en>)."
 
     if isinstance(error, ServerSelectionTimeoutError) and os.environ.get("REPL_SLUG"):
         error_txt = "A dns error was detected in repl.it that prevents me from connecting to my database " \

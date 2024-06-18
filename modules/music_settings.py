@@ -1365,7 +1365,7 @@ class MusicSettings(commands.Cog):
         else:
             await inter.send(ephemeral=True, **kwargs)
 
-        for b in self.bot.pool.bots:
+        for b in self.bot.pool.get_guild_bots(interaction.guild_id):
 
             try:
                 player: LavalinkPlayer = b.music.players[inter.guild_id]
@@ -1409,11 +1409,7 @@ class MusicSettings(commands.Cog):
 
             try:
                 if player.controller_mode and not [m for m in player.guild.me.voice.channel.members if not m.bot]:
-                    try:
-                        player.auto_skip_track_task.cancel()
-                    except:
-                        pass
-                    player.auto_skip_track_task = b.loop.create_task(player.auto_skip_track())
+                    player.start_auto_skip()
             except:
                 traceback.print_exc()
 
@@ -1511,7 +1507,7 @@ class MusicSettings(commands.Cog):
 
         channel = None
 
-        for bot in self.bot.pool.bots:
+        for bot in self.bot.pool.get_guild_bots(inter.guild_id):
 
             channel = bot.get_channel(invite.channel.id)
 
@@ -1545,7 +1541,7 @@ class MusicSettings(commands.Cog):
                 )
             )
 
-        global_data["listen_along_invites"][str(inter.channel.id)] = invite.url
+        global_data["listen_along_invites"][str(channel.id)] = invite.url
 
         await self.bot.update_global_data(inter.guild_id, global_data, db_name=DBModel.guilds)
 
@@ -1556,7 +1552,7 @@ class MusicSettings(commands.Cog):
             f"for more information.`"
         )
 
-        for bot in self.bot.pool.bots:
+        for bot in self.bot.pool.get_guild_bots(inter.guild_id):
 
             try:
                 p = bot.music.players[inter.guild_id]
@@ -1786,9 +1782,9 @@ class RPCCog(commands.Cog):
     )
     async def rich_presence(self, inter: disnake.AppCmdInter):
 
-        if not self.bot.config["ENABLE_RPC_COMMAND"] and not any([await b.is_owner(inter.author) for b in self.bot.pool.bots]):
-            raise GenericError("**This command is disabled in my settings....**\n"
-                               "Only my developer can enable this command publicly.")
+        if not self.bot.config["ENABLE_RPC_COMMAND"] and not any([await b.is_owner(inter.author) for b in self.bot.pool.get_guild_bots(inter.guild_id)]):
+            raise GenericError("**This command is disabled in my settings...**\n"
+                               "Only my developer can activate this command publicly.")
 
         if not self.bot.config["RPC_PUBLIC_URL"] and not self.bot.config["RPC_SERVER"]:
             raise GenericError("**RPC_SERVER was not configured in ENV/Environments (or .env file)**")
@@ -1941,7 +1937,7 @@ class RPCCog(commands.Cog):
 
     async def close_presence(self, inter: Union[disnake.MessageInteraction, disnake.ModalInteraction]):
 
-        for b in self.bot.pool.bots:
+        for b in self.bot.pool.get_guild_bots(inter.guild_id):
             try:
                 player: LavalinkPlayer = b.music.players[inter.guild_id]
             except KeyError:

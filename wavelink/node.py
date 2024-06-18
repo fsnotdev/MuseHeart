@@ -91,7 +91,7 @@ class Node:
         self.user_agent = user_agent
         self.auto_reconnect = auto_reconnect
         self.resume_key = resume_key or str(os.urandom(8).hex())
-        self.version = version
+        self.version = 0
         self.session_id: Optional[int] = None
 
         self._dumps = dumps
@@ -109,10 +109,12 @@ class Node:
         self.restarting = False
 
         self.stats = None
-        self.info = None
+        self.info = {}
         self.plugins_dict: Optional[dict] = None
+        self.max_retries = kwargs.pop("max_retries")
 
         self._closing = False
+        self._is_connecting = False
 
     def __repr__(self):
         return f'{self.identifier} | {self.region} | (Shard: {self.shard_id})'
@@ -123,7 +125,12 @@ class Node:
         if self.version == 4 and not self.session_id:
             return False
 
-        return self._websocket.is_connected and self.available and not self._closing
+        try:
+            ws_connected = self._websocket.is_connected
+        except AttributeError:
+            ws_connected = False
+
+        return ws_connected and self.available and not self._closing and not self._is_connecting
 
     def close(self) -> None:
         """Close the node and make it unavailable."""
@@ -146,7 +153,7 @@ class Node:
         return {
             "Authorization": self.password,
             "User-Id": str(self.uid),
-            "Client-Name": f"Wavelink/custom",
+            "Client-Name": "Wavelink/custom",
         }
 
     async def connect(self, *args, **kwargs) -> None:
@@ -166,13 +173,80 @@ class Node:
                                         **kwargs,
                                         )
 
+        elif self._websocket.is_connected or self._is_connecting:
+            return
+
+        self._is_connecting = True
+
+        if self.max_retries:
+
+            backoff = 9
+            retries = 1
+            exception = None
+            max_retries = int(self.max_retries)
+
+            print(f"{self._client.bot.user} - Starting music server: {self.identifier}")
+
+            while not self._client.bot.is_closed():
+                if retries >= max_retries:
+                    self._is_connecting = False
+                    print(
+                        f"❌ - {self._client.bot.user} - All attempts to connect to the server [{self.identifier}] have failed.\n"
+                        f"Cause: {repr(exception)}")
+                    return
+                else:
+                    await asyncio.sleep(backoff)
+                    try:
+                        async with self._client.bot.session.get(f"{self.rest_uri}/v4/info", timeout=45, headers={'Authorization': self.password}) as r:
+                            if r.status == 200:
+                                self.version = 4
+                                self.info = await r.json()
+                            elif r.status != 404:
+                                raise Exception(f"{self._client.bot.user} - [{r.status}]: {await r.text()}"[:300])
+                            else:
+                                self.info["sourceManagers"] = ["youtube", "soundcloud", "http"]
+                            break
+                    except Exception as e:
+                        exception = e
+                        if self.identifier != "LOCAL":
+                            print(f'⚠️ - {self._client.bot.user} - Failed to connect to the server [{self.identifier}], '
+                                  f'new attempt [{retries}/{max_retries}] in {backoff} seconds.')
+                        backoff += 2
+                        retries += 1
+                        continue
+
+        else:
+            try:
+                async with self._client.bot.session.get(f"{self.rest_uri}/v4/info", timeout=45, headers={'Authorization': self.password}) as r:
+                    if r.status == 200:
+                        self.version = 4
+                        self.info = await r.json()
+                    elif r.status != 404:
+                        self._is_connecting = False
+                        raise Exception(f"{self._client.bot.user} - [{r.status}]: {await r.text()}"[:300])
+                    else:
+                        self.info["sourceManagers"] = ["youtube", "soundcloud", "http"]
+            except Exception as e:
+                print(f"❌ - {self._client.bot.user} - Failed to connect to the server {self.identifier}: {repr(e)}"[:300])
+                self._is_connecting = False
+                return
+
         await self._websocket._connect()
+
+        self.available = True
+        self._is_connecting = False
 
         __log__.info(f'NODE | {self.identifier} connected:: {self.__repr__()}')
 
     async def update_player(self, guild_id: int, data: dict, replace: bool = False):
 
         if not self.session_id:
+            try:
+                player = self._client.bot.music.players[guild_id]
+                player._new_node_task = player.bot.loop.create_task(player._wait_for_new_node())
+                return
+            except:
+                pass
             raise MissingSessionID(self)
 
         no_replace: bool = not replace
@@ -297,11 +371,11 @@ class Node:
                     except KeyError:
                         pass
                     playlist_cls = kwargs.pop('playlist_cls', TrackPlaylist)
-                    return playlist_cls(data=data, url=query, encoded_name=encoded_name, **kwargs)
+                    return playlist_cls(data=data, url=query, encoded_name=encoded_name, pluginInfo=data.pop("pluginInfo", {}), **kwargs)
 
                 track_cls = kwargs.pop('track_cls', Track)
 
-                tracks = [track_cls(id_=track[encoded_name], info=track['info'], **kwargs) for track in tracks]
+                tracks = [track_cls(id_=track[encoded_name], info=track['info'], pluginInfo=track.get("pluginInfo", {}), **kwargs) for track in tracks]
 
                 return tracks
 

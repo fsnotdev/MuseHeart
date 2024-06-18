@@ -25,7 +25,7 @@ from utils.music.converters import URL_REG
 from utils.music.errors import GenericError, NoVoice
 from utils.music.interactions import SelectBotVoice
 from utils.music.models import LavalinkPlayer
-from utils.others import sync_message, CustomContext, string_to_file, token_regex, CommandArgparse, \
+from utils.others import CustomContext, string_to_file, token_regex, CommandArgparse, \
     select_bot_pool
 from utils.owner_panel import panel_command, PanelView
 
@@ -174,6 +174,25 @@ class Owner(commands.Cog):
 
             await self.bot.pool.start_lavalink()
 
+        if args.resetids:
+            for b in self.bot.pool.bots:
+                try:
+                    node = b.music.nodes["LOCAL"]
+                except KeyError:
+                    continue
+                for p in node.players.values():
+                    for t in p.queue:
+                        t.id = None
+                        t.info["id"] = None
+                for p in node.players.values():
+                    for t in p.played:
+                        t.id = None
+                        t.info["id"] = None
+                for p in node.players.values():
+                    for t in p.queue_autoplay:
+                        t.id = None
+                        t.info["id"] = None
+
         await ctx.send(
             embed=disnake.Embed(
                 description="**The Lavalink.jar file will be updated "
@@ -217,7 +236,7 @@ class Owner(commands.Cog):
 
         await self.bot.sync_app_commands(force=self.bot == self.bot.pool.controller_bot)
 
-        for bot in set(self.bot.pool.bots + [self.bot.pool.controller_bot]):
+        for bot in set(self.bot.pool.get_all_bots() + [self.bot.pool.controller_bot]):
 
             if bot.user.id != self.bot.user.id:
                 bot.load_skins()
@@ -321,6 +340,8 @@ class Owner(commands.Cog):
         data = (await run_command(f"git --work-tree=. log {commit} {self.git_format}")).split("\n")
 
         git_log += format_git_log(data)
+
+        self.bot.pool.commit = commit.split("...")[-1]
 
         text = "`I will need to restart after the changes.`"
 
@@ -510,44 +531,6 @@ class Owner(commands.Cog):
         )
         embed.set_footer(text="Click on a task you want to execute.")
         await ctx.send(embed=embed, view=PanelView(self.bot))
-
-    @commands.has_guild_permissions(manage_guild=True)
-    @commands.command(description="Sync/Register slash commands in the server.", hidden=True)
-    async def syncguild(self, ctx: Union[CustomContext, disnake.MessageInteraction]):
-
-        embed = disnake.Embed(
-            color=self.bot.get_color(ctx.guild.me),
-            description="**This command is no longer necessary to use (Command synchronization is now "
-                        f"automatic).**\n\n{sync_message(self.bot)}"
-        )
-
-        await ctx.send(embed=embed)
-
-    @commands.is_owner()
-    @panel_command(aliases=["sync"], description="Manually sync slash commands.",
-                emoji="<:slash:944875586839527444>",
-                alt_name="Manually sync commands.")
-    async def synccmds(self, ctx: Union[CustomContext, disnake.MessageInteraction]):
-
-        if self.bot.config["AUTO_SYNC_COMMANDS"] is True:
-            raise GenericError(
-                f"**This cannot be used with automatic synchronization enabled...**\n\n{sync_message(self.bot)}")
-
-        await self.bot._sync_application_commands()
-
-        txt = f"**Slash commands have been successfully synchronized!**\n\n{sync_message(self.bot)}"
-
-        if isinstance(ctx, CustomContext):
-
-            embed = disnake.Embed(
-                color=self.bot.get_color(ctx.guild.me),
-                description=txt
-            )
-
-            await ctx.send(embed=embed, view=self.owner_view)
-
-        else:
-            return txt
 
     @commands.has_guild_permissions(manage_guild=True)
     @commands.cooldown(1, 10, commands.BucketType.guild)
@@ -953,7 +936,7 @@ class Owner(commands.Cog):
 
             free_bots = []
 
-            for b in self.bot.pool.bots:
+            for b in self.bot.pool.get_guild_bots(ctx.guild.id):
 
                 if not b.bot_ready:
                     continue
@@ -1073,29 +1056,40 @@ class Owner(commands.Cog):
         if not bot:
             return
 
-        await inter.response.defer(ephemeral=True)
+        if isinstance(inter, CustomContext):
+            try:
+                func = inter.store_message.edit
+            except AttributeError:
+                func = inter.send
+        else:
+            await inter.response.defer(ephemeral=True)
+            func = inter.edit_original_message
+
+        await func(f"The new {mode} of the bot {bot.user.mention} is being processed. Please wait...", embed=None, view=None)
 
         async with ctx.bot.session.get(url) as r:
+            if r.status != 200:
+                raise GenericError(f"Erro {r.status}: {await r.text()}")
             image_bytes = await r.read()
 
+        payload = {mode: await disnake.utils._assetbytes_to_base64_data(image_bytes)}
+        await bot.http.edit_profile(payload)
+
         if mode == "avatar":
-
-            await bot.user.edit(banner=image_bytes)
-
             await bot.http.request(Route('PATCH', '/applications/@me'), json={
                 "icon": disnake.utils._bytes_to_base64_data(image_bytes)
             })
-        else:
-            payload = {"banner": await disnake.utils._assetbytes_to_base64_data(image_bytes)}
-            await bot.http.edit_profile(payload)
 
         try:
-            func = inter.edit_original_message
+            func = inter.store_message.edit
         except AttributeError:
             try:
-                func = inter.response.edit_message
+                func = inter.edit_original_message
             except AttributeError:
-                func = inter.send
+                try:
+                    func = inter.response.edit_message
+                except AttributeError:
+                    func = inter.send
 
         avatar_txt = mode if not use_hyperlink else f"[{mode}]({url})"
 

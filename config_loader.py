@@ -63,21 +63,19 @@ DEFAULT_CONFIG = {
     "IGNORE_SKINS": '',
     "IGNORE_STATIC_SKINS": '',
     "GUILD_DEAFEN_WARN": True,
-    "ADD_REGISTER_COMMAND": False,
     "ENABLE_DISCORD_URLS_PLAYBACK": True,
     "PLAYER_INFO_BACKUP_INTERVAL": 45,
     "PLAYER_INFO_BACKUP_INTERVAL_MONGO": 300,
     "PLAYER_SESSIONS_MONGODB": False,
     "QUEUE_MAX_ENTRIES": 0,
     "ENABLE_DEFER_TYPING": True,
-    "DEFAULT_SEARCH_PROVIDER": "ytsearch",
+    "VOICE_CHANNEL_LATENCY_RECONNECT": 200,
 
     ######################################
     ### Music System - Spotify Support ###
     ######################################
     "SPOTIFY_CLIENT_ID": '',
     "SPOTIFY_CLIENT_SECRET": '',
-    "PARTIALTRACK_SEARCH_PROVIDER": "ytsearch",
 
     ###########################################
     ### Music System - RPC (Rich Presence): ###
@@ -100,6 +98,7 @@ DEFAULT_CONFIG = {
     "LAVALINK_RAM_LIMIT": 120,
     "LAVALINK_CPU_CORES": 2,
     "LAVALINK_FILE_URL": "https://github.com/zRitsu/LL-binaries/releases/download/0.0.1/Lavalink.jar",
+    "SEARCH_PROVIDERS": "scsearch",
 
     ##########################
     ##### Bot Presences: #####
@@ -138,8 +137,8 @@ DEFAULT_CONFIG = {
     ##############
     ### Tests ####
     ##############
-    "USE_YTDL": False,
-    "SILENT_PUBLICBOT_WARNING": False
+    "USE_YTDL": True,
+    "SILENT_PUBLICBOT_WARNING": False,
 }
 
 def load_config():
@@ -194,6 +193,7 @@ def load_config():
         "PLAYER_INFO_BACKUP_INTERVAL_MONGO",
         "LAVALINK_RECONNECT_RETRIES",
         "QUEUE_MAX_ENTRIES",
+        "VOICE_CHANNEL_LATENCY_RECONNECT",
     ]:
         try:
             CONFIG[i] = int(CONFIG[i])
@@ -214,7 +214,6 @@ def load_config():
         "AUTO_DOWNLOAD_LAVALINK_SERVERLIST",
         "ENABLE_LOGGER",
         "GUILD_DEAFEN_WARN",
-        "ADD_REGISTER_COMMAND",
         "ENABLE_DISCORD_URLS_PLAYBACK",
         "PLAYER_SESSIONS_MONGODB",
         "SENSITIVE_INFO_WARN",

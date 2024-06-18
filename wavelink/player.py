@@ -130,6 +130,7 @@ class Track:
         self.id = id_
         self.info = info
         self.query = query
+        self.info["pluginInfo"] = kwargs.get("pluginInfo", {})
 
         self.title = info.get('title', '')[:97]
         self.identifier = info.get('identifier', '')
@@ -169,7 +170,7 @@ class TrackPlaylist:
     def __init__(self, data: dict, **kwargs):
         self.data = data
         encoded_name = kwargs.pop("encoded_name", "track")
-        self.tracks = [kwargs.pop("track_cls", Track)(id_=track[encoded_name], info=track['info']) for track in data['tracks']]
+        self.tracks = [kwargs.pop("track_cls", Track)(id_=track[encoded_name], info=track['info'], **kwargs) for track in data['tracks']]
 
 
 class Player:
@@ -197,19 +198,19 @@ class Player:
         self.node = node
 
         self.last_update = time.time() * 1000
-        self.last_position = None
+        self.last_position = 0
         self.position_timestamp = None
         self.ping = None
 
         self._voice_state = {}
-
-        self._temp_data = {}
 
         self.volume = 100
         self.paused = False
         self.current = None
         self._equalizer = Equalizer.flat()
         self.channel_id = None
+
+        self.auto_pause = False
 
     @property
     def equalizer(self):
@@ -310,10 +311,6 @@ class Player:
                 traceback.print_exc()
                 return
 
-            if self._temp_data:
-                data.update(self._temp_data.copy())
-                self._temp_data.clear()
-
             await self.node.update_player(self.guild_id, data=data)
 
     async def hook(self, event) -> None:
@@ -371,6 +368,13 @@ class Player:
 
         elif guild.voice_client.channel.id != channel_id:
             await guild.voice_client.move_to(channel)
+        else:
+            try:
+                player = self.bot.music.players[self.guild_id]
+            except KeyError:
+                return
+            if player._voice_state:
+                await player._dispatch_voice_update()
 
     async def disconnect(self, *, force: bool = False) -> None:
         """|coro|
@@ -421,7 +425,7 @@ class Player:
             payload = {
                 'op': 'play',
                 'guildId': str(self.guild_id),
-                'track': track.id,
+                'track': kwargs.pop("temp_id", None) or track.id,
                 'noReplace': not replace,
                 'startTime': start,
             }
@@ -447,7 +451,7 @@ class Player:
                 pause = self.paused
 
             payload = {
-                "encodedTrack": track.id,
+                "encodedTrack": kwargs.pop("temp_id", None) or track.id,
                 "volume": vol,
                 "position": int(start),
                 "paused": pause,
@@ -650,10 +654,7 @@ class Player:
         self.node = node
         self.node.players[int(self.guild_id)] = self
 
-        if self._voice_state:
-            await self._dispatch_voice_update()
-
-        if self.current:
+        if self.current and not self.auto_pause:
             if self.node.version == 3:
                 await self.node._send(op='play', guildId=str(self.guild_id), track=self.current.id, startTime=int(self.position))
                 if self.paused:
@@ -669,6 +670,9 @@ class Player:
                 await self.node.update_player(self.guild_id, payload, replace=True)
 
             self.last_update = time.time() * 1000
+
+        if self._voice_state:
+            await self._dispatch_voice_update()
 
         if self.volume != 100 and self.node.version == 3:
             await self.node._send(op='volume', guildId=str(self.guild_id), volume=self.volume)

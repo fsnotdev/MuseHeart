@@ -63,7 +63,8 @@ def get_button_style(enabled: bool, red=True):
 
 def fix_characters(text: str, limit: int = 0):
     for r in replaces:
-        text = text.replace(r[0], r[1])
+        old, new = r
+        text = text.replace(old, new)
 
     if limit:
         text = f"{text[:limit]}..." if len(text) > limit else text
@@ -137,11 +138,14 @@ def percentage(part, whole):
     return int((part * whole) / 100.0)
 
 sources = {
-    "deezer": "https://i.ibb.co/zxpBbp8/deezer.png",
+    "deezer": "https://i.ibb.co/Wz7kJYy/deezer.png",
     "soundcloud": "https://i.ibb.co/CV6NB6w/soundcloud.png",
     "spotify": "https://i.ibb.co/3SWMXj8/spotify.png",
     "youtube": "https://i.ibb.co/LvX7dQL/yt.png",
-    "twitch": "https://cdn3.iconfinder.com/data/icons/popular-services-brands-vol-2/512/twitch-512.png"
+    "applemusic": "https://i.ibb.co/Dr4hbS5/applemusic.png",
+    "twitch": "https://cdn3.iconfinder.com/data/icons/popular-services-brands-vol-2/512/twitch-512.png",
+    "jiosaavn": "https://i.ibb.co/Bfh8dW2/jiosaavn.png",
+    "tidal": "https://i.ibb.co/JkBbrXh/tidal.png",
 }
 
 def music_source_image(sourcename):

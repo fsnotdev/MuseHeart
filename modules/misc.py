@@ -251,7 +251,7 @@ class Misc(commands.Cog):
         components = [disnake.ui.Button(custom_id="bot_invite", label="Need more music bots? Click here.")] if [b for b in self.bot.pool.bots if b.appinfo and b.appinfo.bot_public] else []
 
         if self.bot.pool.controller_bot != self.bot:
-            interaction_invite = f"[`{disnake.utils.escape_markdown(str(self.bot.pool.controller_bot.user.name))}`]({disnake.utils.oauth_url(self.bot.pool.controller_bot.user.id, scopes=['applications.commands'])})"
+            interaction_invite = f"[`{disnake.utils.escape_markdown(str(self.bot.pool.controller_bot.user.name))}`]({disnake.utils.oauth_url(self.bot.pool.controller_bot.user.id)})"
 
         if cmd := self.bot.get_command("setup"):
             cmd_text = f"If you wish, use the command **/{cmd.name}** to create a dedicated channel for requesting music without commands and keep the music player fixed in a dedicated channel.\n\n"
@@ -482,7 +482,8 @@ class Misc(commands.Cog):
 
 
     @commands.slash_command(
-        description=f"{desc_prefix}Display information about me.", cooldown=about_cd, dm_permission=False
+        description=f"{desc_prefix}Display information about me.", cooldown=about_cd, dm_permission=False,
+        extras={"allow_private": True}
     )
     async def about(
             self,
@@ -511,7 +512,10 @@ class Misc(commands.Cog):
 
         guild = bot.get_guild(inter.guild_id) or inter.guild
 
-        color = bot.get_color(inter.guild.me if inter.guild else guild.me)
+        try:
+            color = bot.get_color(inter.guild.me if inter.guild else guild.me)
+        except:
+            color = bot.get_color()
 
         embed = disnake.Embed(description="", color=color)
 
@@ -521,7 +525,9 @@ class Misc(commands.Cog):
 
         all_guilds_ids = set()
 
-        for b in bot.pool.bots:
+        allbots = self.bot.pool.get_all_bots()
+
+        for b in allbots:
             for g in b.guilds:
                 all_guilds_ids.add(g.id)
 
@@ -537,7 +543,7 @@ class Misc(commands.Cog):
         user_count = 0
         bot_count = 0
 
-        botpool_ids = [b.user.id for b in self.bot.pool.bots]
+        botpool_ids = [b.user.id for b in allbots]
 
         node_data = {}
         nodes_available = set()
@@ -549,7 +555,7 @@ class Misc(commands.Cog):
             else:
                 user_count += 1
 
-        for b in bot.pool.bots:
+        for b in allbots:
 
             for user in b.users:
 
@@ -562,6 +568,9 @@ class Misc(commands.Cog):
                     users.add(user.id)
 
             for n in b.music.nodes.values():
+
+                if n.version == 0:
+                    continue
 
                 identifier = f"{n.identifier} (v{n.version})"
 
@@ -620,46 +629,46 @@ class Misc(commands.Cog):
             node_txt_final += "\n"
         node_txt_final += "\n".join(nodes_unavailable)
 
-        if len(bot.pool.bots) < 2:
+        if len(allbots) < 2:
 
             embed.description += "### Statistics (current bot):\n" \
-                                 f"> 🏙️ **⠂Servers:** `{len(bot.guilds)}`\n" \
-                                 f"> 👥 **⠂Users:** `{user_count:,}`\n"
+                                 f"> 🏙️ **⠂Server{'s'[:(svcount:=len(bot.guilds))^1]}:** `{svcount:,}`\n" \
+                                 f"> 👥 **⠂User{'s'[:user_count^1]}:** `{user_count:,}`\n"
 
             if bot_count:
-                embed.description += f"> 🤖 **⠂Bots:** `{bot_count:,}`\n"
+                embed.description += f"> 🤖 **⠂Bot{'s'[:bot_count^1]}:** `{bot_count:,}`\n"
 
         else:
 
             embed.description += "### Statistics (totals across all bots):\n"
 
             if public_bot_count:
-                embed.description += f"> 🤖 **⠂Public additional bot(s):** `{public_bot_count:,}`\n"
+                embed.description += f"> 🤖 **⠂Public{s} Bot{(s:='s'[:public_bot_count^1])}:** `{public_bot_count:,}`\n"
 
             if private_bot_count:
-                embed.description += f"> 🤖 **⠂Private additional bot(s):** `{private_bot_count:,}`\n"
+                embed.description += f"> 🤖 **⠂Private{s} Bot{(s:='s'[:private_bot_count^1])}:** `{private_bot_count:,}`\n"
 
-            embed.description += f"> 🏙️ **⠂Servers:** `{guilds_size}`\n"
+            embed.description += f"> 🏙️ **⠂Server{'s'[:guilds_size^1]}:** `{guilds_size:,}`\n"
 
             if users_amount := len(users):
-                embed.description += f"> 👥 **⠂Users:** `{users_amount:,}`\n"
+                embed.description += f"> 👥 **⠂User{'s'[:users_amount^1]}:** `{users_amount:,}`\n"
 
             if bots_amount := len(bots):
-                embed.description += f"> 🤖 **⠂Bots:** `{bots_amount:,}`\n"
+                embed.description += f"> 🤖 **⠂Bot{'s'[:bots_amount^1]}:** `{bots_amount:,}`\n"
 
         embed.description += "### Other information:\n"
 
         if active_players_other_bots:
-            embed.description += f"> ▶️ **⠂Active players:** `{active_players_other_bots:,}`\n"
+            embed.description += f"> ▶️ **⠂Active{s} Player{(s:='s'[:active_players_other_bots^1])}:** `{active_players_other_bots:,}`\n"
 
         if paused_players_other_bots:
-            embed.description += f"> ⏸️ **⠂Players paused:** `{paused_players_other_bots:,}`\n"
+            embed.description += f"> ⏸️ **⠂Player{'s'[:paused_players_other_bots^1]} paused:** `{paused_players_other_bots:,}`\n"
 
         if inactive_players_other_bots:
-            embed.description += f"> 💤 **⠂Inactive players:** `{inactive_players_other_bots:,}`\n"
+            embed.description += f"> 💤 **⠂Inactive {s}Player{(s:='s'[:inactive_players_other_bots^1])}:** `{inactive_players_other_bots:,}`\n"
 
         if listeners:
-            embed.description += f"> 🎧 **⠂Current listeners:** `{len(listeners):,}`\n"
+            embed.description += f"> 🎧 **⠂Listener{'s'[:(lcount:=len(listeners))^1]} atua{'is'[:inactive_players_other_bots^1] or 'l'}:** `{lcount:,}`\n"
 
         if bot.pool.commit:
             embed.description += f"> 📥 **⠂Current commit:** [`{bot.pool.commit[:7]}`]({bot.pool.remote_git_url}/commit/{bot.pool.commit})\n"
@@ -718,7 +727,7 @@ class Misc(commands.Cog):
             text=f"Owner: {owner} [{owner.id}]"
         )
 
-        components = [disnake.ui.Button(custom_id="bot_invite", label="Add me to your server")] if [b for b in bot.pool.bots if b.appinfo and (b.appinfo.bot_public or await b.is_owner(inter.author))] else None
+        components = [disnake.ui.Button(custom_id="bot_invite", label="Add me to your server")] if [b for b in self.bot.pool.bots if b.appinfo and (b.appinfo.bot_public or await b.is_owner(inter.author))] else None
 
         try:
             await inter.edit_original_message(embed=embed, components=components)
@@ -757,7 +766,7 @@ class Misc(commands.Cog):
 
             kwargs = {"redirect_uri": self.bot.config['INVITE_REDIRECT_URL']} if self.bot.config['INVITE_REDIRECT_URL'] else {}
 
-            invite = f"[`{disnake.utils.escape_markdown(str(bot.user.name))}`]({disnake.utils.oauth_url(bot.user.id, permissions=disnake.Permissions(bot.config['INVITE_PERMISSIONS']), scopes=('bot', 'applications.commands'), **kwargs)})"
+            invite = f"[`{disnake.utils.escape_markdown(str(bot.user.name))}`]({disnake.utils.oauth_url(bot.user.id, permissions=disnake.Permissions(bot.config['INVITE_PERMISSIONS']), scopes=('bot',), **kwargs)})"
 
             if bot.appinfo.flags.gateway_message_content_limited:
                 invite += f" `[{len(bot.guilds)}/100]`"
@@ -788,7 +797,7 @@ class Misc(commands.Cog):
                     colour=self.bot.get_color(
                         inter.guild.me if inter.guild else guild.me if guild else None
                     ),
-                    title="## There are no public bots available...",
+                    description="## There are no public bots available...",
                 ), ephemeral=True
             )
             return
@@ -796,8 +805,8 @@ class Misc(commands.Cog):
         controller_bot = self.bot.pool.controller_bot
 
         if (len(bots_in_guild) + len(bots_invites)) > 1 and f"client_id={controller_bot.user.id}" not in txt:
-            invite = f"[`{disnake.utils.escape_markdown(str(controller_bot.user.name))}`]({disnake.utils.oauth_url(controller_bot.user.id, scopes=['applications.commands'])})"
-            txt = f"## Register the slash commands on the server:\n{invite}\n\n" + txt
+            invite = f"[`{disnake.utils.escape_markdown(str(controller_bot.user.name))}`](https://discord.com/oauth2/authorize?client_id={controller_bot.user.id})"
+            txt = f"## Register/Integrate slash commands:\n{invite}\n\n" + txt
 
         color = self.bot.get_color(inter.guild.me if inter.guild else guild.me if guild else None)
 
@@ -818,7 +827,7 @@ class Misc(commands.Cog):
 
     @commands.slash_command(
         description=f"{desc_prefix}Display my invite link for you to add me to your server.",
-        dm_permission=False
+        dm_permission=False, extras={"allow_private": True}
     )
     async def invite(self, inter: disnake.AppCmdInter):
 
@@ -865,7 +874,7 @@ class Misc(commands.Cog):
 
         async with ctx.typing():
 
-            for bot in self.bot.pool.bots:
+            for bot in self.bot.pool.get_all_bots():
 
                 db_data = await bot.pool.database.query_data(collection=str(bot.user.id), db_name=DBModel.guilds, limit=300)
 

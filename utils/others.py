@@ -167,7 +167,7 @@ class PlayerControls:
     integration_manager = "musicplayer_integration_manager"
     autoplay = "musicplayer_autoplay"
     add_favorite = "musicplayer_add_favorite"
-    stage_announce = "musicplayer_stage_announce"
+    set_voice_status = "musicplayer_set_voice_status"
     lyrics = "musicplayer_lyrics"
     embed_add_fav = "musicplayer_embed_add_fav"
     embed_enqueue_track = "musicplayer_embed_enqueue_track"
@@ -247,17 +247,6 @@ def pool_command(*args, **kwargs)-> PoolCommand:
     return commands.command(*args, **kwargs, cls=PoolCommand)
 
 
-def sync_message(bot: BotCore):
-    app_commands_invite = f"https://discord.com/api/oauth2/authorize?client_id={bot.user.id}&scope=applications.commands"
-    bot_invite = disnake.utils.oauth_url(bot.user.id, permissions=disnake.Permissions(bot.config['INVITE_PERMISSIONS']), scopes=('bot', 'applications.commands'), redirect_uri=bot.config['INVITE_REDIRECT_URL'])
-
-    return f"`If slash commands do not appear,` [`click here`]({app_commands_invite}) `to allow me " \
-       "to create slash commands in the server.`\n\n" \
-       "`Note: In some cases, slash commands may take up to an hour to appear/update in all " \
-       "servers. If you want to use slash commands immediately in the server, you'll have to " \
-       f"kick me from the server and then re-add me through this` [`link`]({bot_invite})..."
-
-
 def chunk_list(lst: list, amount: int):
     return [lst[i:i + amount] for i in range(0, len(lst), amount)]
 
@@ -314,7 +303,7 @@ async def send_message(
 
     try:
         if not kwargs["components"]:
-            kwargs.pop('components')
+            kwargs["components"] = []
     except KeyError:
         pass
 
@@ -358,7 +347,7 @@ async def send_message(
 
         try:
             await inter.send(text, ephemeral=True, **kwargs)
-        except disnake.InteractionTimedOut:
+        except (disnake.InteractionTimedOut, disnake.HTTPException):
 
             try:
                 if isinstance(inter.channel, disnake.Thread):
@@ -399,14 +388,26 @@ async def send_idle_embed(
     except AttributeError:
         cmd = "/play"
 
-    embed = disnake.Embed(
-        description="**Join a voice channel and send a message to request a song " +
-        ("in the post" if is_forum else "in the channel or the thread below") +
-        f" (or use the buttons/use {cmd} command here or in another channel)**\n\n"
-        "**You can use a name or a compatible website link:**"
-        " ```ansi\n[31;1mYoutube[0m, [33;1mSoundcloud[0m, [32;1mSpotify[0m, [34;1mTwitch[0m```\n",
-        color=bot.get_color(target.guild.me)
-    )
+    providers = set()
+
+    for n in bot.music.nodes.values():
+        try:
+            for p in n.info["sourceManagers"]:
+                if p == "youtube":
+                    if "ytsearch" not in n.original_providers and "ytmsearch" not in n.original_providers:
+                        continue
+                elif p == "http":
+                    continue
+                providers.add(p)
+        except:
+            continue
+
+    embed = disnake.Embed(description="**Enter a voice channel and request a song here " +
+                                      ("in the post" if is_forum else "in the channel or in the conversation below") +
+                                      f" (or click the button below or use the command {cmd} here or in another channel)**\n\n"
+                                      "**You can use a name or a compatible website link:**"
+                                      f" ```ansi\n[31;1mYoutube[0m, [33;1mSoundcloud[0m, [32;1mSpotify[0m, [34;1mTwitch[0m```\n",
+                          color=bot.get_color(target.guild.me))
 
     if text:
         embed.description += f"**Last action:** {text.replace('**', '')}\n"
@@ -429,7 +430,7 @@ async def send_idle_embed(
     components.extend(song_request_buttons)
 
     if is_forum:
-        content = "🎶 Request your music here."
+        content = "🎶 Join a voice channel and request your song here."
     else:
         content = None
 
@@ -556,13 +557,18 @@ yt_url_regex = re.compile(r"^(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+")
 sc_url_regex = re.compile(r"^(https?://)?(www\.)?(soundcloud\.com)/.+")
 sp_url_regex = re.compile(r"^(https?://)?(www\.)?(open\.spotify\.com|spotify\.com)/.+")
 tw_url_regex = re.compile(r"^(https?://)?(www\.)?(twitch\.tv)/([A-Za-z0-9_]{4,25})(/.+)?")
+am_url_regex = re.compile(r"(https?://)?(www\.)?music\.apple\.com/((?P<countrycode>[a-zA-Z]{2})/)?(?P<type>album|playlist|artist|song)(/[a-zA-Z\w\d\-]+)?/(?P<identifier>[a-zA-Z\d\-.]+)(\?i=(?P<identifier2>\d+))?")
+js_url_regex = re.compile(r"(https?://)(www\.)?jiosaavn\.com/(song|album|featured|artist)/([a-zA-Z0-9-_]+)")
 
 music_source_emoji_data = {
     "youtube": "<:youtube:647253940882374656>",
     "soundcloud": "<:soundcloud:721530214764773427>",
     "spotify": "<:spotify:715717523626000445>",
-    "deezer": "<:deezer:1190802442053505025>",
+    "deezer": "<:deezer:1226124676372365402>",
+    "applemusic": "<:applemusic:1225631877658968164>",
     "twitch": "<:Twitch:803656463695478804>",
+    "jiosaavn": "<:jiosaavn:1235276169473949747>",
+    "tidal": "<:tidal:1235352567048048691>",
 }
 
 def music_source_emoji(name: str):
@@ -578,6 +584,12 @@ def get_source_emoji_cfg(bot: BotCore, url: str):
         source = "spotify"
     elif tw_url_regex.match(url):
         source = "twitch"
+    elif am_url_regex.match(url):
+        source = "applemusic"
+    elif js_url_regex.match(url):
+        source = "jiosaavn"
+    elif url.startswith(("https://listen.tidal.com/", "http://www.tidal.com/")):
+        source = "tidal"
     else:
         return None
 
@@ -599,6 +611,9 @@ def music_source_emoji_url(url: str):
 
     if tw_url_regex.match(url):
         return music_source_emoji_data["twitch"]
+
+    if am_url_regex.match(url):
+        return music_source_emoji_data["applemusic"]
 
     if url == ">> saved_queue <<":
         return "💾"
@@ -623,19 +638,27 @@ def music_source_emoji_id(id_: str):
 async def select_bot_pool(inter: Union[CustomContext, disnake.MessageInteraction, disnake.AppCmdInter], first=False, return_new=False, edit_original=False):
 
     if isinstance(inter, CustomContext):
-        if len(inter.bot.pool.bots) < 2:
+        if len(inter.bot.pool.get_guild_bots(inter.guild_id)) < 2:
             return inter, inter.bot
 
     bots = {}
 
-    for pb in inter.bot.pool.bots:
+    for pb in inter.bot.pool.get_guild_bots(inter.guild_id):
 
         if pb.get_guild(inter.guild_id):
             bots[pb.user.id] = pb
 
     if not bots:
 
-        if (bcount:=len([b for b in inter.bot.pool.bots if b.appinfo and b.appinfo.bot_public])):
+        try:
+            allow_private = inter.application_command.extras["allow_private"]
+        except:
+            allow_private = False
+
+        if allow_private:
+            return inter, inter.bot
+
+        if (bcount:=len([b for b in inter.bot.pool.get_guild_bots(inter.guild_id) if b.appinfo and b.appinfo.bot_public])):
             raise GenericError(
                 f"**You will need to add at least one compatible bot to the server by clicking the button below:**",
                 components=[disnake.ui.Button(custom_id="bot_invite", label=f"Add Bot{'s'[:bcount^1]}")]

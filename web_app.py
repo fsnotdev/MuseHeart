@@ -283,6 +283,7 @@ class WSClient:
     def __init__(self, url: str, pool: BotPool):
         self.url: str = url
         self.pool = pool
+        self.all_bots = None
         self.connection = None
         self.backoff: int = 7
         self.data: dict = {}
@@ -300,6 +301,9 @@ class WSClient:
 
         print("RPC client connected, syncing bot rpc...")
 
+        if not self.all_bots:
+            self.all_bots = self.pool.get_all_bots()
+
         self.connect_task = [asyncio.create_task(self.connect_bot_rpc())]
 
     @property
@@ -308,21 +312,21 @@ class WSClient:
 
     async def connect_bot_rpc(self):
 
-        bot_ids = []
+        bot_ids = set()
 
-        for bot in self.pool.bots:
+        for bot in self.all_bots:
+            await bot.wait_until_ready()
+            bot_ids.add(bot.user.id)
 
-            try:
-                bot_ids.append(bot.user.id)
-            except:
-                await bot.wait_until_ready()
-                bot_ids.append(bot.user.id)
+        if not bot_ids:
+            print("Connection to RPC server ignored: Empty bot list...")
+            return
 
-        await self.send({"user_ids": bot_ids, "bot": True, "auth_enabled": self.pool.config["ENABLE_RPC_AUTH"]})
+        await self.send({"user_ids": list(bot_ids), "bot": True, "auth_enabled": self.pool.config["ENABLE_RPC_AUTH"]})
 
         await asyncio.sleep(1)
 
-        for bot in self.pool.bots:
+        for bot in self.all_bots:
             for player in bot.music.players.values():
 
                 if not player.guild.me.voice:
@@ -395,7 +399,7 @@ class WSClient:
 
             if op == "rpc_update":
 
-                for bot in self.pool.bots:
+                for bot in self.all_bots:
                     for player in bot.music.players.values():
                         if not player.guild.me.voice:
                             continue

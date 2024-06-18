@@ -14,13 +14,14 @@ import zlib
 from configparser import ConfigParser
 from importlib import import_module
 from subprocess import check_output
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Dict
 
 import aiofiles
 import aiohttp
 import disnake
 import requests
 import spotipy
+from async_timeout import timeout
 from disnake.ext import commands
 from disnake.http import Route
 from dotenv import dotenv_values
@@ -31,17 +32,18 @@ from utils.db import MongoDatabase, LocalDatabase, get_prefix, DBModel, global_d
 from utils.music.checks import check_pool_bots
 from utils.music.errors import GenericError
 from utils.music.local_lavalink import run_lavalink
-from utils.music.models import music_mode, LavalinkPlayer, PartialTrack, LavalinkPlaylist, LavalinkTrack, \
-    PartialPlaylist
+from utils.music.models import music_mode, LavalinkPlayer, LavalinkPlaylist, LavalinkTrack, PartialTrack
 from utils.music.spotify import spotify_client
 from utils.others import CustomContext, token_regex, sort_dict_recursively
 from utils.owner_panel import PanelView
 from web_app import WSClient, start
 
+native_sources = ("http", "youtube", "soundcloud", "deezer", "tts", "reddit", "ocremix", "tiktok", "mixcloud", "soundgasm", "flowerytts", "vimeo", "twitch", "bandcamp", "local")
 
 class BotPool:
 
     bots: List[BotCore] = []
+    guild_bots: Dict[str, List[BotCore]] = {}
     killing_state = False
     command_sync_config = commands.CommandSyncFlags(
                     allow_command_deletion=True,
@@ -93,12 +95,27 @@ class BotPool:
 
         try:
             while True:
-                async with asyncio.timeout(600):
+                async with timeout(600):
                     bot, data = await self.lavalink_connect_queue[identifier].get()
                     await bot.get_cog("Music").connect_node(data)
                     await asyncio.sleep(delay_secs)
         except asyncio.TimeoutError:
             pass
+
+    def get_guild_bots(self, guild_id: int) -> list:
+        return self.bots + self.guild_bots.get(str(guild_id), [])
+
+    def get_all_bots(self) -> list:
+
+        allbots = set()
+
+        for botlist in self.guild_bots.values():
+
+            allbots.update(botlist)
+
+        allbots.update(self.bots)
+
+        return list(allbots)
 
     @property
     def database(self) -> Union[LocalDatabase, MongoDatabase]:
@@ -198,7 +215,10 @@ class BotPool:
                 traceback.print_tb(e.__traceback__)
                 e = repr(e)
             self.failed_bots[bot.identifier] = e
-            self.bots.remove(bot)
+            try:
+                self.bots.remove(bot)
+            except:
+                pass
 
     async def run_bots(self, bots: List[BotCore]):
         await asyncio.wait(
@@ -225,51 +245,35 @@ class BotPool:
 
         for info in data:
 
-            if info["sourceName"] == "spotify":
+            if playlist := info.pop("playlist", None):
 
-                if playlist := info.pop("playlist", None):
+                try:
+                    playlist = playlists[playlist["url"]]
+                except KeyError:
+                    playlist_cls = LavalinkPlaylist(
+                        {
+                            'loadType': 'PLAYLIST_LOADED',
+                            'playlistInfo': {
+                                'name': playlist["name"],
+                                'selectedTrack': -1
+                            },
+                            'tracks': []
+                        }, url=playlist["url"]
+                    )
+                    playlists[playlist["url"]] = playlist_cls
+                    playlist = playlist_cls
 
-                    try:
-                        playlist = playlists[playlist["url"]]
-                    except KeyError:
-                        playlist_cls = PartialPlaylist(
-                            {
-                                'loadType': 'PLAYLIST_LOADED',
-                                'playlistInfo': {
-                                    'name': playlist["name"],
-                                    'selectedTrack': -1
-                                },
-                                'tracks': []
-                            }, url=playlist["url"]
-                        )
-                        playlists[playlist["url"]] = playlist_cls
-                        playlist = playlist_cls
+            if info["sourceName"] not in native_sources:
+                try:
+                    del info["id"]
+                except KeyError:
+                    pass
 
-                t = PartialTrack(info=info, playlist=playlist)
-
+            if info.get("is_partial"):
+                track = PartialTrack(info=info)
             else:
-
-                if playlist := info.pop("playlist", None):
-
-                    try:
-                        playlist = playlists[playlist["url"]]
-                    except KeyError:
-                        playlist_cls = LavalinkPlaylist(
-                            {
-                                'loadType': 'PLAYLIST_LOADED',
-                                'playlistInfo': {
-                                    'name': playlist["name"],
-                                    'selectedTrack': -1
-                                },
-                                'tracks': []
-                            }, url=playlist["url"]
-                        )
-                        playlists[playlist["url"]] = playlist_cls
-                        playlist = playlist_cls
-
-                t = LavalinkTrack(id_=info.get("id", ""), info=info, playlist=playlist, requester=info["extra"]["requester"])
-
-            tracks.append(t)
+                track = LavalinkTrack(id_=info.get("id", ""), info=info, playlist=playlist, requester=info["extra"]["requester"], pluginInfo=info.get("pluginInfo", {}))
+            tracks.append(track)
 
         return tracks, playlists
 
@@ -346,7 +350,7 @@ class BotPool:
                 value["search"] = value.get("search", "").lower() != "false"
                 value["retry_403"] = value.get("retry_403", "").lower() == "true"
                 value["enqueue_connect"] = value.get("enqueue_connect", "").lower() == "true"
-                value["search_providers"] = value.get("search_providers", "").strip().split() or [self.config["DEFAULT_SEARCH_PROVIDER"]] + [s for s in ("ytsearch", "scsearch") if s != self.config["DEFAULT_SEARCH_PROVIDER"]]
+                value["search_providers"] = value.get("search_providers", "").strip().split()
                 LAVALINK_SERVERS[key] = value
 
         start_local = None
@@ -455,7 +459,7 @@ class BotPool:
             except:
                 interaction_bot_reg = None
 
-        def load_bot(bot_name: str, token: str):
+        def load_bot(bot_name: str, token: str, guild_id: str = None):
 
             try:
                 token = token.split().pop()
@@ -547,6 +551,49 @@ class BotPool:
                 except KeyError:
                     pass
 
+                try:
+                    allow_private = inter.application_command.extras["allow_private"]
+                except KeyError:
+                    allow_private = False
+
+                if inter.bot.exclusive_guild_id and inter.guild_id != inter.bot.exclusive_guild_id:
+                    raise GenericError("This server is not authorized to use my commands...")
+
+                if self.config["COMMAND_LOG"] and inter.guild and not (await inter.bot.is_owner(inter.author)):
+                    try:
+                        print(
+                            f"cmd log: [user: {inter.author} - {inter.author.id}] - [guild: {inter.guild.name} - {inter.guild.id}]"
+                            f" - [cmd: {inter.data.name}] {datetime.datetime.utcnow().strftime('%d/%m/%Y - %H:%M:%S')} (UTC) - {inter.filled_options}\n" + (
+                                        "-" * 15))
+                    except:
+                        traceback.print_exc()
+
+                if not inter.guild_id:
+
+                    if allow_private:
+                        return True
+
+                    raise GenericError("This command cannot be executed in private messages.\n"
+                                     "Use it on a server where a compatible bot is added.")
+
+                if str(inter.bot.user.id) in self.config["INTERACTION_BOTS_CONTROLLER"]:
+
+                    if not allow_private:
+
+                        available_bot = False
+
+                        for bot in inter.bot.pool.get_guild_bots(inter.guild_id):
+                            if bot.appinfo and (
+                                    bot.appinfo.bot_public or await bot.is_owner(inter.author)) and bot.get_guild(
+                                    inter.guild_id):
+                                available_bot = True
+                                break
+
+                        if not available_bot:
+                            raise GenericError(
+                                "**There are no bots available on the server. Please add at least one by clicking the button below.**",
+                                components=[disnake.ui.Button(custom_id="bot_invite", label="Add bots")])
+
                 if not kwargs:
                     kwargs["return_first"] = True
 
@@ -597,39 +644,6 @@ class BotPool:
 
                             self._command_sync_flags = commands.CommandSyncFlags.none()
 
-                            if self.config["INTERACTION_BOTS"] and self.config["ADD_REGISTER_COMMAND"]:
-
-                                @bot.slash_command(
-                                    name=disnake.Localized("register_commands",data={disnake.Locale.pt_BR: "registrar_comandos"}),
-                                    description="Use this command if my other slash commands (/) are not available..."
-                                )
-                                async def register_commands(
-                                        inter: disnake.AppCmdInter,
-                                ):
-                                    interaction_invites = ""
-
-                                    for b in self.bots:
-
-                                        if not b.interaction_id:
-                                            continue
-
-                                        interaction_invites += f"[`{disnake.utils.escape_markdown(str(b.user.name))}`]({disnake.utils.oauth_url(b.user.id, scopes=['applications.commands'])}) "
-
-                                    embed = disnake.Embed(
-                                        description="**Attention!** All my slash (/) commands work through the application "
-                                                    f"with one of the names below:**\n{interaction_invites}\n\n"
-                                                    "**If the above application commands are not displayed when typing the slash (/), "
-                                                    "click on the name above to integrate slash commands into your "
-                                                    "server.",
-                                        color=bot.get_color()
-                                    )
-
-                                    if not inter.author.guild_permissions.manage_guild:
-                                        embed.description += "\n\n**Note:** It will be necessary to have the **Manage Server** permission to integrate commands into the current server."
-
-                                    await inter.send(embed=embed, ephemeral=True)
-
-
                             if bot.config["AUTO_SYNC_COMMANDS"]:
                                 await bot.sync_app_commands(force=True)
 
@@ -655,13 +669,32 @@ class BotPool:
 
                 print(f'{bot.user} - [{bot.user.id}] Online.')
 
-            self.bots.append(bot)
+            if guild_id:
+                bot.exclusive_guild_id = int(guild_id)
+                try:
+                    self.guild_bots[guild_id].append(bot)
+                except KeyError:
+                    self.guild_bots = {guild_id: [bot]}
+            else:
+                self.bots.append(bot)
 
         if len(all_tokens) > 1:
             self.single_bot = False
 
         for k, v in all_tokens.items():
             load_bot(k, v)
+
+        try:
+            with open("guild_bots.json") as f:
+                guild_bots = json.load(f)
+        except FileNotFoundError:
+            pass
+        except Exception:
+            traceback.print_exc()
+        else:
+            for guild_id, guildbotsdata in guild_bots.items():
+                for n, guildbottoken in enumerate(guildbotsdata):
+                    load_bot(f"{guild_id}_{n}", guildbottoken, guild_id)
 
         message = ""
 
@@ -697,7 +730,7 @@ class BotPool:
 
             if not message:
 
-                for bot in self.bots:
+                for bot in self.get_all_bots():
                     loop.create_task(self.start_bot(bot))
 
                 loop.create_task(self.connect_rpc_ws())
@@ -715,7 +748,7 @@ class BotPool:
             loop.create_task(self.connect_rpc_ws())
             try:
                 loop.run_until_complete(
-                    self.run_bots(self.bots)
+                    self.run_bots(self.get_all_bots())
                 )
             except KeyboardInterrupt:
                 return
@@ -732,6 +765,7 @@ class BotCore(commands.AutoShardedBot):
         self.color = kwargs.pop("embed_color", None)
         self.identifier = kwargs.pop("identifier", "")
         self.appinfo: Optional[disnake.AppInfo] = None
+        self.exclusive_guild_id: Optional[int] = None
         self.bot_ready = False
         self.initializing = False
         self.player_skins = {}
@@ -888,6 +922,9 @@ class BotCore(commands.AutoShardedBot):
 
     async def is_owner(self, user: Union[disnake.User, disnake.Member]) -> bool:
 
+        if self.exclusive_guild_id:
+            return await self.pool.controller_bot.is_owner(user)
+
         if user.id in self.env_owner_ids:
             return True
 
@@ -928,7 +965,7 @@ class BotCore(commands.AutoShardedBot):
 
     def sync_command_cooldowns(self, force=False):
 
-        for b in self.pool.bots:
+        for b in self.pool.get_all_bots():
 
             if b == self and force is False:
                 continue
@@ -994,6 +1031,9 @@ class BotCore(commands.AutoShardedBot):
         if not message.guild:
             return
 
+        if self.exclusive_guild_id and message.guild.id != self.exclusive_guild_id:
+            return
+
         try:
             player: LavalinkPlayer = self.music.players[message.guild.id]
             if player.text_channel == message.channel and not message.flags.ephemeral:
@@ -1034,7 +1074,7 @@ class BotCore(commands.AutoShardedBot):
 
                 interaction_invites = []
 
-                for b in self.pool.bots:
+                for b in self.pool.get_guild_bots(message.guild.id):
 
                     if not b.interaction_id:
                         continue
@@ -1045,19 +1085,18 @@ class BotCore(commands.AutoShardedBot):
                     except AttributeError:
                         continue
 
-                    interaction_invites.append(f"[`{disnake.utils.escape_markdown(str(b.user.name))}`]({disnake.utils.oauth_url(b.user.id, scopes=['applications.commands'])}) ")
+                    interaction_invites.append(f"[`{disnake.utils.escape_markdown(str(b.user.name))}`](https://discord.com/oauth2/authorize?client_id={b.user.id}) ")
 
                 if not interaction_invites:
                     interaction_invites.append(
-                        f"[`{disnake.utils.escape_markdown(str(self.pool.controller_bot.user.name))}`]({disnake.utils.oauth_url(self.pool.controller_bot.user.id, scopes=['applications.commands'])}) ")
+                        f"[`{disnake.utils.escape_markdown(str(self.pool.controller_bot.user.name))}`](https://discord.com/oauth2/authorize?client_id={self.pool.controller_bot.user.id}) ")
 
                 if interaction_invites:
                     embed.description += f"\n\nMy slash (/) commands work through " \
                                          f"da{(s:='s'[:len(interaction_invites)^1])} seguinte{s} aplicaç{(s2:='ões'[:len(interaction_invites)^1] or 'ão')} abaixo:\n" \
                                          f"{' **|** '.join(interaction_invites)}\n\n" \
                                          f"Caso os comandos da{s} aplicaç{s2} acima não sejam exibidos ao digitar " \
-                                         f"barra (/), click on the name above to integrate the slash commands " \
-                                         f"into your server."
+                                         f"barra (/), clique no nome acima para integrar/registrar os comandos de barra."
 
                 else:
                     embed.description += "\n\n**To see all my commands use: /**"
@@ -1085,7 +1124,7 @@ class BotCore(commands.AutoShardedBot):
                     "components": [
                         disnake.ui.Button(
                             label="Add me to your server.",
-                            url=disnake.utils.oauth_url(self.user.id, permissions=disnake.Permissions(self.config['INVITE_PERMISSIONS']), scopes=('bot', 'applications.commands'))
+                            url=disnake.utils.oauth_url(self.user.id, permissions=disnake.Permissions(self.config['INVITE_PERMISSIONS']), scopes=('bot',))
                         )
                     ]
                 }
@@ -1118,7 +1157,7 @@ class BotCore(commands.AutoShardedBot):
                 try:
                     await play_cmd.callback(
                         inter=ctx, query=query, self=play_cmd.cog, position=0, options=False, force_play="no",
-                        manual_selection=False, source=None, repeat_amount=0, server=None
+                        manual_selection=False, repeat_amount=0, server=None
                     )
                 except Exception as e:
                     self.dispatch("command_error", ctx, e)
@@ -1158,7 +1197,7 @@ class BotCore(commands.AutoShardedBot):
         try:
             if isinstance(channel.parent, disnake.ForumChannel):
 
-                if channel.owner_id in (bot.user.id for bot in self.pool.bots if bot.bot_ready):
+                if channel.owner_id in (bot.user.id for bot in self.pool.get_guild_bots(channel.guild.id) if bot.bot_ready):
 
                     if raise_error is False:
                         return False
@@ -1227,51 +1266,28 @@ class BotCore(commands.AutoShardedBot):
 
     async def on_application_command_autocomplete(self, inter: disnake.ApplicationCommandInteraction):
 
-        if not self.bot_ready or self.is_closed():
+        if not self.bot_ready or not self.is_ready():
             return []
 
         if not inter.guild_id:
+            return []
+
+        if self.exclusive_guild_id and inter.guild_id != self.exclusive_guild_id:
             return []
 
         await super().on_application_command_autocomplete(inter)
 
     async def on_application_command(self, inter: disnake.ApplicationCommandInteraction):
 
-        if not inter.guild_id:
-            await inter.send("My commands cannot be used in DM.\n"
-                             "Use on servers that I am in.")
-            return
-
         if not self.bot_ready or self.is_closed():
             await inter.send("I'm still initializing...\nPlease wait a little longer...", ephemeral=True)
             return
-
-        if self.config["COMMAND_LOG"] and inter.guild and not (await self.is_owner(inter.author)):
-            try:
-                print(f"cmd log: [user: {inter.author} - {inter.author.id}] - [guild: {inter.guild.name} - {inter.guild.id}]"
-                      f" - [cmd: {inter.data.name}] {datetime.datetime.utcnow().strftime('%d/%m/%Y - %H:%M:%S')} (UTC) - {inter.filled_options}\n" + ("-" * 15))
-            except:
-                traceback.print_exc()
-
-        if str(self.user.id) in self.config["INTERACTION_BOTS_CONTROLLER"]:
-
-            available_bot = False
-
-            for bot in self.pool.bots:
-                if bot.appinfo and (bot.appinfo.bot_public or await bot.is_owner(inter.author)) and bot.get_guild(inter.guild_id):
-                    available_bot = True
-                    break
-
-            if not available_bot:
-                await inter.send("**There are no bots available on the server, add at least one by clicking the button below.**",
-                                 ephemeral=True, components=[disnake.ui.Button(custom_id="bot_invite", label="Adicionar bots")])
-                return
 
         await super().on_application_command(inter)
 
     def load_modules(self, module_list: list = None):
 
-        modules_dir = "modules"
+        modules_dir = ["modules", "modules_dev"]
 
         load_status = {
             "reloaded": [],
@@ -1280,34 +1296,36 @@ class BotCore(commands.AutoShardedBot):
 
         bot_name = self.user or self.identifier
 
-        for item in os.walk(modules_dir):
-            files = filter(lambda f: f.endswith('.py'), item[-1])
-            for file in files:
-                if module_list and file not in module_list:
-                    continue
-                filename, _ = os.path.splitext(file)
-                module_filename = os.path.join(modules_dir, filename).replace('\\', '.').replace('/', '.')
-                try:
-                    self.reload_extension(module_filename)
-                    if self.pool.controller_bot == self and not self.bot_ready:
-                        print(f"{'=' * 48}\n[OK] {bot_name} - {filename}.py Reloaded.")
-                    load_status["reloaded"].append(f"{filename}.py")
-                except (commands.ExtensionAlreadyLoaded, commands.ExtensionNotLoaded):
+        for module_dir in modules_dir:
+
+            for item in os.walk(module_dir):
+                files = filter(lambda f: f.endswith('.py'), item[-1])
+                for file in files:
+                    if module_list and file not in module_list:
+                        continue
+                    filename, _ = os.path.splitext(file)
+                    module_filename = os.path.join(module_dir, filename).replace('\\', '.').replace('/', '.')
                     try:
-                        self.load_extension(module_filename)
+                        self.reload_extension(module_filename)
                         if self.pool.controller_bot == self and not self.bot_ready:
-                            print(f"{'=' * 48}\n[OK] {bot_name} - {filename}.py Loaded.")
-                        load_status["loaded"].append(f"{filename}.py")
+                            print(f"{'=' * 48}\n[OK] {bot_name} - {filename}.py reloaded.")
+                        load_status["reloaded"].append(f"{filename}.py")
+                    except (commands.ExtensionAlreadyLoaded, commands.ExtensionNotLoaded):
+                        try:
+                            self.load_extension(module_filename)
+                            if self.pool.controller_bot == self and not self.bot_ready:
+                                print(f"{'=' * 48}\n[OK] {bot_name} - {filename}.py loaded.")
+                            load_status["loaded"].append(f"{filename}.py")
+                        except Exception as e:
+                            if self.pool.controller_bot == self and not self.bot_ready:
+                                print(f"{'=' * 48}\n[ERROR] {bot_name} - Failed to load/reload the module: {filename}")
+                                raise e
+                            return load_status
                     except Exception as e:
                         if self.pool.controller_bot == self and not self.bot_ready:
                             print(f"{'=' * 48}\n[ERROR] {bot_name} - Failed to load/reload the module: {filename}")
                             raise e
                         return load_status
-                except Exception as e:
-                    if self.pool.controller_bot == self and not self.bot_ready:
-                        print(f"{'=' * 48}\n[ERROR] {bot_name} - Failed to load/reload the module: {filename}")
-                        raise e
-                    return load_status
 
         if self.pool.controller_bot == self and not self.bot_ready:
             print(f"{'=' * 48}")

@@ -253,12 +253,11 @@ class MiniStaticSkin:
 
 
         if isinstance(player.last_channel, disnake.VoiceChannel):
-            txt = "Disable" if player.stage_title_event else "Enable"
             data["components"][5].options.append(
                 disnake.SelectOption(
-                    label= f"{txt} automatic status", emoji="📢",
-                    value=PlayerControls.stage_announce,
-                    description=f"{txt} automatic status of the voice channel."
+                    label="Automatic status", emoji="📢",
+                    value=PlayerControls.set_voice_status,
+                    description="Set up automatic voice channel status."
                 )
             )
 

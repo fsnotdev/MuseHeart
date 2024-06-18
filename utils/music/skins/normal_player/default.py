@@ -105,7 +105,7 @@ class DefaultSkin:
         bar = "https://cdn.discordapp.com/attachments/554468640942981147/1127294696025227367/rainbow_bar3.gif"
 
         if player.command_log:
-            txt += f"```ansi\n [34;1mLast Interaction[0m```**┕ {player.command_log_emoji} ⠂**{player.command_log}\n"
+            txt += f"```ansi\n [34;1mLast Interaction:[0m```**┕ {player.command_log_emoji} ⠂**{player.command_log}\n"
 
         if player.mini_queue_enabled:
 
@@ -236,12 +236,11 @@ class DefaultSkin:
             )
 
         if isinstance(player.last_channel, disnake.VoiceChannel):
-            txt = "Disable" if player.stage_title_event else "Enable"
             data["components"][5].options.append(
                 disnake.SelectOption(
-                    label= f"{txt} automatic status", emoji="📢",
-                    value=PlayerControls.stage_announce,
-                    description=f"{txt} the automatic status of the voice channel."
+                    label="Automatic status", emoji="📢",
+                    value=PlayerControls.set_voice_status,
+                    description="Set up automatic voice channel status."
                 )
             )
 

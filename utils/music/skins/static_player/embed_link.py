@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import datetime
 import itertools
-import re
 from os.path import basename
 
 import disnake
@@ -40,10 +39,10 @@ class EmbedLinkStaticSkin:
         title = fix_characters(player.current.title) if not player.current.uri else f"[{fix_characters(player.current.title)}]({player.current.uri})"
 
         if player.paused:
-            txt += f"\n> ### `⏸️` Paused: {title}\n{duration_txt}"
+            txt += f"\n> ### ⏸️ ⠂Paused: {title}\n{duration_txt}"
 
         else:
-            txt += f"\n> ### `▶️` Now Playing: {title}\n{duration_txt}"
+            txt += f"\n> ### ▶️ ⠂Now Playing: {title}\n{duration_txt}"
             if not player.current.is_stream and not player.paused:
                 txt += f" `[`<t:{int((disnake.utils.utcnow() + datetime.timedelta(milliseconds=player.current.duration - player.position)).timestamp())}:R>`]`"
 
@@ -79,30 +78,29 @@ class EmbedLinkStaticSkin:
 
         if player.command_log:
 
-            log = re.sub(r"\[(.+)]\(.+\)", r"\1", player.command_log.replace("`", ""))  # Remove links from command_log to avoid generating more than one preview.
-
-            txt += f"> {player.command_log_emoji} **⠂Last Interaction:** {log}\n"
+            txt += f"> {player.command_log_emoji} **⠂Last Interaction:** {player.command_log}\n"
 
         if qsize := len(player.queue):
 
-            qtext = "**Songs in queue:**\n```ansi\n" + \
-                    "\n".join(
-                        f"[0;33m{(n + 1):02}[0m [0;34m[{time_format(t.duration) if not t.is_stream else '🔴 stream'}][0m [0;36m{fix_characters(t.title, 45)}[0m"
-                        for n, t in enumerate(
-                            itertools.islice(player.queue, 4)))
+            qtext = "> **Songs in queue"
 
             if qsize  > 4:
-                qtext += f"\n╚═ [0;37mAnd more[0m [0;35m{qsize}[0m [0;37msong{'s'[:qsize^1]}.[0m"
+                qtext += f" [{qsize}]:"
 
-            txt = qtext + "```" + txt
+            qtext += "**\n" + "\n".join(
+                                  f"> `{(n + 1)} [{time_format(t.duration) if not t.is_stream else '🔴 stream'}]` [`{fix_characters(t.title, 30)}`](<{t.uri}>)"
+                                  for n, t in enumerate(
+                                      itertools.islice(player.queue, 4)))
+
+            txt = f"{qtext}\n{txt}"
 
         elif len(player.queue_autoplay):
 
-            txt = "**Next recommended songs:**\n```ansi\n" + \
+            txt = "**Next recommended songs:**\n" + \
                               "\n".join(
-                                  f"[0;33m{(n + 1):02}[0m [0;34m[{time_format(t.duration) if not t.is_stream else '🔴 stream'}][0m [0;36m{fix_characters(t.title, 45)}[0m"
+                                  f"`{(n + 1)} [{time_format(t.duration) if not t.is_stream else '🔴 stream'}]` [`{fix_characters(t.title, 30)}`](<{t.uri}>)"
                                   for n, t in enumerate(
-                                      itertools.islice(player.queue_autoplay, 4))) + "```" + txt
+                                      itertools.islice(player.queue_autoplay, 4))) + f"\n{txt}"
 
         data = {
             "content": txt,
@@ -184,12 +182,11 @@ class EmbedLinkStaticSkin:
 
 
         if isinstance(player.last_channel, disnake.VoiceChannel):
-            txt = "Disable" if player.stage_title_event else "Enable"
             data["components"][5].options.append(
                 disnake.SelectOption(
-                    label= f"{txt} automatic status", emoji="📢",
-                    value=PlayerControls.stage_announce,
-                    description=f"{txt} automatic status of the voice channel."
+                    label="Automatic status", emoji="📢",
+                    value=PlayerControls.set_voice_status,
+                    description="Set up automatic voice channel status."
                 )
             )
 

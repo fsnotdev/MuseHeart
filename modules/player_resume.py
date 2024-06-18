@@ -16,6 +16,7 @@ from disnake.ext import commands
 
 import wavelink
 from utils.client import BotCore
+from utils.db import DBModel
 from utils.music.checks import can_connect, can_send_message
 from utils.music.filters import AudioFilter
 from utils.music.models import LavalinkPlayer
@@ -64,7 +65,7 @@ class PlayerSession(commands.Cog):
 
         player_count = 0
 
-        for bot in self.bot.pool.bots:
+        for bot in self.bot.pool.get_all_bots():
             for player in bot.music.players.values():
                 try:
                     await player.process_save_queue()
@@ -114,6 +115,10 @@ class PlayerSession(commands.Cog):
             player.current.info["id"] = player.current.id
             if player.current.playlist_name:
                 player.current.info["playlist"] = {"name": player.current.playlist_name, "url": player.current.playlist_url}
+                try:
+                    player.current.info["playlist"]["thumb"] = player.current.playlist.thumb
+                except:
+                    pass
             tracks.append(player.current.info)
 
         for t in player.queue:
@@ -178,6 +183,12 @@ class PlayerSession(commands.Cog):
             "voice_state": player._voice_state,
             "time": disnake.utils.utcnow(),
         }
+
+        try:
+            data["last_voice_channel_id"] = player._last_channel_id
+        except AttributeError:
+            player._last_channel_id = vc_id
+            data["last_voice_channel_id"] = vc_id
 
         if player.static:
             if player.skin_static.startswith("> custom_skin: "):
@@ -260,7 +271,8 @@ class PlayerSession(commands.Cog):
             player: LavalinkPlayer,
             voice_channel: Union[disnake.VoiceChannel, disnake.StageChannel],
             pause: bool,
-            position: int
+            position: int,
+            has_members = None
     ):
 
         if not player.current:
@@ -272,30 +284,37 @@ class PlayerSession(commands.Cog):
             if not player.current and player.autoplay:
                 try:
                     player.current = await player.get_autoqueue_tracks()
+                    position = 0
                 except:
                     traceback.print_exc()
 
-        player._temp_data.update(
-            {
-                "volume": player.volume,
-                "filters": player.filters,
-            }
-        )
-        if player.current:
-            player._temp_data.update(
+        data = {
+            "volume": player.volume,
+            "filters": player.filters,
+        }
+
+        await player.connect(voice_channel.id)
+        await self.voice_check(voice_channel, position)
+
+        try:
+            track_id = player.current.id
+        except:
+            track_id = None
+
+        if track_id and has_members:
+            data.update(
                 {
-                    "encodedTrack": player.current.id,
+                    "encodedTrack": track_id,
                     "position": position,
                     "paused": pause,
                 }
             )
-            await player.connect(voice_channel.id)
-            await self.voice_check(voice_channel, position)
+            await player.node.update_player(player.guild.id, data=data)
         else:
-            await player.connect(voice_channel.id)
-            await self.voice_check(voice_channel, position)
-            await player.node.update_player(player.guild.id, data=player._temp_data)
-            await player.process_next()
+            await player.node.update_player(player.guild.id, data=data)
+            if player.current:
+                player.queue.appendleft(player.current)
+            await player.process_next(start_position=position)
 
     async def voice_check(self, voice_channel: Union[disnake.VoiceChannel, disnake.StageChannel], position: int = 0):
 
@@ -341,12 +360,13 @@ class PlayerSession(commands.Cog):
         try:
             guild = self.bot.get_guild(data["_id"])
 
+            if not (db_date := data.get("time")) or (disnake.utils.utcnow() - db_date).total_seconds() > 172800:
+                print(f"{self.bot.user} - Cleaning player information: {data['_id']}")
+                await self.delete_data(data["_id"])
+                return
+
             if not guild:
-                if not (db_date:=data.get("time")) or (disnake.utils.utcnow() - db_date).total_seconds() > 172800:
-                    print(f"{self.bot.user} - Cleaning player information: {data['_id']} | Server not found...")
-                    await self.delete_data(data["_id"])
-                else:
-                    print(f"{self.bot.user} - Player Ignored: {data['_id']} | Server not found...")
+                print(f"{self.bot.user} - Ignored Player: {data['_id']} | Server not found...")
                 return
 
             try:
@@ -356,17 +376,32 @@ class PlayerSession(commands.Cog):
                 message = None
                 started = False
 
-                if not data["text_channel_id"]:
-                    text_channel = None
-                elif not isinstance(data["text_channel_id"], disnake.Thread):
-                    text_channel = self.bot.get_channel(data["text_channel_id"])
-                else:
+                guild_data = await self.bot.get_data(guild.id, db_name=DBModel.guilds)
+
+                text_channel = None
+
+                if guild_data['player_controller']["channel"]:
                     try:
-                        text_channel = self.bot.get_channel(int(data["text_channel_id"])) or \
-                                   await self.bot.fetch_channel(int(data["text_channel_id"]))
-                    except (disnake.NotFound, TypeError):
-                        text_channel = None
-                        data["message_id"] = None
+                        text_channel = self.bot.get_channel(int(guild_data['player_controller']["channel"])) or await self.bot.fetch_channel(
+                            int(guild_data['player_controller']["channel"]))
+                    except:
+                        pass
+                    else:
+                        data["message_id"] = int(guild_data['player_controller']['message_id'])
+
+                if not text_channel:
+
+                    if not data["text_channel_id"]:
+                        pass
+                    elif not isinstance(data["text_channel_id"], disnake.Thread):
+                        text_channel = self.bot.get_channel(data["text_channel_id"])
+                    else:
+                        try:
+                            text_channel = self.bot.get_channel(int(data["text_channel_id"])) or \
+                                       await self.bot.fetch_channel(int(data["text_channel_id"]))
+                        except (disnake.NotFound, TypeError):
+                            text_channel = None
+                            data["message_id"] = None
 
                 if not text_channel:
                     data['static'] = False
@@ -411,6 +446,14 @@ class PlayerSession(commands.Cog):
                         print(f"{self.bot.user} - Failed to retrieve message: {repr(e)}\n"
                               f"channel_id: {text_channel.id} | message_id {data['message']}")
 
+                if not voice_channel or not voice_channel.permissions_for(guild.me).connect:
+                    if data["voice_channel"] != (vc:=data.get("last_voice_channel_id", data["voice_channel"])):
+                        voice_channel=vc
+                        try:
+                            del data["voice_state"]
+                        except:
+                            pass
+
                 if not voice_channel:
                     print(f"{self.bot.user} - Player Ignored: {guild.name} [{guild.id}]\nThe voice channel does not exist...")
                     try:
@@ -428,9 +471,7 @@ class PlayerSession(commands.Cog):
                 try:
                     can_connect(voice_channel, guild=guild, bot=self.bot)
                 except Exception as e:
-                    print(f"{self.bot.user} - Player ignored: {guild.name} [{guild.id}]\n{repr(e)}")
-                    if not data.get("autoplay") and (disnake.utils.utcnow() - data.get("time", disnake.utils.utcnow())).total_seconds() > 172800:
-                        await self.delete_data(guild.id)
+                    print(f"{self.bot.user} - Ignored player: {guild.name} [{guild.id}]\n{repr(e)}")
                     try:
                         msg = f"The player was terminated due to lack of permission to connect to the channel {voice_channel.mention}."
                         if not data["skin_static"]:
@@ -517,7 +558,7 @@ class PlayerSession(commands.Cog):
                 player.nightcore = data.get("nightcore")
 
                 if player.nightcore:
-                    player.filters.update(AudioFilter.timescale(pitch=1.2, speed=1.1))
+                    player.filters.update(AudioFilter.timescale(pitch=1.2, speed=1.1).filter)
 
                 if node.version == 3:
 
@@ -536,15 +577,13 @@ class PlayerSession(commands.Cog):
 
             player.played.extend(played_tracks)
 
-            if player.autoplay:
+            queue_autoplay_tracks, playlists = self.bot.pool.process_track_cls(data.get("queue_autoplay", []))
 
-                queue_autoplay_tracks, playlists = self.bot.pool.process_track_cls(data.get("queue_autoplay", []))
-
-                player.queue_autoplay.extend(queue_autoplay_tracks)
+            player.queue_autoplay.extend(queue_autoplay_tracks)
 
             failed_tracks, playlists = self.bot.pool.process_track_cls(data.get("failed_tracks", []), playlists)
 
-            player.failed_tracks.extend(failed_tracks)
+            player.queue.extend(failed_tracks)
 
             if started:
                 player.set_command_log(
@@ -567,66 +606,38 @@ class PlayerSession(commands.Cog):
                     emoji="🔰"
                 )
 
+                player._last_channel = voice_channel
+
                 try:
-                    check = any(m for m in player.guild.me.voice.channel.members if not m.bot or not (m.voice.deaf or m.voice.self_deaf))
+                    check = any(m for m in voice_channel.members if not m.bot or not (m.voice.deaf or m.voice.self_deaf))
                 except:
                     check = None
 
+                if not check:
+                    player.auto_pause = True
+
                 try:
-                    if (pause:=data.get("paused") and check):
 
-                        try:
-                            track = player.queue.popleft()
-                        except:
-                            track = None
+                    pause = data.get("paused") and check
 
-                        if track:
-                            player.current = track
-                            position = int(float(data.get("position", 0)))
-                            if player.node.version == 3:
-                                await player.play(track, start=position if not track.is_stream else 0)
-                                await player.set_pause(True)
-                            else:
-                                await self.update_player(
-                                    player=player, voice_channel=voice_channel, pause=pause, position=position
-                                )
-                            player.last_position = position
-                            player.last_track = track
-                            await player.invoke_np(rpc_update=True)
-                            await player.update_stage_topic()
+                    start_position = int(float(data.get("position", 0))) if player.queue else 0
 
-                        else:
-                            if player.node.version > 3:
-                                await self.update_player(
-                                    player=player, voice_channel=voice_channel, pause=pause, position=0
-                                )
-                                player.last_position = int(float(data.get("position", 0)))
-                                await player.invoke_np()
-                            else:
-                                await player.process_next(clear_autoqueue=False)
-
+                    if player.node.version > 3:
+                        await self.update_player(
+                            player=player, voice_channel=voice_channel, pause=pause, position=start_position, has_members=check
+                        )
+                        await player.invoke_np()
                     else:
-                        position = int(float(data.get("position", 0)))
-                        if player.node.version > 3:
-                            await self.update_player(
-                                player=player, voice_channel=voice_channel, pause=pause, position=position
-                            )
-                            await player.invoke_np()
-                        else:
-                            await player.process_next(start_position=position, clear_autoqueue=False)
-                        player._session_resuming = False
+                        await player.process_next(start_position=start_position)
+                        if pause:
+                            await player.set_pause(True)
+
+                    player._session_resuming = False
                 except Exception:
                     print(f"{self.bot.user} - Failure to play music when resuming player from server {guild.name} [{guild.id}]:\n{traceback.format_exc()}")
                     return
 
-                try:
-                    player.members_timeout_task.cancel()
-                except:
-                    pass
-
-                player.members_timeout_task = self.bot.loop.create_task(player.members_timeout(check=check, idle_timeout=10))
-
-            print(f"{self.bot.user} - Player Resumed: {guild.name} [{guild.id}]")
+            print(f"{self.bot.user} - Player Resumed: {guild.name} [{guild.id}] - Server: {player.node.identifier}")
 
         except Exception:
             print(f"{self.bot.user} - Critical failure when resuming players:\n{traceback.format_exc()}")

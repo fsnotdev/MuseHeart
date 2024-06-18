@@ -26,7 +26,7 @@ def download_file(url, filename):
     else:
         total_txt = f"{total_size / 1024:.2f} KB"
 
-    with open(filename, 'wb') as f:
+    with open(f"{filename}.tmp", 'wb') as f:
 
         for data in r.iter_content(chunk_size=2500*1024):
             f.write(data)
@@ -36,15 +36,20 @@ def download_file(url, filename):
             if current_progress != previows_progress:
                 previows_progress = current_progress
                 time_elapsed = time.time() - start_time
-                download_speed = bytes_downloaded / time_elapsed / 1024
-                if download_speed >= 1:
-                    download_speed = (download_speed or 1) / 1024
-                    speed_txt = "MB/s"
-                else:
-                    speed_txt = "KB/s"
-                print(f"Download of file {filename} {current_progress}% completed ({download_speed:.2f} {speed_txt} / {total_txt})")
+                try:
+                    download_speed = bytes_downloaded / time_elapsed / 1024
+                    if download_speed >= 1:
+                        download_speed = (download_speed or 1) / 1024
+                        speed_txt = "MB/s"
+                    else:
+                        speed_txt = "KB/s"
+                    print(f"Download for file {filename} {current_progress}% completed ({download_speed:.2f} {speed_txt} / {total_txt})")
+                except:
+                    print(f"Download for file {filename} {current_progress}% completed")
 
     r.close()
+
+    os.rename(f"{filename}.tmp", filename)
 
     return True
 
