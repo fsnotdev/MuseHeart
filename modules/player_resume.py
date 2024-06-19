@@ -14,13 +14,12 @@ import aiofiles
 import disnake
 from disnake.ext import commands
 
-import wavelink
 from utils.client import BotCore
 from utils.db import DBModel
 from utils.music.checks import can_connect, can_send_message
 from utils.music.filters import AudioFilter
 from utils.music.models import LavalinkPlayer
-from utils.others import SongRequestPurgeMode, send_idle_embed, CustomContext
+from utils.others import send_idle_embed, CustomContext
 
 
 class PlayerSession(commands.Cog):
@@ -50,12 +49,12 @@ class PlayerSession(commands.Cog):
         await self.delete_data(player)
 
     @commands.Cog.listener('on_wavelink_track_end')
-    async def track_end(self, node, payload: wavelink.TrackStart):
+    async def track_end(self, player: LavalinkPlayer, *args, **kwargs):
 
-        if len(payload.player.queue) > 0:
+        if len(player.queue) > 0:
             return
 
-        await self.save_info(payload.player)
+        await self.save_info(player)
 
     @commands.is_owner()
     @commands.command(hidden=True, description="Save information of players in the database instantly.", aliases=["svplayers"])
@@ -179,9 +178,9 @@ class PlayerSession(commands.Cog):
             "queue_autoplay": autoqueue,
             "failed_tracks": failed_tracks,
             "prefix_info": player.prefix_info,
-            "purge_mode": player.purge_mode,
             "voice_state": player._voice_state,
             "time": disnake.utils.utcnow(),
+            "lastfm_artists": player.lastfm_artists
         }
 
         try:
@@ -461,6 +460,13 @@ class PlayerSession(commands.Cog):
                         if not data["skin_static"]:
                             await text_channel.send(embed=disnake.Embed(description=msg, color=self.bot.get_color(guild.me)))
                         else:
+                            if isinstance(text_channel, disnake.ForumChannel):
+                                cog = self.bot.get_cog("Music")
+                                if cog:
+                                    await cog.reset_controller_db(guild.id, guild_data)
+                                print(f"{self.bot.user} - Controller reset due to invalid channel configuration.\n"
+                                      f"Server: {guild.name} [{guild.id}] | channel: {text_channel.name} [{text_channel.id}] {type(text_channel)}")
+                                return
                             await send_idle_embed(text_channel, bot=self.bot, text=msg)
                     except Exception:
                         traceback.print_exc()
@@ -481,12 +487,6 @@ class PlayerSession(commands.Cog):
                     except Exception:
                         traceback.print_exc()
                     return
-
-                if data["purge_mode"] == SongRequestPurgeMode.on_player_start:
-                    data["purge_mode"] = SongRequestPurgeMode.no_purge
-                    temp_purge_mode = True
-                else:
-                    temp_purge_mode = False
 
                 while True:
 
@@ -519,11 +519,9 @@ class PlayerSession(commands.Cog):
                         custom_skin_static_data=data.get("custom_skin_static_data", {}),
                         extra_hints=hints,
                         uptime=data.get("uptime"),
-                        stage_title_event=data.get("stage_title_event", False),
                         stage_title_template=data.get("stage_title_template"),
                         restrict_mode=data["restrict_mode"],
                         prefix=data["prefix_info"],
-                        purge_mode=data["purge_mode"],
                         session_resuming=True,
                     )
                 except Exception:
@@ -542,8 +540,9 @@ class PlayerSession(commands.Cog):
                 except:
                     pass
 
-                if temp_purge_mode:
-                    player.purge_mode = SongRequestPurgeMode.on_player_start
+                player.lastfm_artists = data.get("lastfm_artists")
+
+                player.stage_title_event = data.get("stage_title_event", False)
 
                 player.listen_along_invite = data.pop("listen_along_invite", "")
 
@@ -637,7 +636,7 @@ class PlayerSession(commands.Cog):
                     print(f"{self.bot.user} - Failure to play music when resuming player from server {guild.name} [{guild.id}]:\n{traceback.format_exc()}")
                     return
 
-            print(f"{self.bot.user} - Player Resumed: {guild.name} [{guild.id}] - Server: {player.node.identifier}")
+            print(f"▶️ - {self.bot.user} - Player Resumed: {guild.name} [{guild.id}] - Server: {player.node.identifier}")
 
         except Exception:
             print(f"{self.bot.user} - Critical failure when resuming players:\n{traceback.format_exc()}")

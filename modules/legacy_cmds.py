@@ -229,21 +229,18 @@ class Owner(commands.Cog):
             except:
                 continue
 
-        modules = [f"{m}.py" for m in modules]
+        modules = [f"{m.lower()}.py" for m in modules]
 
-        data = self.bot.load_modules(modules)
-        self.bot.load_skins()
+        data = {}
 
-        await self.bot.sync_app_commands(force=self.bot == self.bot.pool.controller_bot)
+        self.bot.pool.load_skins()
 
-        for bot in set(self.bot.pool.get_all_bots() + [self.bot.pool.controller_bot]):
+        for bot in (allbots:=set(self.bot.pool.get_all_bots())):
+            data = bot.load_modules(modules)
+            bot.sync_command_cooldowns(force=True)
 
-            if bot.user.id != self.bot.user.id:
-                bot.load_skins()
-                bot.load_modules(modules)
-                await bot.sync_app_commands(force=bot == self.bot.pool.controller_bot)
-
-        self.bot.sync_command_cooldowns(force=True)
+        for bot in allbots:
+            await bot.sync_app_commands(force=True)
 
         txt = ""
 
@@ -252,6 +249,9 @@ class Owner(commands.Cog):
 
         if data["reloaded"]:
             txt += f'**Reloaded modules:** ```ansi\n[0;32m{" [0;37m| [0;32m".join(data["reloaded"])}```\n'
+
+        if data["failed"]:
+            txt += f'**Módulos que falharam:** ```ansi\n[0;31m{" [0;37m| [0;31m".join(data["failed"])}```\n'
 
         if not txt:
             txt = "**No modules found...**"
@@ -546,11 +546,7 @@ class Owner(commands.Cog):
         if not prefix or len(prefix) > 5:
             raise GenericError("**The prefix cannot contain spaces or exceed 5 characters.**")
 
-        try:
-            guild_data = ctx.global_guild_data
-        except AttributeError:
-            guild_data = await self.bot.get_global_data(ctx.guild.id, db_name=DBModel.guilds)
-            ctx.global_guild_data = guild_data
+        guild_data = await self.bot.get_global_data(ctx.guild.id, db_name=DBModel.guilds)
 
         self.bot.pool.guild_prefix_cache[ctx.guild.id] = prefix
         guild_data["prefix"] = prefix
@@ -573,11 +569,7 @@ class Owner(commands.Cog):
     )
     async def resetprefix(self, ctx: CustomContext):
 
-        try:
-            guild_data = ctx.global_guild_data
-        except AttributeError:
-            guild_data = await self.bot.get_global_data(ctx.guild.id, db_name=DBModel.guilds)
-            ctx.global_guild_data = guild_data
+        guild_data = await self.bot.get_global_data(ctx.guild.id, db_name=DBModel.guilds)
 
         if not guild_data["prefix"]:
             raise GenericError("**No prefix configured in the server.**")
@@ -609,11 +601,7 @@ class Owner(commands.Cog):
         if not prefix or len(prefix) > 5:
             raise GenericError("**The prefix cannot contain spaces or exceed 5 characters.**")
 
-        try:
-            user_data = ctx.global_user_data
-        except AttributeError:
-            user_data = await self.bot.get_global_data(ctx.author.id, db_name=DBModel.users)
-            ctx.global_user_data = user_data
+        user_data = await self.bot.get_global_data(ctx.author.id, db_name=DBModel.users)
 
         user_data["custom_prefix"] = prefix
         self.bot.pool.user_prefix_cache[ctx.author.id] = prefix
@@ -633,11 +621,7 @@ class Owner(commands.Cog):
     @commands.command(description="Remove your user prefix")
     async def resetuserprefix(self, ctx: CustomContext):
 
-        try:
-            user_data = ctx.global_user_data
-        except AttributeError:
-            user_data = await self.bot.get_global_data(ctx.author.id, db_name=DBModel.users)
-            ctx.global_user_data = user_data
+        user_data = await self.bot.get_global_data(ctx.author.id, db_name=DBModel.users)
 
         if not user_data["custom_prefix"]:
             raise GenericError("**You do not have a configured prefix.**")

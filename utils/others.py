@@ -175,13 +175,6 @@ class PlayerControls:
     embed_forceplay = "musicplayer_embed_forceplay"
 
 
-class SongRequestPurgeMode:
-    on_message = "on_message" # mensagens serão apagadas assim que enviadas (ao iniciar player as mensagens serão limpas também).
-    on_player_start = "on_player_start" # as mensagens serão deletadas apenas ao iniciar o player
-    on_player_stop = "on_player_stop" # limpa as mensagens apenas ao desligar o player
-    no_purge = "no_purge" # as mensagens não serão limpas
-
-
 class EmbedPaginator(disnake.ui.View):
 
     def __init__(self, ctx: Union[CustomContext, disnake.MessageInteraction], embeds: list[disnake.Embed], *,timeout=180):
@@ -384,7 +377,7 @@ async def send_idle_embed(
         guild_data = await bot.get_data(guild_id, db_name=DBModel.guilds)
 
     try:
-        cmd = f"</play:" + str(bot.pool.controller_bot.get_global_command_named("play", cmd_type=disnake.ApplicationCommandType.chat_input).id) + ">"
+        cmd = f"</play:" + str(bot.get_global_command_named("play", cmd_type=disnake.ApplicationCommandType.chat_input).id) + ">"
     except AttributeError:
         cmd = "/play"
 
@@ -402,21 +395,22 @@ async def send_idle_embed(
         except:
             continue
 
-    embed = disnake.Embed(description="**Enter a voice channel and request a song here " +
+    embed = disnake.Embed(description="**Join a voice channel and request a song here " +
                                       ("in the post" if is_forum else "in the channel or in the conversation below") +
-                                      f" (or click the button below or use the command {cmd} here or in another channel)**\n\n"
-                                      "**You can use a name or a compatible website link:**"
-                                      f" ```ansi\n[31;1mYoutube[0m, [33;1mSoundcloud[0m, [32;1mSpotify[0m, [34;1mTwitch[0m```\n",
+                                      f" (You can click the button below or use the {cmd} command here or in other channel)**\n\n"
+                                      "**You can use a name or a compatible website link:**\n"
+                                      "[`Youtube`](<https://www.youtube.com/>), [`Soundcloud`](<https://soundcloud.com/>), " \
+                                      "[`Spotify`](<https://open.spotify.com/>), [`Twitch`](<https://www.twitch.tv/>)",
                           color=bot.get_color(target.guild.me))
 
     if text:
-        embed.description += f"**Last action:** {text.replace('**', '')}\n"
+        embed.description += f"\n\n**LAST ACTION:** {text.replace('**', '')}\n"
 
     embed.set_thumbnail(target.guild.me.display_avatar.replace(size=256).url)
 
     components = []
 
-    opts = [disnake.SelectOption(label=k, value=k, emoji=music_source_emoji_url(v['url']), description=v.get('description')) for k, v in sorted(guild_data["player_controller"]["fav_links"].items(), key=lambda k: k)]
+    opts = [disnake.SelectOption(label=k, value=k, emoji=music_source_emoji_url(v['url'])[0], description=v.get('description')) for k, v in sorted(guild_data["player_controller"]["fav_links"].items(), key=lambda k: k)]
 
     if opts:
         components.append(
@@ -516,11 +510,7 @@ def string_to_file(txt, filename="result.txt"):
 
 async def fav_list(inter, query: str):
 
-    try:
-        data = inter.global_user_data
-    except:
-        data = await inter.bot.get_global_data(inter.author.id, db_name=DBModel.users)
-        inter.global_user_data = data
+    data = await inter.bot.get_global_data(inter.author.id, db_name=DBModel.users)
 
     lst = sorted([f"> itg: {integrationname}" for integrationname in data["integration_links"]
                if not query or query.lower() in integrationname.lower()])
@@ -555,6 +545,7 @@ def paginator(txt: str):
 
 yt_url_regex = re.compile(r"^(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+")
 sc_url_regex = re.compile(r"^(https?://)?(www\.)?(soundcloud\.com)/.+")
+dz_url_regex = re.compile(r"(https?://)?(www\.)?deezer\.com/(?P<countrycode>[a-zA-Z]{2}/)?(?P<type>track|album|playlist|artist|profile)/(?P<identifier>[0-9]+)")
 sp_url_regex = re.compile(r"^(https?://)?(www\.)?(open\.spotify\.com|spotify\.com)/.+")
 tw_url_regex = re.compile(r"^(https?://)?(www\.)?(twitch\.tv)/([A-Za-z0-9_]{4,25})(/.+)?")
 am_url_regex = re.compile(r"(https?://)?(www\.)?music\.apple\.com/((?P<countrycode>[a-zA-Z]{2})/)?(?P<type>album|playlist|artist|song)(/[a-zA-Z\w\d\-]+)?/(?P<identifier>[a-zA-Z\d\-.]+)(\?i=(?P<identifier2>\d+))?")
@@ -569,6 +560,7 @@ music_source_emoji_data = {
     "twitch": "<:Twitch:803656463695478804>",
     "jiosaavn": "<:jiosaavn:1235276169473949747>",
     "tidal": "<:tidal:1235352567048048691>",
+    "youtubemusic": "<:Youtubemusicicon:1245606364470841354>"
 }
 
 def music_source_emoji(name: str):
@@ -582,6 +574,8 @@ def get_source_emoji_cfg(bot: BotCore, url: str):
         source = "soundcloud"
     elif sp_url_regex.match(url):
         source = "spotify"
+    elif dz_url_regex.match(url):
+        source = "deezer"
     elif tw_url_regex.match(url):
         source = "twitch"
     elif am_url_regex.match(url):
@@ -601,24 +595,27 @@ def get_source_emoji_cfg(bot: BotCore, url: str):
 def music_source_emoji_url(url: str):
 
     if yt_url_regex.match(url):
-        return music_source_emoji_data["youtube"]
+        return music_source_emoji_data["youtube"], "youtube"
 
     if sc_url_regex.match(url):
-        return music_source_emoji_data["soundcloud"]
+        return music_source_emoji_data["soundcloud"], "soundcloud"
+
+    if dz_url_regex.match(url):
+        return music_source_emoji_data["deezer"], "deezer"
 
     if sp_url_regex.match(url):
-        return music_source_emoji_data["spotify"]
+        return music_source_emoji_data["spotify"], "spotify"
 
     if tw_url_regex.match(url):
-        return music_source_emoji_data["twitch"]
+        return music_source_emoji_data["twitch"], "twitch"
 
     if am_url_regex.match(url):
-        return music_source_emoji_data["applemusic"]
+        return music_source_emoji_data["applemusic"], "applemusic"
 
     if url == ">> saved_queue <<":
-        return "💾"
+        return "💾", ""
 
-    return "<:play:734221719774035968>"
+    return "<:play:734221719774035968>", "Unknown source"
 
 def music_source_emoji_id(id_: str):
 
@@ -632,6 +629,9 @@ def music_source_emoji_id(id_: str):
 
     if id_ == "【SP】:":
         return music_source_emoji_data["spotify"]
+
+    if id_ == "【DZ】:":
+        return music_source_emoji_data["deezer"]
 
     return "<:play:734221719774035968>"
 
@@ -844,17 +844,3 @@ def sort_dict_recursively(d):
             return d
     else:
         return d
-
-async def get_inter_guild_data(inter, bot):
-    try:
-        guild_data = inter.guild_data
-    except AttributeError:
-        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
-        try:
-            inter.guild_data = guild_data
-        except AttributeError:
-            pass
-    if not guild_data:
-        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
-
-    return inter, guild_data

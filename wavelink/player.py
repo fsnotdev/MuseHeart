@@ -123,8 +123,7 @@ class Track:
                  'uri',
                  'author',
                  'is_stream',
-                 'dead',
-                 'thumb')
+                 'dead')
 
     def __init__(self, id_, info: dict, query: str = None, *args, **kwargs):
         self.id = id_
@@ -140,16 +139,22 @@ class Track:
         self.uri = info.get('uri')
         self.author = info.get('author', '')[:97]
 
+        if self.ytid:
+            self.info["artworkUrl"] = f"https://img.youtube.com/vi/{self.ytid}/hqdefault.jpg"
+        elif arturl:=self.info["pluginInfo"].get("artworkUrl"):
+            self.info["artworkUrl"] = arturl
+        elif self.info.get("artworkUrl") is None:
+            self.info["artworkUrl"] = ""
+
         self.is_stream = info.get('isStream')
         self.dead = False
 
-        if self.ytid:
-            self.thumb = f"https://img.youtube.com/vi/{self.ytid}/hqdefault.jpg"
-        else:
-            self.thumb = None
-
     def __str__(self):
         return self.title
+
+    @property
+    def thumb(self):
+        return self.info["artworkUrl"]
 
     @property
     def is_dead(self):

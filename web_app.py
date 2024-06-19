@@ -74,7 +74,7 @@ class IndexHandler(tornado.web.RequestHandler):
         pending_bots = []
         ready_bots = []
 
-        kwargs = {"redirect_uri": self.config['INVITE_REDIRECT_URL']} if self.config['INVITE_REDIRECT_URL'] else {}
+        kwargs = {}
 
         for identifier, exception in self.pool.failed_bots.items():
             failed_bots.append(f"<tr><td>{identifier}</td><td>{exception}</td></tr>")
@@ -197,7 +197,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
         is_bot = data.pop("bot", False)
 
         if is_bot:
-            print(f"New connection - Bot: {ws_id} {self.request.remote_ip}")
+            print(f"🤖 - New connection - Bot: {ws_id} {self.request.remote_ip}")
             self.bot_ids = ws_id
             bots_ws.append(self)
             return
@@ -221,7 +221,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 
         self.user_ids = ws_id
 
-        print("\n".join(f"New connection - User: {u}" for u in self.user_ids))
+        print("\n".join(f"👤 - New connection - User: {u}" for u in self.user_ids))
 
         for u_id in ws_id:
             try:
@@ -239,7 +239,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             try:
                 w.write_message(json.dumps(data))
             except Exception as e:
-                print(f"Error processing rpc data for bots {w.bot_ids}: {repr(e)}")
+                print(f"🤖 - Error processing rpc data for bots {w.bot_ids}: {repr(e)}")
 
     def check_origin(self, origin: str):
         return True
@@ -247,7 +247,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
     def on_close(self):
 
         if self.user_ids:
-            print("\n".join(f"Connection Closed - User: {u}" for u in self.user_ids))
+            print("\n".join(f"👤 - Connection Closed - User: {u}" for u in self.user_ids))
             for u_id in self.user_ids:
                 try:
                     del users_ws[u_id]
@@ -260,7 +260,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 
         else:
 
-            print(f"Connection Closed - Bot IDs: {self.bot_ids}")
+            print(f"🌐 - Connection Closed - Bot ID's: {self.bot_ids}")
 
             data = {"op": "close", "bot_id": self.bot_ids}
 
@@ -273,7 +273,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
                     w.write_message(data)
                 except Exception as e:
                     print(
-                        f"Error processing rpc data for users: [{', '.join(str(i) for i in w.user_ids)}]: {repr(e)}")
+                        f"👤 - Error processing RPC data for users: [{', '.join(str(i) for i in w.user_ids)}]: {repr(e)}")
 
         bots_ws.remove(self)
 
@@ -299,7 +299,7 @@ class WSClient:
 
         self.backoff = 7
 
-        print("RPC client connected, syncing bot rpc...")
+        print("🌐 - RPC client connected, synchronizing RPC of the bots...")
 
         if not self.all_bots:
             self.all_bots = self.pool.get_all_bots()
@@ -319,7 +319,7 @@ class WSClient:
             bot_ids.add(bot.user.id)
 
         if not bot_ids:
-            print("Connection to RPC server ignored: Empty bot list...")
+            print("🌐 - Connection to RPC server ignored: Empty bot list...")
             return
 
         await self.send({"user_ids": list(bot_ids), "bot": True, "auth_enabled": self.pool.config["ENABLE_RPC_AUTH"]})
@@ -335,7 +335,7 @@ class WSClient:
                 if player.guild.me.voice.channel.voice_states:
                     bot.loop.create_task(player.process_rpc(player.last_channel))
 
-        print(f"[RPC client] - Rpc data synced successfully.")
+        print(f"🌐 - [RPC client] - Rpc data synchronized successfully.")
 
     async def send(self, data: dict):
 
@@ -369,9 +369,9 @@ class WSClient:
 
             except Exception as e:
                 if isinstance(e, aiohttp.WSServerHandshakeError):
-                    print(f"Failed to connect to RPC server, trying again in {(b:=int(self.backoff))} second{'s'[:b^1]}.")
+                    print(f"🌐 - Failed to connect to RPC server, trying again in {(b:=int(self.backoff))} second{'s'[:b^1]}.")
                 else:
-                    print(f"Lost connection to RPC server - Reconnecting in {(b:=int(self.backoff))} second{'s'[:b^1]}.")
+                    print(f"🌐 - Lost connection to RPC server - Reconnecting in {(b:=int(self.backoff))} second{'s'[:b^1]}.")
 
                 await asyncio.sleep(self.backoff)
                 self.backoff *= 2.5
@@ -380,12 +380,12 @@ class WSClient:
             message = await self.connection.receive()
 
             if message.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
-                print(f"RPC Websocket Closed: {message.extra}\nReconnecting in {self.backoff}s")
+                print(f"🌐 - RPC Websocket Closed: {message.extra}\nReconnecting in {self.backoff}s")
                 await asyncio.sleep(self.backoff)
                 continue
 
             elif message.type in (aiohttp.WSMsgType.CLOSING, aiohttp.WSMsgType.CLOSE):
-                print(f"RPC Websocket Closed: {message.extra}")
+                print(f"🌐 - RPC Websocket Closed: {message.extra}")
                 return
 
             data = json.loads(message.data)

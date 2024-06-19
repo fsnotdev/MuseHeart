@@ -27,11 +27,8 @@ DEFAULT_CONFIG = {
     "ADDITIONAL_BOT_IDS": "",
     "INVITE_PERMISSIONS": 332892794064,
     "ENABLE_LOGGER": False,
-    "INTERACTION_BOTS": "",
-    "INTERACTION_BOTS_CONTROLLER": "",
     "KILL_ON_429": True,
     "PREFIXED_POOL_TIMEOUT": 4,
-    "INVITE_REDIRECT_URL": "",
     "ENABLE_COMMANDS_COOLDOWN": True,
     "GIT_DIR": "./.git",
 
@@ -92,13 +89,20 @@ DEFAULT_CONFIG = {
     #############################################
     "RUN_LOCAL_LAVALINK": False,
     "CONNECT_LOCAL_LAVALINK": True,
-    "USE_JABBA": True,
+    "USE_JABBA": False,
     "LAVALINK_ADDITIONAL_SLEEP": 0,
     "LAVALINK_INITIAL_RAM": 30,
     "LAVALINK_RAM_LIMIT": 120,
     "LAVALINK_CPU_CORES": 2,
     "LAVALINK_FILE_URL": "https://github.com/zRitsu/LL-binaries/releases/download/0.0.1/Lavalink.jar",
     "SEARCH_PROVIDERS": "scsearch",
+
+    ###############################################
+    ### Music system - Integration with Last.fm ###
+    ###############################################
+
+    "LASTFM_KEY": "",
+    "LASTFM_SECRET": "",
 
     ##########################
     ##### Bot Presences: #####
@@ -138,7 +142,10 @@ DEFAULT_CONFIG = {
     ### Tests ####
     ##############
     "USE_YTDL": True,
+    "FORCE_USE_DEEZER_CLIENT": False,
     "SILENT_PUBLICBOT_WARNING": False,
+    "DBCACHE_SIZE": 1000,
+    "DBCACHE_TTL": 300
 }
 
 def load_config():
@@ -194,11 +201,15 @@ def load_config():
         "LAVALINK_RECONNECT_RETRIES",
         "QUEUE_MAX_ENTRIES",
         "VOICE_CHANNEL_LATENCY_RECONNECT",
+        "DBCACHE_SIZE",
+        "DBCACHE_TTL",
     ]:
         try:
-            CONFIG[i] = int(CONFIG[i])
-        except ValueError:
-            raise Exception(f"You used an invalid configuration! {i}: {CONFIG[i]}")
+            new_value = int(CONFIG[i])
+        except ValueError as e:
+            raise Exception(f"You used an invalid configuration! {i}: {CONFIG[i]}\n{repr(e)}")
+
+        CONFIG[i] = new_value
 
     # Convert strings requiring a boolean/null value.
     for i in [
@@ -240,15 +251,18 @@ def load_config():
         "MESSAGE_CONTENT_INTENT",
 
         "USE_YTDL",
+        "FORCE_USE_DEEZER_CLIENT",
         "SILENT_PUBLICBOT_WARNING",
     ]:
         if CONFIG[i] in (True, False, None):
             continue
 
         try:
-            CONFIG[i] = bools[CONFIG[i]]
-        except KeyError:
-            raise Exception(f"You used an invalid configuration! {i}: {CONFIG[i]}")
+            new_value = bools[CONFIG[i]]
+        except KeyError as e:
+            raise Exception(f"You used an invalid configuration! {i}: {CONFIG[i]}\n{repr(e)}")
+
+        CONFIG[i] = new_value
 
     CONFIG["RPC_SERVER"] = CONFIG["RPC_SERVER"].replace("$PORT", CONFIG.get("PORT") or environ.get("PORT", "80"))
 

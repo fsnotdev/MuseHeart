@@ -20,8 +20,7 @@ from utils.music.converters import perms_translations, time_format
 from utils.music.errors import GenericError, NoVoice
 from utils.music.interactions import SkinEditorMenu
 from utils.music.models import LavalinkPlayer
-from utils.others import send_idle_embed, CustomContext, select_bot_pool, pool_command, CommandArgparse, \
-    SongRequestPurgeMode, update_inter, get_inter_guild_data
+from utils.others import send_idle_embed, CustomContext, select_bot_pool, pool_command, CommandArgparse, update_inter
 
 if TYPE_CHECKING:
     from utils.client import BotCore
@@ -78,11 +77,11 @@ class SkinSelector(disnake.ui.View):
             try:
                 self.skin_selected = [s.value for s in global_select_opts if s.default][0]
             except IndexError:
-                self.skin_selected = self.ctx.bot.default_skin
+                self.skin_selected = self.ctx.bot.pool.default_skin
             try:
                 self.static_skin_selected = [s.value for s in global_static_select_opts if s.default][0]
             except IndexError:
-                self.static_skin_selected = self.ctx.bot.default_static_skin
+                self.static_skin_selected = self.ctx.bot.pool.default_static_skin
 
         self.rebuild_selects()
 
@@ -177,46 +176,12 @@ class PlayerSettings(disnake.ui.View):
         self.check_other_bots_in_vc = data['check_other_bots_in_vc']
         self.enable_restrict_mode = data['enable_restrict_mode']
         self.default_player_volume = data['default_player_volume']
-        self.player_purge_mode = data["player_controller"]["purge_mode"]
         self.message: Optional[disnake.Message] = None
         self.load_buttons()
 
     def load_buttons(self):
 
         self.clear_items()
-
-        player_purge_select = disnake.ui.Select(
-            placeholder="Select cleaning mode (song-request).",
-            options=[
-                disnake.SelectOption(
-                    label="Clean when sending message",
-                    description="Clean when sending a message on the Song-Request channel",
-                    value=SongRequestPurgeMode.on_message,
-                    default=SongRequestPurgeMode.on_message == self.player_purge_mode
-                ),
-                disnake.SelectOption(
-                    label="Clean at the end of the player",
-                    description="Clean Song-Request messages at the end",
-                    value=SongRequestPurgeMode.on_player_stop,
-                    default=SongRequestPurgeMode.on_player_stop == self.player_purge_mode
-                ),
-                disnake.SelectOption(
-                    label="Clean when starting the player",
-                    description="Clean messages from Song-Request when starting",
-                    value=SongRequestPurgeMode.on_player_start,
-                    default=SongRequestPurgeMode.on_player_start == self.player_purge_mode
-                ),
-                disnake.SelectOption(
-                    label="Do not clean messages",
-                    description="Keep messages submitted on Song-Request Channel",
-                    value=SongRequestPurgeMode.no_purge,
-                    default=SongRequestPurgeMode.no_purge == self.player_purge_mode
-                ),
-            ]
-        )
-
-        player_purge_select.callback = self.purge_mode_callback
-        self.add_item(player_purge_select)
 
         player_volume_select = disnake.ui.Select(
             placeholder="Select a default volume.",
@@ -267,11 +232,6 @@ class PlayerSettings(disnake.ui.View):
         self.load_buttons()
         await interaction.response.edit_message(view=self)
 
-    async def purge_mode_callback(self, interaction: disnake.MessageInteraction):
-        self.player_purge_mode = interaction.data.values[0]
-        self.load_buttons()
-        await interaction.response.edit_message(view=self)
-
     async def autoplay_callback(self, interaction: disnake.MessageInteraction):
         self.enable_autoplay = not self.enable_autoplay
         self.load_buttons()
@@ -303,7 +263,6 @@ class PlayerSettings(disnake.ui.View):
         guild_data['check_other_bots_in_vc'] = self.check_other_bots_in_vc
         guild_data['enable_restrict_mode'] = self.enable_restrict_mode
         guild_data['default_player_volume'] = int(self.default_player_volume)
-        guild_data['player_controller']['purge_mode'] = self.player_purge_mode
 
         await self.bot.update_data(self.ctx.guild_id, guild_data, db_name=DBModel.guilds)
 
@@ -312,7 +271,6 @@ class PlayerSettings(disnake.ui.View):
         except KeyError:
             pass
         else:
-            player.purge_mode = self.player_purge_mode
             await player.process_save_queue()
 
     async def on_timeout(self):
@@ -366,7 +324,7 @@ class MusicSettings(commands.Cog):
 
         await inter.response.defer(ephemeral=True)
 
-        guild_data = await self.bot.get_data(inter.guild_id, db_name=DBModel.guilds)
+        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
 
         try:
             func = inter.store_message.edit
@@ -995,13 +953,7 @@ class MusicSettings(commands.Cog):
 
         channel_inter = bot.get_channel(inter.channel.id)
 
-        guild_data = None
-
-        if inter.bot == bot:
-            inter, guild_data = await get_inter_guild_data(inter, bot)
-
-        if not guild_data:
-            guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
+        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
 
         try:
             channel = bot.get_channel(int(guild_data['player_controller']['channel'])) or \
@@ -1119,13 +1071,7 @@ class MusicSettings(commands.Cog):
             await inter.send("You cannot add this role.", ephemeral=True)
             return
 
-        guild_data = None
-
-        if inter.bot == bot:
-            inter, guild_data = await get_inter_guild_data(inter, bot)
-
-        if not guild_data:
-            guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
+        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
 
         if str(role.id) in guild_data['djroles']:
             await inter.send(f"The role {role.mention} is already in server's DJ list", ephemeral=True)
@@ -1159,10 +1105,7 @@ class MusicSettings(commands.Cog):
         if not bot:
             return
 
-        if inter.bot == bot:
-            inter, guild_data = await get_inter_guild_data(inter, bot)
-        else:
-            guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
+        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
 
         if not guild_data['djroles']:
 
@@ -1213,27 +1156,17 @@ class MusicSettings(commands.Cog):
 
         add_skin_prefix = (lambda d: [f"> custom_skin: {i}" for i in d.keys()])
 
-        guild_data = None
+        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
 
-        if inter.bot == bot:
-            inter, guild_data = await get_inter_guild_data(inter, bot)
-
-        if not guild_data:
-            guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
-
-        try:
-            global_data = inter.global_guild_data
-        except AttributeError:
-            global_data = await bot.get_global_data(guild.id, db_name=DBModel.guilds)
-            inter.global_guild_data = global_data
+        global_data = await bot.get_global_data(guild.id, db_name=DBModel.guilds)
 
         global_mode = global_data["global_skin"]
 
-        selected = guild_data["player_controller"]["skin"] or bot.default_skin
-        static_selected = guild_data["player_controller"]["static_skin"] or bot.default_static_skin
+        selected = guild_data["player_controller"]["skin"] or bot.pool.default_skin
+        static_selected = guild_data["player_controller"]["static_skin"] or bot.pool.default_static_skin
 
-        global_selected = global_data["player_skin"] or bot.default_skin
-        global_static_selected = global_data["player_skin_static"] or bot.default_static_skin
+        global_selected = global_data["player_skin"] or bot.pool.default_skin
+        global_static_selected = global_data["player_skin_static"] or bot.pool.default_static_skin
 
         skins_opts = [disnake.SelectOption(emoji="💠" if s.startswith("> custom_skin: ") else "🎨", label=f"Normal mode: {s.replace('> custom_skin: ', '')}", value=s, **{"default": True, "description": "current skin"} if selected == s else {}) for s in skin_list + add_skin_prefix(global_data["custom_skins"])]
         static_skins_opts = [disnake.SelectOption(emoji="💠" if s.startswith("> custom_skin: ") else "🎨", label=f"Song-Request: {s.replace('> custom_skin: ', '')}", value=s, **{"default": True, "description": "current skin"} if static_selected == s else {}) for s in static_skin_list + add_skin_prefix(global_data["custom_skins_static"])]
@@ -1522,14 +1455,7 @@ class MusicSettings(commands.Cog):
         if not channel:
             return await inter.edit_original_message("**There are no compatible bots added to the informed invite server.**")
 
-        try:
-            global_data = inter.global_guild_data
-        except AttributeError:
-            global_data = await self.bot.get_global_data(inter.guild_id, db_name=DBModel.guilds)
-            try:
-                inter.global_guild_data = global_data
-            except:
-                pass
+        global_data = await self.bot.get_global_data(inter.guild_id, db_name=DBModel.guilds)
 
         if len(global_data["listen_along_invites"]) > 4:
             return await inter.edit_original_message(
@@ -1855,11 +1781,7 @@ class RPCCog(commands.Cog):
         if button_id == "rpc_gen":
             await inter.response.defer()
 
-            try:
-                data = inter.global_user_data
-            except AttributeError:
-                data = await self.bot.get_global_data(id_=user_id, db_name=DBModel.users)
-                inter.global_user_data = data
+            data = await self.bot.get_global_data(id_=user_id, db_name=DBModel.users)
 
             if data["token"]:
                 await self.close_presence(inter)
@@ -1875,11 +1797,7 @@ class RPCCog(commands.Cog):
 
             try:
 
-                try:
-                    data = inter.global_user_data
-                except AttributeError:
-                    data = await self.bot.get_global_data(id_=user_id, db_name=DBModel.users)
-                    inter.global_user_data = data
+                data = await self.bot.get_global_data(id_=user_id, db_name=DBModel.users)
 
                 if len(data["token"]) == 50:
                     kwargs["value"] = data["token"]
@@ -1914,11 +1832,7 @@ class RPCCog(commands.Cog):
 
             await self.close_presence(inter)
 
-            try:
-                data = inter.global_user_data
-            except AttributeError:
-                data = await self.bot.get_global_data(id_=user_id, db_name=DBModel.users)
-                inter.global_user_data = data
+            data = await self.bot.get_global_data(id_=user_id, db_name=DBModel.users)
 
             data["token"] = ""
             await self.bot.update_global_data(id_=user_id, data=data, db_name=DBModel.users)

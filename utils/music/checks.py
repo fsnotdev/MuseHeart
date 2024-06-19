@@ -8,10 +8,11 @@ from typing import Union, Optional, TYPE_CHECKING
 import disnake
 from disnake.ext import commands
 
+from utils.db import DBModel
 from utils.music.converters import time_format
 from utils.music.errors import NoVoice, NoPlayer, NoSource, NotRequester, NotDJorStaff, \
     GenericError, MissingVoicePerms, DiffVoiceChannel, PoolException
-from utils.others import CustomContext, get_inter_guild_data
+from utils.others import CustomContext
 
 if TYPE_CHECKING:
     from utils.music.models import LavalinkPlayer
@@ -38,7 +39,8 @@ def can_send_message(
 
 
 async def check_requester_channel(ctx: CustomContext):
-    ctx, guild_data = await get_inter_guild_data(ctx, ctx.bot)
+
+    guild_data = await ctx.bot.get_data(ctx.guild_id, db_name=DBModel.guilds)
 
     if guild_data['player_controller']["channel"] == str(ctx.channel.id):
 
@@ -87,7 +89,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
     elif isinstance(inter, disnake.ModalInteraction):
         return
 
-    if len(inter.bot.pool.get_guild_bots(inter.guild_id)) < 2 and inter.guild:
+    if len((guild_bots:=inter.bot.pool.get_guild_bots(inter.guild_id))) < 2 and inter.guild:
         try:
             inter.music_bot = inter.bot
             inter.music_guild = inter.guild
@@ -121,8 +123,11 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
 
             msg_id = f"{inter.guild_id}-{inter.channel.id}-{inter.message.id}"
 
-            if msg_id in inter.bot.pool.message_ids:
-
+            try:
+                inter.bot.pool.message_ids[msg_id]
+            except KeyError:
+                inter.bot.pool.message_ids[msg_id] = None
+            else:
                 def check(ctx, b_id):
                     try:
                         return f"{ctx.guild_id}-{ctx.channel.id}-{ctx.message.id}" == msg_id
@@ -143,8 +148,6 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
                 inter.music_guild = inter.guild
 
                 return True
-
-            inter.bot.pool.message_ids.add(msg_id)
 
         else:
 
@@ -187,7 +190,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
 
     bot_in_guild = False
 
-    for bot in sorted(inter.bot.pool.get_guild_bots(inter.guild_id), key=lambda b: b.identifier):
+    for bot in sorted(guild_bots, key=lambda b: b.identifier):
 
         if not bot.bot_ready:
             continue
@@ -196,12 +199,6 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
             continue
 
         if not (guild := bot.get_guild(inter.guild_id)):
-            continue
-
-        try:
-            if not bot.appinfo.bot_public and not await bot.is_owner(inter.author):
-                continue
-        except AttributeError:
             continue
 
         if bot.user.id != inter.bot.user.id:
@@ -266,7 +263,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
         if not isinstance(inter, CustomContext) and not inter.guild.voice_client:
 
             if only_voiced:
-                inter.bot.dispatch("pool_dispatch", None)
+                inter.bot.dispatch("pool_dispatch", None, None)
                 raise NoPlayer()
 
             inter.music_bot = inter.bot
@@ -591,7 +588,7 @@ async def check_player_perm(inter, bot: BotCore, channel, guild_data: dict = Non
     user_roles = [r.id for r in inter.author.roles]
 
     if not guild_data:
-        inter, guild_data = await get_inter_guild_data(inter, bot)
+        guild_data = await bot.get_data(inter.guild_id, db_name=DBModel.guilds)
 
     if [r for r in guild_data['djroles'] if int(r) in user_roles]:
         return True
@@ -606,8 +603,8 @@ async def check_player_perm(inter, bot: BotCore, channel, guild_data: dict = Non
     elif not [m for m in vc.members if not m.bot and (vc.permissions_for(m).move_members or (m.id in player.dj) or m.id == player.player_creator)]:
         player.dj.add(inter.author.id)
         await channel.send(embed=disnake.Embed(
-            description=f"{inter.author.mention} has been added to the list of DJs as there isn't one in the channel <#{vc.id}>.",
-            color=player.bot.get_color(channel.guild.me)), delete_after=10)
+            description=f"{inter.author.mention} has been added to the list of DJs because there wasn't one in the channel <#{vc.id}>.",
+            color=player.bot.get_color()), delete_after=10)
 
     return True
 
@@ -664,8 +661,9 @@ def can_connect(
             if b == bot:
                 continue
             if b.bot_ready and b.user.id in channel.voice_states:
-                raise GenericError(f"**There is already a connected bot on the channel {channel.mention}\n"
-                                   f"Bot:** {b.user.mention}")
+                raise PoolException()
+                #raise GenericError(f"**There is already a bot connected on the channel {channel.mention}\n"
+                #                   f"Bot:** {b.user.mention}")
 
     if check_other_bots_in_vc and any(m for m in channel.members if m.bot and m.id != guild.me.id):
         raise GenericError(f"**There is another bot connected to the channel:** <#{channel.id}>")

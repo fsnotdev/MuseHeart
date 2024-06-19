@@ -226,12 +226,6 @@ class Misc(commands.Cog):
     @commands.Cog.listener("on_guild_join")
     async def guild_add(self, guild: disnake.Guild):
 
-        if str(self.bot.user.id) in self.bot.config["INTERACTION_BOTS_CONTROLLER"]:
-            await guild.leave()
-            return
-
-        interaction_invite = ""
-
         bots_in_guild = []
         bots_outside_guild = []
 
@@ -250,11 +244,9 @@ class Misc(commands.Cog):
 
         components = [disnake.ui.Button(custom_id="bot_invite", label="Need more music bots? Click here.")] if [b for b in self.bot.pool.bots if b.appinfo and b.appinfo.bot_public] else []
 
-        if self.bot.pool.controller_bot != self.bot:
-            interaction_invite = f"[`{disnake.utils.escape_markdown(str(self.bot.pool.controller_bot.user.name))}`]({disnake.utils.oauth_url(self.bot.pool.controller_bot.user.id)})"
-
-        if cmd := self.bot.get_command("setup"):
-            cmd_text = f"If you wish, use the command **/{cmd.name}** to create a dedicated channel for requesting music without commands and keep the music player fixed in a dedicated channel.\n\n"
+        if cmd:=self.bot.get_command("setup"):
+            cmd_text = f"If you wish, use the command **/{cmd.name}** to create a dedicated channel " \
+                        "for requesting music without commands and keep the music player fixed in a dedicated channel.\n\n"
         else:
             cmd_text = ""
 
@@ -297,25 +289,13 @@ class Misc(commands.Cog):
                             ).set_image(url=image)
                         )
 
-                        if interaction_invite:
-                            embeds.append(
-                                disnake.Embed(
-                                    color=color,
-                                    description=f"**Important note:** My slash commands work through the following application: {interaction_invite}\n\n"
-                                                f"If the commands from the above application are not displayed when typing "
-                                                f"slash commands (**/**) in a channel of the server **{guild.name}**, you will have to "
-                                                f"click on the above name to integrate the slash commands in the server **{guild.name}**.\n"
-                                                f"`Note: If the commands still do not appear after integrating the commands, your "
-                                                f"server may have reached the limit of registered bots with slash commands.`"
-                                ).set_image(url=image)
-                            )
-                        else:
-                            embeds.append(
-                                disnake.Embed(
-                                    color=color,
-                                    description=f"To see all my commands, use slash command (**/**) in the server **{guild.name}**"
-                                ).set_image(url=image)
-                            )
+                        embeds.append(
+                            disnake.Embed(
+                                color=color,
+                                description=f"To see all my commands, use slash command (**/**) in the server. " \
+                                             f"**{guild.name}**"
+                            ).set_image(url=image)
+                        )
 
                         if prefix:
                             prefix_msg = f"My prefix in the server **{guild.name}** is: **{prefix}**"
@@ -385,29 +365,14 @@ class Misc(commands.Cog):
             if not channel:
                 return
 
-        embeds = []
-
-        if interaction_invite:
-
-            embeds.append(
-                disnake.Embed(
-                    color=color,
-                    description=f"Hello! To see all my commands, type slash command (**/**) and check "
-                                f"the commands of the following application: {interaction_invite}\n\n"
-                                f"If the commands from the above application are not displayed when typing slash commands (**/**), you "
-                                f"will have to click on the name above to integrate the slash commands into your server.\n"
-                                f"`Note: If the commands still do not appear after integrating the commands, your "
-                                f"server may have reached the limit of bots with registered slash commands.`"
-
-                ).set_image(url=image)
-            )
-
-        else:
-            embeds.append(
-                disnake.Embed(
-                    color=color, description="Hello! To see all my commands, use slash command (**/**)"
-                ).set_image(url=image)
-            )
+        embeds = [
+            disnake.Embed(
+                color=color, description="Hello! To see all my commands, type slash command (**/**)\n"
+                                         "`Note: If the commands are not appearing on your server, "
+                                         "it might have reached the limit of bots with registered slash commands "
+                                         "(if there are more than 50 integrations/apps on your server).`"
+            ).set_image(url=image)
+        ]
 
         if prefix:
             prefix_msg = f"My prefix in the server is: **{prefix}**"
@@ -668,7 +633,7 @@ class Misc(commands.Cog):
             embed.description += f"> 💤 **⠂Inactive {s}Player{(s:='s'[:inactive_players_other_bots^1])}:** `{inactive_players_other_bots:,}`\n"
 
         if listeners:
-            embed.description += f"> 🎧 **⠂Listener{'s'[:(lcount:=len(listeners))^1]} atua{'is'[:inactive_players_other_bots^1] or 'l'}:** `{lcount:,}`\n"
+            embed.description += f"> 🎧 **⠂Listener{'s'[:(lcount:=len(listeners))^1]} atua{'is'[:lcount^1] or 'l'}:** `{lcount:,}`\n"
 
         if bot.pool.commit:
             embed.description += f"> 📥 **⠂Current commit:** [`{bot.pool.commit[:7]}`]({bot.pool.remote_git_url}/commit/{bot.pool.commit})\n"
@@ -681,22 +646,14 @@ class Misc(commands.Cog):
 
         if not bot.config["INTERACTION_COMMAND_ONLY"]:
 
-            try:
-                guild_data = inter.global_guild_data
-            except AttributeError:
-                guild_data = await bot.get_global_data(inter.guild_id, db_name=DBModel.guilds)
-                inter.global_guild_data = guild_data
+            guild_data = await bot.get_global_data(inter.guild_id, db_name=DBModel.guilds)
 
             if guild_data["prefix"]:
                 embed.description += f"> ⌨️ **⠂Server Prefix:** `{disnake.utils.escape_markdown(guild_data['prefix'], as_needed=True)}`\n"
             else:
                 embed.description += f"> ⌨️ **⠂Default Prefix:** `{disnake.utils.escape_markdown(bot.default_prefix, as_needed=True)}`\n"
 
-            try:
-                user_data = inter.global_user_data
-            except AttributeError:
-                user_data = await bot.get_global_data(inter.author.id, db_name=DBModel.users)
-                inter.global_user_data = user_data
+            user_data = await bot.get_global_data(inter.author.id, db_name=DBModel.users)
 
             if user_data["custom_prefix"]:
                 embed.description += f"> ⌨️ **⠂Your User Prefix:** `{disnake.utils.escape_markdown(user_data['custom_prefix'], as_needed=True)}`\n"
@@ -764,7 +721,7 @@ class Misc(commands.Cog):
             except:
                 continue
 
-            kwargs = {"redirect_uri": self.bot.config['INVITE_REDIRECT_URL']} if self.bot.config['INVITE_REDIRECT_URL'] else {}
+            kwargs = {}
 
             invite = f"[`{disnake.utils.escape_markdown(str(bot.user.name))}`]({disnake.utils.oauth_url(bot.user.id, permissions=disnake.Permissions(bot.config['INVITE_PERMISSIONS']), scopes=('bot',), **kwargs)})"
 
@@ -801,12 +758,6 @@ class Misc(commands.Cog):
                 ), ephemeral=True
             )
             return
-
-        controller_bot = self.bot.pool.controller_bot
-
-        if (len(bots_in_guild) + len(bots_invites)) > 1 and f"client_id={controller_bot.user.id}" not in txt:
-            invite = f"[`{disnake.utils.escape_markdown(str(controller_bot.user.name))}`](https://discord.com/oauth2/authorize?client_id={controller_bot.user.id})"
-            txt = f"## Register/Integrate slash commands:\n{invite}\n\n" + txt
 
         color = self.bot.get_color(inter.guild.me if inter.guild else guild.me if guild else None)
 
@@ -927,10 +878,7 @@ class GuildLog(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: disnake.Guild):
 
-        if str(self.bot.user.id) in self.bot.config["INTERACTION_BOTS_CONTROLLER"]:
-            return
-
-        print(f"Removed from server: {guild.name} - [{guild.id}]")
+        print(f"Removed from the server: {guild.name} - [{guild.id}]")
 
         try:
             await self.bot.music.players[guild.id].destroy()
@@ -951,9 +899,6 @@ class GuildLog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: disnake.Guild):
-
-        if str(self.bot.user.id) in self.bot.config["INTERACTION_BOTS_CONTROLLER"]:
-            return
 
         print(f"{self.bot.user.name} - Added to the server: {guild.name} - [{guild.id}]")
 

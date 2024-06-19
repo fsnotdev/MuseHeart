@@ -21,11 +21,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 import asyncio
+import datetime
 import inspect
 import json
 import logging
 import os
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union, List
 from urllib.parse import quote
 
 from .backoff import ExponentialBackoff
@@ -109,12 +110,15 @@ class Node:
         self.restarting = False
 
         self.stats = None
-        self.info = {}
-        self.plugins_dict: Optional[dict] = None
-        self.max_retries = kwargs.pop("max_retries")
+        self.info = {"sourceManagers": []}
+        self.plugin_names: Optional[List] = None
+        self.max_retries = kwargs.pop("max_retries", 1)
 
         self._closing = False
         self._is_connecting = False
+
+        self._retry_count = 0
+        self._retry_dt = datetime.datetime.utcnow()
 
     def __repr__(self):
         return f'{self.identifier} | {self.region} | (Shard: {self.shard_id})'
@@ -158,6 +162,55 @@ class Node:
 
     async def connect(self, *args, **kwargs) -> None:
 
+        if self._is_connecting:
+            return
+
+        self._is_connecting = True
+
+        backoff = 9
+        retries = 1
+        exception = None
+        max_retries = int(self.max_retries)
+
+        if (info:=kwargs.get("info")):
+            self.version = info["check_version"]
+            self.info = info
+
+        else:
+            print(f"📶 - {self._client.bot.user} - Starting music server: {self.identifier}")
+            while not self._client.bot.is_closed():
+                try:
+                    async with self._client.bot.session.get(f"{self.rest_uri}/v4/info", timeout=45, headers={'Authorization': self.password}) as r:
+                        if r.status == 200:
+                            self.info = await r.json()
+                            self.version = 4
+                        elif r.status != 404:
+                            raise Exception(f"❌ - {self._client.bot.user} - [{r.status}]: {await r.text()}"[:300])
+                        else:
+                            self.version = 3
+                            self.info["sourceManagers"] = ["youtube", "soundcloud", "http"]
+                        break
+                except Exception as e:
+                    if retries >= max_retries:
+                        self._is_connecting = False
+                        print(
+                            f"❌ - {self._client.bot.user} - Failed to connect to the server [{self.identifier}]." +
+                            (f"\nCause: {repr(exception)}" if exception else ""))
+                        return
+                    exception = e
+                    if self.identifier != "LOCAL":
+                        print(f'⚠️ - {self._client.bot.user} - Failed to connect to the server [{self.identifier}], '
+                              f'new attempt [{retries}/{max_retries}] in {backoff} seconds.')
+                    backoff += 2
+                    retries += 1
+                    await asyncio.sleep(backoff)
+                    continue
+
+        if self.version < 4:
+            self.plugin_names = set()
+        else:
+            self.plugin_names = set([p["name"] for p in self.info["plugins"]])
+
         if not self._websocket:
 
             self._websocket = WebSocket(node=self,
@@ -173,65 +226,8 @@ class Node:
                                         **kwargs,
                                         )
 
-        elif self._websocket.is_connected or self._is_connecting:
-            return
-
-        self._is_connecting = True
-
-        if self.max_retries:
-
-            backoff = 9
-            retries = 1
-            exception = None
-            max_retries = int(self.max_retries)
-
-            print(f"{self._client.bot.user} - Starting music server: {self.identifier}")
-
-            while not self._client.bot.is_closed():
-                if retries >= max_retries:
-                    self._is_connecting = False
-                    print(
-                        f"❌ - {self._client.bot.user} - All attempts to connect to the server [{self.identifier}] have failed.\n"
-                        f"Cause: {repr(exception)}")
-                    return
-                else:
-                    await asyncio.sleep(backoff)
-                    try:
-                        async with self._client.bot.session.get(f"{self.rest_uri}/v4/info", timeout=45, headers={'Authorization': self.password}) as r:
-                            if r.status == 200:
-                                self.version = 4
-                                self.info = await r.json()
-                            elif r.status != 404:
-                                raise Exception(f"{self._client.bot.user} - [{r.status}]: {await r.text()}"[:300])
-                            else:
-                                self.info["sourceManagers"] = ["youtube", "soundcloud", "http"]
-                            break
-                    except Exception as e:
-                        exception = e
-                        if self.identifier != "LOCAL":
-                            print(f'⚠️ - {self._client.bot.user} - Failed to connect to the server [{self.identifier}], '
-                                  f'new attempt [{retries}/{max_retries}] in {backoff} seconds.')
-                        backoff += 2
-                        retries += 1
-                        continue
-
-        else:
-            try:
-                async with self._client.bot.session.get(f"{self.rest_uri}/v4/info", timeout=45, headers={'Authorization': self.password}) as r:
-                    if r.status == 200:
-                        self.version = 4
-                        self.info = await r.json()
-                    elif r.status != 404:
-                        self._is_connecting = False
-                        raise Exception(f"{self._client.bot.user} - [{r.status}]: {await r.text()}"[:300])
-                    else:
-                        self.info["sourceManagers"] = ["youtube", "soundcloud", "http"]
-            except Exception as e:
-                print(f"❌ - {self._client.bot.user} - Failed to connect to the server {self.identifier}: {repr(e)}"[:300])
-                self._is_connecting = False
-                return
-
-        await self._websocket._connect()
+        if not self._websocket.is_connected:
+            await self._websocket._connect()
 
         self.available = True
         self._is_connecting = False
@@ -271,7 +267,11 @@ class Node:
 
                 await asyncio.sleep(1.5)
 
-        raise WavelinkException(f"UpdatePlayer Failed: {resp.status}: {resp_data}")
+        if new_node := self._client.get_best_node(ignore_node=self):
+            await self.players[guild_id].change_node(new_node.identifier)
+            return
+
+        raise WavelinkException(f"{self.identifier}: UpdatePlayer Failed = {resp.status}: {resp_data}")
 
     async def get_tracks(self, query: str, *, retry_on_failure: bool = True, **kwargs) -> Union[list, TrackPlaylist, None]:
         """|coro|
@@ -371,6 +371,17 @@ class Node:
                     except KeyError:
                         pass
                     playlist_cls = kwargs.pop('playlist_cls', TrackPlaylist)
+                    if query.startswith("https://music.youtube.com/"):
+                        query = query.replace("https://www.youtube.com/", "https://music.youtube.com/")
+
+                        try:
+                            if data["playlistInfo"]["name"].startswith("Album - "):
+                                data["playlistInfo"]["name"] = data["playlistInfo"]["name"][8:]
+                                data["pluginInfo"]["type"] = "album"
+                                data["pluginInfo"]["albumName"] = data["playlistInfo"]["name"]
+                                data["pluginInfo"]["albumUrl"] = query
+                        except KeyError:
+                            pass
                     return playlist_cls(data=data, url=query, encoded_name=encoded_name, pluginInfo=data.pop("pluginInfo", {}), **kwargs)
 
                 track_cls = kwargs.pop('track_cls', Track)
@@ -419,10 +430,7 @@ class Node:
         if self.version < 4:
             return
 
-        if self.plugins_dict is None:
-            self.plugins_dict = {p.pop("name"): p for p in self.info["plugins"]}
-
-        return "lyrics" in self.plugins_dict
+        return "java-lyrics-plugin" in self.plugin_names
 
     async def fetch_ytm_lyrics(self, ytid: str):
 
