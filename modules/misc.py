@@ -608,10 +608,10 @@ class Misc(commands.Cog):
             embed.description += "### Statistics (totals across all bots):\n"
 
             if public_bot_count:
-                embed.description += f"> 🤖 **⠂Public{s} Bot{(s:='s'[:public_bot_count^1])}:** `{public_bot_count:,}`\n"
+                embed.description += f"> 🤖 **⠂Bot{(s:='s'[:public_bot_count^1])} public{s}:** `{public_bot_count:,}`\n"
 
             if private_bot_count:
-                embed.description += f"> 🤖 **⠂Private{s} Bot{(s:='s'[:private_bot_count^1])}:** `{private_bot_count:,}`\n"
+                embed.description += f"> 🤖 **⠂Bot{(s:='s'[:private_bot_count^1])} private{s}:** `{private_bot_count:,}`\n"
 
             embed.description += f"> 🏙️ **⠂Server{'s'[:guilds_size^1]}:** `{guilds_size:,}`\n"
 
