@@ -39,12 +39,12 @@ class LastFMView(disnake.ui.View):
 
 
         if session_key:
-            btn2 = disnake.ui.Button(label="Desvincular conta do last.fm", style=disnake.ButtonStyle.red)
+            btn2 = disnake.ui.Button(label="Unlink last.fm account", style=disnake.ButtonStyle.red)
             btn2.callback = self.disconnect_account
             self.add_item(btn2)
 
         else:
-            btn = disnake.ui.Button(label="Vincular conta do last.fm")
+            btn = disnake.ui.Button(label="Link last.fm account")
             btn.callback = self.send_authurl_callback
             self.add_item(btn)
 
@@ -75,7 +75,7 @@ class LastFMView(disnake.ui.View):
 
     async def interaction_check(self, interaction: disnake.MessageInteraction) -> bool:
         if interaction.user.id != self.ctx.author.id:
-            await interaction.send("Você não pode usar esse botão", ephemeral=True)
+            await interaction.send("You cannot use that button", ephemeral=True)
             return False
         return True
 
@@ -94,12 +94,12 @@ class LastFMView(disnake.ui.View):
             self.auth_url = f'http://www.last.fm/api/auth/?api_key={self.ctx.bot.last_fm.api_key}&token={self.token}'
             self.last_timestamp = int((disnake.utils.utcnow() + datetime.timedelta(minutes=5)).timestamp())
 
-        await interaction.send(f"### [Clique aqui](<{self.auth_url}>) para vincular sua conta do last.fm (na página clique em \"allow\")\n\n"
-                               f"`O link expira em` <t:{self.last_timestamp}:R> `(Caso esteja expirado, clique no botão novamente).`\n\n"
-                               f"`Atenção: Não mostre o link do \"clique aqui\" pra ninguem e nem envie em locais "
-                               f"públicos, pois esse link pode conceder acesso a sua conta do last.fm`\n\n"
-                               "`Caso já tenha autorizado a aplicação você deve aguardar até 20 segundos para a "
-                               "mensagem acima atualizar confirmando o processo.`",
+        await interaction.send(f"### [Click here](<{self.auth_url}>) to link your Last.fm account (on the page, click \"allow\")\n\n"
+                               f"`The link expires in` <t:{self.last_timestamp}:R> `(If it has expired, click the button again).`\n\n"
+                               f"`Attention: Do not share the \"click here\" link with anyone or post it in public places, "
+                               f"as this link can grant access to your last.fm account`\n\n"
+                               "`If you have already authorized the application, you must wait up to 20 seconds "
+                               "for the above message to update and confirm the process.`",
                                ephemeral=True, delete_after=300)
 
 class LastFmCog(commands.Cog):
@@ -116,11 +116,11 @@ class LastFmCog(commands.Cog):
 
     lastm_flags = CommandArgparse()
     lastm_flags.add_argument('-last_tracks', '-lasttracks', '-last', '-recents',
-                             help="Quantidade de músicas recentes a serem exibidas.\nEx: -last 5",
+                             help="Number of recent songs to be displayed.\nEx: -last 5",
                              type=int, default=0)
 
     @commands.command(hidden=True, name="lastfm", aliases=["lastfmconnect", "lfm"],
-                      description="Conectar sua conta do last.fm.", extras={"flags": lastm_flags},
+                      description="Connect your last.fm account.", extras={"flags": lastm_flags},
                       cooldown=lastfm_cd, max_concurrency=lastfm_mc)
     async def lastfm_legacy(self, ctx: CustomContext, *flags):
 
@@ -133,12 +133,12 @@ class LastFmCog(commands.Cog):
 
 
     @commands.slash_command(hidden=True, name="lastfm",
-                      description=f"{desc_prefix}Conectar sua conta do last.fm",
+                      description=f"{desc_prefix}Connect your last.fm account",
                       cooldown=lastfm_cd, max_concurrency=lastfm_mc)
     async def lastfm(
             self, inter: disnake.AppCmdInter,
             last_tracks_amount: int = commands.Param(
-                name="músicas_recentes", description="Quantidade de músicas recentes a serem exibidas.",
+                name="músicas_recentes", description="Number of recent songs to be displayed.",
                 default=0, min_value=0, max_value=7
             ),
     ):
@@ -178,17 +178,17 @@ class LastFmCog(commands.Cog):
 
             name = lastfm_user['realname'] or lastfm_user['name']
 
-            txt = f"> `👤` **⠂Usuário:** [`{name}`](<{lastfm_user['url']}>)\n" \
-                  f"> `⏰` **⠂Conta criada em:** <t:{lastfm_user['registered']['#text']}:f>\n"
+            txt = f"> `👤` **⠂User:** [`{name}`](<{lastfm_user['url']}>)\n" \
+                  f"> `⏰` **⠂Account created on:** <t:{lastfm_user['registered']['#text']}:f>\n"
 
             if lastfm_user['country']:
-                txt += f"> `🌎` **⠂País:** `{lastfm_user['country']}`\n"
+                txt += f"> `🌎` **⠂Country:** `{lastfm_user['country']}`\n"
 
             if playcount := lastfm_user['playcount']:
-                txt += f"> `🔊` **⠂Total de músicas reproduzidas:** [`{int(playcount):,}`](<https://www.last.fm/user/{lastfm_user['name']}/library>)\n"
+                txt += f"> `🔊` **⠂Total number of songs played:** [`{int(playcount):,}`](<https://www.last.fm/user/{lastfm_user['name']}/library>)\n"
 
             if playlists := lastfm_user['playlists'] != "0":
-                txt += f"> `📄` **⠂Playlists públicas:** [`{int(playlists):,}`](<https://www.last.fm/user/{lastfm_user['name']}/playlists>)\n"
+                txt += f"> `📄` **⠂Public playlists:** [`{int(playlists):,}`](<https://www.last.fm/user/{lastfm_user['name']}/playlists>)\n"
 
             try:
                 slashcmd = f"</play:" + str(self.bot.get_global_command_named("play",
@@ -198,13 +198,13 @@ class LastFmCog(commands.Cog):
 
             bar = "https://cdn.discordapp.com/attachments/554468640942981147/1246060048472342549/rainbow_bar3.gif"
 
-            txt += f"\n`Ouça suas músicas em um canal de voz usando o comando` {slashcmd} `para registra-las na sua " \
-                    f"conta do last.fm`\n"
+            txt += f"\n`Listen to your music in a voice channel using the` {slashcmd} `command to log them " \
+                    f"to your last.fm account.`\n"
 
             embeds = [disnake.Embed(
                 description=txt, color=self.bot.get_color()
             ).set_thumbnail(url=lastfm_user['image'][-1]["#text"]).set_author(
-                name="Last.fm: Informações da conta vinculada",
+                name="Last.fm: Linked account information",
                 icon_url="https://www.last.fm/static/images/lastfm_avatar_twitter.52a5d69a85ac.png")]
 
             top_tracks = await self.bot.last_fm.user_top_tracks(data["lastfm"]["username"], limit=3)
@@ -213,7 +213,7 @@ class LastFmCog(commands.Cog):
 
                 embed = disnake.Embed(
                     description="\n".join(f"> ` {n+1}º ` [`{t['name']}`]({t['url']}) `De:` [`{t['artist']['name']}`]({t['artist']['url']}) `(x{int(t['playcount']):,})`" for n, t in enumerate(top_tracks)),
-                    color=embed_color).set_author(name=f"Top 3: Músicas que você mais ouviu (do total de {int(lastfm_user['track_count']):,}):",
+                    color=embed_color).set_author(name=f"Top 3: Songs you listened to the most (out of the total {int(lastfm_user['track_count']):,}):",
                     icon_url="https://i.ibb.co/Hhcwdf9/muse-heart-disc.jpg",
                     url=f"https://www.last.fm/user/{lastfm_user['name']}/library")
 
@@ -248,7 +248,7 @@ class LastFmCog(commands.Cog):
 
                 embed = disnake.Embed(
                     description="\n".join(f"> ` {n+1}º ` [`{t['name']}`]({t['url']}) `(x{int(t['playcount']):,})`" for n, t in enumerate(top_artists)),
-                    color=embed_color).set_author(name=f"Top 3: Artistas que você mais ouviu (do total de {int(lastfm_user['artist_count']):,}):",
+                    color=embed_color).set_author(name=f"Top 3: Artists you listened to the most (out of the total {int(lastfm_user['artist_count']):,}):",
                     icon_url="https://i.ibb.co/8KQzkyy/muse-heart-artist-icon.jpg",
                     url=f"https://www.last.fm/user/{lastfm_user['name']}/library/artists")
 
@@ -273,7 +273,7 @@ class LastFmCog(commands.Cog):
 
                 embed = disnake.Embed(
                     description="\n".join(f"> ` {n+1}º ` [`{b['name']}`]({b['url']}) `de:` [`{b['artist']['name']}`]({b['artist']['url']}) `(x{int(b['playcount']):,})`" for n, b in enumerate(top_albuns)),
-                    color=embed_color).set_author(name=f"Top 5: Álbuns que você mais ouviu (do total de {int(lastfm_user['album_count']):,}):",
+                    color=embed_color).set_author(name=f"Top 5: Albums you listened to the most (out of the total {int(lastfm_user['album_count']):,}):",
                     icon_url="https://i.ibb.co/s6TQK5D/muse-heart-disc-album.jpg",
                     url=f"https://www.last.fm/user/{lastfm_user['name']}/library/albums")
 
@@ -297,30 +297,30 @@ class LastFmCog(commands.Cog):
                 recenttracks = await self.bot.last_fm.user_recent_tracks(lastfm_user['name'])
 
                 if recenttracks['track']:
-                    embeds[0].description += f"## Músicas recentes ouvidas por [`{name}`](<{lastfm_user['url']}>):"
+                    embeds[0].description += f"## Recent songs listened to by [`{name}`](<{lastfm_user['url']}>):"
 
                     for n, t in enumerate(recenttracks['track'][:last_tracks_amount]):
                         try:
                             txt = f"` {n+1}. ` [`{t['name']}`]({t['url']}) ( <t:{t['date']['uts']}:R> )\n"
                         except KeyError:
-                            txt = f"`[▶️] Ouvindo agora:` [`{t['name']}`]({t['url']})\n"
+                            txt = f"`[▶️] Listening now:` [`{t['name']}`]({t['url']})\n"
                         artist_url = t['url'].split('/_/')[0]
                         t_embed = disnake.Embed(
                             color=embed_color,
-                            description=f"{txt}`Artista:` [`{t['artist']['#text']}`]({artist_url})"
+                            description=f"{txt}`Artist:` [`{t['artist']['#text']}`]({artist_url})"
                         )
                         if t['album']['#text']:
-                            t_embed.description += f" **-** `Álbum:` [`{t['album']['#text']}`]({artist_url}/{quote(t['album']['#text'])})"
+                            t_embed.description += f" **-** `Album:` [`{t['album']['#text']}`]({artist_url}/{quote(t['album']['#text'])})"
                         t_embed.set_thumbnail(url=t['image'][0]['#text'] or 'https://i.ibb.co/pQPrKdw/lastfm-unknown-image.webp')
                         t_embed.set_image(url=bar)
                         embeds.append(t_embed)
 
         else:
             embeds = [disnake.Embed(
-                description="**Vincule (ou crie) uma conta no [last.fm](<https://www.last.fm/home>) para registrar "
-                            "todas as músicas que você ouvir por aqui no seu perfil do last.fm para obter sugestões de "
-                            "músicas/artistas/álbuns e ter uma estatística geral das músicas que você ouviu alem de ter "
-                            "acesso a uma comunidade incrível da plataforma.**",
+                description="**Link (or create) an account on [last.fm](<https://www.last.fm/home>) "
+                            "to log all the music you listen to here on your Last.fm profile. "
+                            "This will allow you to get music/artist/album recommendations, have a general statistic of the music you listened to, "
+                            "and gain access to an amazing community on the platform.**",
                 color=embed_color
             ).set_thumbnail(url="https://www.last.fm/static/images/lastfm_avatar_twitter.52a5d69a85ac.png")]
 
@@ -344,7 +344,7 @@ class LastFmCog(commands.Cog):
                 raise view.error
 
             embeds[-1].set_footer(
-                text="O tempo para interagir nessa mensagem foi esgotado.",
+                text="The time to interact with this message has expired.",
                 icon_url="https://i.ibb.co/gb0cZQw/warning.png",
             )
 
@@ -371,9 +371,9 @@ class LastFmCog(commands.Cog):
             func = inter.edit_original_message
 
         if view.session_key:
-            embeds[0].description += f"\n### A conta [{view.username}](<https://www.last.fm/user/{view.username}>) foi " \
-                                 "vinculada com sucesso!\n\n`Agora ao ouvir suas músicas no canal de voz elas " \
-                                "serão registradas automaticamente na sua conta do last.fm`"
+            embeds[0].description += f"\n### The account [{view.username}](<https://www.last.fm/user/{view.username}>) " \
+                                 "has been successfully linked!\n\n`Now, when you listen to your music in the voice channel, " \
+                                "it will be automatically logged to your last.fm account`"
 
             await func(embeds=embeds, view=view, content=None)
 
@@ -388,7 +388,7 @@ class LastFmCog(commands.Cog):
 
         else:
             embeds[-1].set_footer(
-                text="Sua conta foi desvinculada com sucesso!",
+                text="Your account has been successfully unlinked!",
                 icon_url="https://i.ibb.co/xLFhCd2/confirm.png",
             )
             await func(embeds=embeds, view=view, content=None)
@@ -559,6 +559,6 @@ class LastFmCog(commands.Cog):
 
 def setup(bot):
     if not bot.pool.config["LASTFM_KEY"] or not bot.pool.config["LASTFM_SECRET"]:
-        print(("="*48) + "\n⚠️ - Os recursos do Last.FM estarão desativados devido a falta de configuração do LASTFM_KEY e LASTFM_SECRET")
+        print(("="*48) + "\n⚠️ - The Last.FM source will be disabled due to the lack of configuration of LASTFM_KEY and LASTFM_SECRET")
         return
     bot.add_cog(LastFmCog(bot))
