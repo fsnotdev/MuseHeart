@@ -948,13 +948,9 @@ class LavalinkPlayer(wavelink.Player):
                     await self.process_next(start_position=self.position)
 
                 else:
-                    try:
-                        self._new_node_task.cancel()
-                    except:
-                        pass
-                    self._new_node_task = self.bot.loop.create_task(self._wait_for_new_node(
-                        f"The music server **{self.node.identifier}** is currently unavailable "
-                        f"(waiting for a new server to become available)."))
+                    await asyncio.sleep(10)
+                    self.current = track
+                    await self.play(track=track, start=self.position)
                 return
 
             if (youtube_exception := (event.error == "This IP address has been blocked by YouTube (429)" or
@@ -3048,16 +3044,14 @@ class LavalinkPlayer(wavelink.Player):
 
             stats["user"] = u
 
-            try:
-                token = self.bot.pool.rpc_token_cache[u]
-            except KeyError:
-                data = await self.bot.get_global_data(id_=u, db_name=DBModel.users)
-                token = data["token"]
+            data = await self.bot.get_global_data(id_=u, db_name=DBModel.users)
 
-            if self.bot.config["ENABLE_RPC_AUTH"] and not token:
+            if self.bot.config["ENABLE_RPC_AUTH"] and not data["token"]:
                 continue
 
-            stats["token"] = token
+            stats.update(
+                {"token": data["token"], "lastfm_user": data["lastfm"]["username"]}
+            )
 
             try:
                 await self.bot.ws_client.send(stats)
