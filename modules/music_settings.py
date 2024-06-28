@@ -1183,7 +1183,7 @@ class MusicSettings(commands.Cog):
 
         try:
             if bot.user.id != self.bot.user.id:
-                embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                embed.set_footer(text=f"Bot selected: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
         except AttributeError:
             pass
 

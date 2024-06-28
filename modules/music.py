@@ -1062,7 +1062,7 @@ class Music(commands.Cog):
 
             try:
                 if bot.user.id != self.bot.user.id:
-                    embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                    embed.set_footer(text=f"Bot selected: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
             except AttributeError:
                 pass
 
@@ -1201,7 +1201,7 @@ class Music(commands.Cog):
 
                 try:
                     if bot.user.id != self.bot.user.id:
-                        embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                        embed.set_footer(text=f"Bot selected: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
                 except AttributeError:
                     pass
 
@@ -1469,7 +1469,7 @@ class Music(commands.Cog):
                         raise GenericError(f"**The provided link is not supported:** {query}")
                     manual_selection = True
 
-                if "&list=" in query and (link_re := YOUTUBE_VIDEO_REG.match(query)):
+                elif "&list=" in query and (link_re := YOUTUBE_VIDEO_REG.match(query)):
 
                     view = SelectInteraction(
                         user=inter.author,
@@ -1488,7 +1488,7 @@ class Music(commands.Cog):
 
                     try:
                         if bot.user.id != self.bot.user.id:
-                            embed.set_footer(text=f"Via: {bot.user.display_name}",
+                            embed.set_footer(text=f"Bot selected: {bot.user.display_name}",
                                              icon_url=bot.user.display_avatar.url)
                     except AttributeError:
                         pass
@@ -1605,7 +1605,7 @@ class Music(commands.Cog):
 
         if isinstance(tracks, list):
 
-            if manual_selection and not queue_loaded and len(tracks) > 1:
+            if not queue_loaded and len(tracks) > 1 and (tracks[0].info['sourceName'] == "deezer" or manual_selection):
 
                 embed.description = f"**Select the desired song(s) below:**"
 
@@ -1875,7 +1875,7 @@ class Music(commands.Cog):
 
             try:
                 if bot.user.id != self.bot.user.id:
-                    embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                    embed.set_footer(text=f"Bot selected: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
             except AttributeError:
                 pass
 
@@ -2091,7 +2091,7 @@ class Music(commands.Cog):
 
             try:
                 if bot.user.id != self.bot.user.id:
-                    embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                    embed.set_footer(text=f"Bot selected: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
             except AttributeError:
                 pass
 
@@ -2123,7 +2123,7 @@ class Music(commands.Cog):
 
                 try:
                     if bot.user.id != self.bot.user.id:
-                        embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                        embed.set_footer(text=f"Bot selected: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
                 except AttributeError:
                     pass
 
@@ -2313,7 +2313,7 @@ class Music(commands.Cog):
 
             try:
                 if bot.user.id != self.bot.user.id:
-                    embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                    embed.set_footer(text=f"Bot selected: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
             except AttributeError:
                 pass
 
@@ -3097,7 +3097,7 @@ class Music(commands.Cog):
         else:
             try:
                 if player.bot.user.id != self.bot.user.id:
-                    footer_kw["text"] = f"Via: {player.bot.user.display_name}"
+                    footer_kw["text"] = f"Bot selected: {player.bot.user.display_name}"
                     footer_kw["icon_url"] = player.bot.user.display_avatar.url
             except AttributeError:
                 pass
@@ -3222,7 +3222,7 @@ class Music(commands.Cog):
 
                 try:
                     if bot.user.id != self.bot.user.id:
-                        embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                        embed.set_footer(text=f"Bot selected: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
                 except AttributeError:
                     pass
 
@@ -3397,7 +3397,7 @@ class Music(commands.Cog):
 
             try:
                 if bot.user.id != self.bot.user.id:
-                    embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                    embed.set_footer(text=f"Bot selected: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
             except AttributeError:
                 pass
 
@@ -3605,7 +3605,7 @@ class Music(commands.Cog):
 
         try:
             if bot.user.id != self.bot.user.id:
-                embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                embed.set_footer(text=f"Bot selected: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
         except AttributeError:
             pass
 
@@ -3997,10 +3997,10 @@ class Music(commands.Cog):
     async def move(
             self,
             inter: disnake.AppCmdInter,
-            position: int = commands.Param(name="position", description="Destination position in the queue (Optional).",
-                                           min_value=1, max_value=900, default=1),
             song_name: str = commands.Param(name="name", description="Include the name of the song.",
                                             default=None),
+            position: int = commands.Param(name="position", description="Destination position in the queue (Optional).",
+                                           min_value=1, max_value=900, default=1),
             song_author: str = commands.Param(name="uploader",
                                               description="Include the name of the song author/artist/uploader.",
                                               default=None),
@@ -4574,7 +4574,7 @@ class Music(commands.Cog):
 
         try:
             if bot.user.id != self.bot.user.id:
-                embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                embed.set_footer(text=f"Bot selected: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
         except AttributeError:
             pass
 
@@ -4689,8 +4689,12 @@ class Music(commands.Cog):
         if not interaction:
             interaction = inter
 
-        if not interaction.response.is_done():
-            await interaction.response.defer(ephemeral=True)
+        cog = self.bot.get_cog("Music")
+
+        if cog:
+            await inter.response.defer(ephemeral=await cog.is_request_channel(inter, ignore_thread=True))
+        else:
+            await inter.response.defer(ephemeral=True)
 
         user_data = await bot.get_global_data(inter.author.id, db_name=DBModel.users)
 
@@ -5079,7 +5083,7 @@ class Music(commands.Cog):
                     if not (url:=interaction.message.embeds[0].author.url):
                         if not (matches:=URL_REG.findall(interaction.message.embeds[0].description)):
                             return
-                        url = matches[0].strip("<>")
+                        url = matches[0].split(">")[0]
                 except:
                     return
 
@@ -6504,7 +6508,7 @@ class Music(commands.Cog):
 
             try:
                 if bot.user.id != self.bot.user.id:
-                    embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                    embed.set_footer(text=f"Bot selected: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
             except AttributeError:
                 pass
 
@@ -6532,7 +6536,7 @@ class Music(commands.Cog):
 
             try:
                 if bot.user.id != self.bot.user.id:
-                    embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                    embed.set_footer(text=f"Bot selected: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
             except AttributeError:
                 pass
 
@@ -6788,116 +6792,117 @@ class Music(commands.Cog):
         if not nodes:
             raise GenericError("**There are no music servers available!**")
 
-        tracks = await self.bot.pool.deezer.get_tracks(user.id, query) or await self.bot.spotify.get_tracks(self.bot, user.id, query)
-
-        if not tracks and (bot.pool.config["FORCE_USE_DEEZER_CLIENT"] or [n for n in bot.music.nodes.values() if "deezer" in n.info.get("sourceManagers", [])]):
-            tracks = await bot.deezer.get_tracks(url=query, requester=user.id)
-
         exceptions = set()
 
         is_yt_source = False
 
+        tracks = []
+
+        if use_cache:
+            try:
+                tracks = self.bot.pool.playlist_cache[query]
+            except KeyError:
+                pass
+            else:
+                playlist = tracks[0].playlist
+                playlist.tracks = tracks
+                tracks = playlist
+
         if not tracks:
 
-            if use_cache:
-                try:
-                    tracks = self.bot.pool.playlist_cache[query]
-                except KeyError:
-                    pass
+            is_yt_source = query.lower().startswith(
+                ("https://youtu.be", "https://www.youtube.com", "https://music.youtube.com")
+            )
+
+            for n in nodes:
+
+                node_retry = False
+
+                if source is False:
+                    providers = [n.search_providers[:1]]
+                    if query.startswith("https://www.youtube.com/live/"):
+                        query = query.split("?")[0].replace("/live/", "/watch?v=")
+
+                    elif query.startswith("https://listen.tidal.com/album/") and "/track/" in query:
+                        query = f"http://www.tidal.com/track/{query.split('/track/')[-1]}"
+
+                    elif query.startswith(("https://youtu.be/", "https://www.youtube.com/")):
+
+                        for p in ("&ab_channel=", "&start_radio="):
+                            if p in query:
+                                try:
+                                    query = f'https://www.youtube.com/watch?v={re.search(r"v=([a-zA-Z0-9_-]+)", query).group(1)}'
+                                except:
+                                    pass
+                                break
+                elif source:
+                    providers = [s for s in n.search_providers if s != source]
+                    providers.insert(0, source)
                 else:
-                    playlist = tracks[0].playlist
-                    playlist.tracks = tracks
-                    tracks = playlist
+                    source = True
+                    providers = n.search_providers
 
-            if not tracks:
+                for search_provider in providers:
 
-                is_yt_source = query.lower().startswith(
-                    ("https://youtu.be", "https://www.youtube.com", "https://music.youtube.com")
-                )
-
-                for n in nodes:
-
-                    node_retry = False
-
-                    if source is False:
-                        providers = [n.search_providers[:1]]
-                        if query.startswith("https://www.youtube.com/live/"):
-                            query = query.split("?")[0].replace("/live/", "/watch?v=")
-
-                        elif query.startswith("https://listen.tidal.com/album/") and "/track/" in query:
-                            query = f"http://www.tidal.com/track/{query.split('/track/')[-1]}"
-
-                        elif query.startswith(("https://youtu.be/", "https://www.youtube.com/")):
-
-                            for p in ("&ab_channel=", "&start_radio="):
-                                if p in query:
-                                    try:
-                                        query = f'https://www.youtube.com/watch?v={re.search(r"v=([a-zA-Z0-9_-]+)", query).group(1)}'
-                                    except:
-                                        pass
-                                    break
-                    elif source:
-                        providers = [s for s in n.search_providers if s != source]
-                        providers.insert(0, source)
-                    else:
-                        source = True
-                        providers = n.search_providers
-
-                    for search_provider in providers:
-
+                    try:
                         search_query = f"{search_provider}:{query}" if source else query
+                        tracks = await n.get_tracks(
+                            search_query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist, requester=user.id
+                        )
+                    except Exception as e:
+                        exceptions.add(repr(e))
+                        if [e for e in ("Video returned by YouTube isn't what was requested", "The video returned is not what was requested.") if e in str(e)]:
 
-                        try:
-                            tracks = await n.get_tracks(
-                                search_query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist, requester=user.id
-                            )
-                        except Exception as e:
-                            exceptions.add(repr(e))
-                            if [e for e in ("Video returned by YouTube isn't what was requested", "The video returned is not what was requested.") if e in str(e)]:
+                            if is_yt_source and n.version > 3:
+                                try:
+                                    n.search_providers.remove("ytsearch")
+                                except:
+                                    pass
+                                try:
+                                    n.search_providers.remove("ytmsearch")
+                                except:
+                                    pass
 
-                                if is_yt_source and n.version > 3:
-                                    try:
-                                        n.search_providers.remove("ytsearch")
-                                    except:
-                                        pass
-                                    try:
-                                        n.search_providers.remove("ytmsearch")
-                                    except:
-                                        pass
+                            if is_yt_source:
+                                node_retry = True
+                                break
 
-                                if is_yt_source:
-                                    node_retry = True
-                                    break
+                        if not isinstance(e, wavelink.TrackNotFound):
+                            print(f"Search processing failed...\n{query}\n{traceback.format_exc()}")
 
-                            if not isinstance(e, wavelink.TrackNotFound):
-                                print(f"Failed to process search...\n{query}\n{traceback.format_exc()}")
-
-                        if tracks or not source:
-                            break
-
-                    if not node_retry:
-                        node = n
+                    if tracks or not source:
                         break
 
+                if not node_retry:
+                    node = n
+                    break
+
         if not tracks:
 
-            txt = "\n".join(exceptions)
+            if (bot.pool.config["FORCE_USE_DEEZER_CLIENT"] or [n for n in bot.music.nodes.values() if "deezer" in n.info.get("sourceManagers", [])]):
+                tracks = await self.bot.pool.deezer.get_tracks(url=query, requester=user.id)
 
-            if is_yt_source and "Video returned by YouTube isn't what was requested" in txt:
-                raise YoutubeSourceDisabled()
+            if not tracks:
+                tracks = await self.bot.pool.spotify.get_tracks(self.bot, user.id, query)
 
-            if txt:
+                if not tracks:
 
-                if "This track is not readable. Available countries:" in txt:
-                    txt = "The music you requested is not available in the current region..."
-                raise GenericError(f"**An error occurred while processing your search:** \n{txt}", error=txt)
-            raise GenericError("**There were no results for your search.**")
+                    txt = "\n".join(exceptions)
+
+                    if is_yt_source and "Video returned by YouTube isn't what was requested" in txt:
+                        raise YoutubeSourceDisabled()
+
+                    if txt:
+
+                        if "This track is not readable. Available countries:" in txt:
+                            txt = "The requested music is not available in the current region..."
+                        raise GenericError(f"**An error occurred while processing your search:** \n{txt}", error=txt)
+                    raise GenericError("**There were no results for your search.**")
 
         if isinstance(tracks, list):
             tracks[0].info["extra"]["track_loops"] = track_loops
 
         else:
-
             if (selected := tracks.data['playlistInfo']['selectedTrack']) > 0:
                 tracks.tracks = tracks.tracks[selected:] + tracks.tracks[:selected]
 

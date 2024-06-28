@@ -197,10 +197,8 @@ class LastFmCog(commands.Cog):
             except AttributeError:
                 slashcmd = "/play"
 
-            bar = "https://cdn.discordapp.com/attachments/554468640942981147/1246060048472342549/rainbow_bar3.gif"
-
             txt += f"\n`Listen to your music in a voice channel using the` {slashcmd} `command to log them " \
-                    f"to your last.fm account.`\n"
+                    f"to your last.fm account`\n"
 
             embeds = [disnake.Embed(
                 description=txt, color=self.bot.get_color()
@@ -298,7 +296,6 @@ class LastFmCog(commands.Cog):
                 recenttracks = await self.bot.last_fm.user_recent_tracks(lastfm_user['name'])
 
                 if recenttracks['track']:
-                    embeds[0].description += f"## Recent songs listened to by [`{name}`](<{lastfm_user['url']}>):"
 
                     for n, t in enumerate(recenttracks['track'][:last_tracks_amount]):
                         try:
@@ -310,10 +307,16 @@ class LastFmCog(commands.Cog):
                             color=embed_color,
                             description=f"{txt}`Artist:` [`{t['artist']['#text']}`]({artist_url})"
                         )
+
+                        if n == 0:
+                            t_embed.set_author(
+                                icon_url="https://i.ibb.co/Qb3zjQ5/muse-heart-recently-played.jpg",
+                                name=f"Recent music track{(s:='s'[:last_tracks_amount^1])} {s}you listened to:"
+                            )
+
                         if t['album']['#text']:
                             t_embed.description += f" **-** `Album:` [`{t['album']['#text']}`]({artist_url}/{quote(t['album']['#text'])})"
                         t_embed.set_thumbnail(url=t['image'][0]['#text'] or 'https://i.ibb.co/pQPrKdw/lastfm-unknown-image.webp')
-                        t_embed.set_image(url=bar)
                         embeds.append(t_embed)
 
         else:
