@@ -4692,25 +4692,23 @@ class Music(commands.Cog):
         cog = self.bot.get_cog("Music")
 
         if cog:
-            await inter.response.defer(ephemeral=await cog.is_request_channel(inter, ignore_thread=True))
+            ephemeral = await cog.is_request_channel(inter, ignore_thread=True)
+            await inter.response.defer(ephemeral=ephemeral)
         else:
-            await inter.response.defer(ephemeral=True)
+            ephemeral = True
 
         user_data = await bot.get_global_data(inter.author.id, db_name=DBModel.users)
 
         view = FavMenuView(bot=bot, ctx=interaction, data=user_data, prefix=prefix, mode=mode, is_owner=await bot.is_owner(inter.author))
         view.guild_data = guild_data
 
-        embed = view.build_embed()
+        txt = view.build_txt()
 
-        if not embed:
+        if not txt:
             raise GenericError("**This feature is not supported at the moment...**\n\n"
-                             "`Spotify and YTDL support is not enabled..`")
+                             "`Support for Spotify and YTDL is not enabled.`")
 
-        try:
-            await interaction.edit_original_message(embed=embed, view=view)
-        except AttributeError:
-            view.message = await inter.send(embed=embed, view=view, ephemeral=True)
+        view.message = await inter.send(txt, view=view, ephemeral=ephemeral)
 
         await view.wait()
 
