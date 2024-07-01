@@ -333,7 +333,9 @@ class LastFmCog(commands.Cog):
                             "This will allow you to get music/artist/album recommendations, have a general statistic of the music you listened to, "
                             "and gain access to an amazing community on the platform.**",
                 color=embed_color
-            ).set_thumbnail(url="https://www.last.fm/static/images/lastfm_avatar_twitter.52a5d69a85ac.png")]
+            ).set_thumbnail(url="https://www.last.fm/static/images/lastfm_avatar_twitter.52a5d69a85ac.png").
+                      set_footer(text="Note: Music recognition will be ignored while you are listening to "
+                                      "YouTube and SoundCloud")]
 
         view = LastFMView(inter, session_key=current_session_key)
 

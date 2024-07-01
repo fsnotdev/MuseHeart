@@ -583,8 +583,9 @@ class LavalinkPlayer(wavelink.Player):
 
         if self.bot.config["LASTFM_KEY"] and self.bot.config["LASTFM_SECRET"]:
             self.initial_hints.append(
-                f"You can link a last.fm account to log the songs you listen to here in your played tracks list. "
-                f"Try using the /lastfm command or {self.prefix_info}lastfm"
+                f"You can link a last.fm account to track the songs you listen to here in your play history. "
+                f"Try using the command /lastfm or {self.prefix_info}lastfm "
+                "(Note: Feature is not compatible with songs from YouTube and SoundCloud)"
             )
 
         if hint_platforms:
