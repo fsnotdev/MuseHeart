@@ -911,7 +911,8 @@ class LavalinkPlayer(wavelink.Player):
 
             if event.cause.startswith((
                     "java.net.SocketTimeoutException: Read timed out",
-                    "java.net.SocketException: Network is unreachable"
+                    "java.net.SocketException: Network is unreachable",
+                    "java.lang.IllegalStateException: Connection pool shut down",
             )) \
                 or (video_not_available:=event.cause.startswith((
                 "com.sedmelluq.discord.lavaplayer.tools.FriendlyException: This video is not available",
@@ -1821,6 +1822,7 @@ class LavalinkPlayer(wavelink.Player):
                     self.idle_endtime = disnake.utils.utcnow() + datetime.timedelta(seconds=self.bot.config["IDLE_TIMEOUT"])
                     self.last_track = None
                     self.idle_task = self.bot.loop.create_task(self.idling_mode())
+                    self.bot.dispatch("player_queue_end", player=self)
                     return
 
             except Exception:
