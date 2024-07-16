@@ -58,46 +58,46 @@ class DefaultStaticSkin:
 
         current_time = disnake.utils.utcnow() - datetime.timedelta(milliseconds=player.position)
 
-        duration = f"> 🔴 **⠂Livestream:** <t:{int(current_time.timestamp())}:R>\n" if player.current.is_stream else \
-            (f"> ⏰ **⠂Duration:** `{time_format(player.current.duration)} [`<t:{int(current_time.timestamp())}:R>`]`\n"
+        duration = f"> -# 🔴 **⠂Livestream:** <t:{int(current_time.timestamp())}:R>\n" if player.current.is_stream else \
+            (f"> -# ⏰ **⠂Duration:** `{time_format(player.current.duration)} [`<t:{int(current_time.timestamp())}:R>`]`\n"
             if not player.paused else '')
 
-        txt = f"[`{player.current.single_title}`]({player.current.uri or player.current.search_uri})\n\n" \
+        txt = f"-# [`{player.current.single_title}`]({player.current.uri or player.current.search_uri})\n\n" \
               f"{duration}" \
-              f"> 💠 **⠂By:** {player.current.authors_md}"
+              f"> -# 💠 **⠂By:** {player.current.authors_md}"
 
         if not player.current.autoplay:
-            txt += f"\n> ✋ **⠂Requested by:** <@{player.current.requester}>"
+            txt += f"\n> -# ✋ **⠂Requested by:** <@{player.current.requester}>"
         else:
             try:
                 mode = f" [`Recommendation`]({player.current.info['extra']['related']['uri']})"
             except:
                 mode = "`Recommendation`"
-            txt += f"\n> 👍 **⠂Added via:** {mode}"
+            txt += f"\n> -# 👍 **⠂Added via:** {mode}"
 
         try:
-            vc_txt = f"\n> *️⃣ **⠂Voice channel:** {player.guild.me.voice.channel.mention}"
+            vc_txt = f"\n> -# *️⃣ **⠂Voice channel:** {player.guild.me.voice.channel.mention}"
         except AttributeError:
             pass
 
         if player.current.track_loops:
-            txt += f"\n> 🔂 **⠂Remaining Loops:** `{player.current.track_loops}`"
+            txt += f"\n> -# 🔂 **⠂Remaining repetitions:** `{player.current.track_loops}`"
 
         if player.loop:
             if player.loop == 'current':
                 e = '🔂'; m = 'Current Song'
             else:
                 e = '🔁'; m = 'Queue'
-            txt += f"\n> {e} **⠂Loop Mode:** `{m}`"
+            txt += f"\n> -# {e} **⠂Repeat mode:** `{m}`"
 
         if player.current.album_name:
-            txt += f"\n> 💽 **⠂Album:** [`{fix_characters(player.current.album_name, limit=20)}`]({player.current.album_url})"
+            txt += f"\n> -# 💽 **⠂Album:** [`{fix_characters(player.current.album_name, limit=20)}`]({player.current.album_url})"
 
         if player.current.playlist_name:
-            txt += f"\n> 📑 **⠂Playlist:** [`{fix_characters(player.current.playlist_name, limit=20)}`]({player.current.playlist_url})"
+            txt += f"\n> -# 📑 **⠂Playlist:** [`{fix_characters(player.current.playlist_name, limit=20)}`]({player.current.playlist_url})"
 
         if player.keep_connected:
-            txt += "\n> ♾️ **⠂24/7 Mode:** `Enabled`"
+            txt += "\n> -# ♾️ **⠂24/7 Mode:** `Enabled`"
 
         txt += f"{vc_txt}\n"
 
@@ -130,15 +130,15 @@ class DefaultStaticSkin:
                 if has_stream:
                     duration = time_format(t.duration) if not t.is_stream else '🔴 Ao vivo'
 
-                    queue_txt += f"`┌ {n+1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
-                           f"`└ ⏲️ {duration}`" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
+                    queue_txt += f"-# `┌ {n+1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
+                           f"-# `└ ⏲️ {duration}`" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
                            f" **|** `✋` <@{t.requester}>\n"
 
                 else:
                     duration = f"<t:{int((current_time + datetime.timedelta(milliseconds=queue_duration)).timestamp())}:R>"
 
-                    queue_txt += f"`┌ {n+1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
-                           f"`└ ⏲️` {duration}" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
+                    queue_txt += f"-# `┌ {n+1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
+                           f"-# `└ ⏲️` {duration}" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
                            f" **|** `✋` <@{t.requester}>\n"
 
             embed_queue = disnake.Embed(title=f"Songs in queue: {qlenght}", color=player.bot.get_color(player.guild.me),
@@ -175,15 +175,15 @@ class DefaultStaticSkin:
                 if has_stream:
                     duration = time_format(t.duration) if not t.is_stream else '🔴 Live'
 
-                    queue_txt += f"`┌ {n+1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
-                           f"`└ ⏲️ {duration}`" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
+                    queue_txt += f"-# `┌ {n+1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
+                           f"-# `└ ⏲️ {duration}`" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
                            f" **|** `👍⠂Recommended`\n"
 
                 else:
                     duration = f"<t:{int((current_time + datetime.timedelta(milliseconds=queue_duration)).timestamp())}:R>"
 
-                    queue_txt += f"`┌ {n+1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
-                           f"`└ ⏲️` {duration}" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
+                    queue_txt += f"-# `┌ {n+1})` [`{fix_characters(t.title, limit=34)}`]({t.uri})\n" \
+                           f"-# `└ ⏲️` {duration}" + (f" - `Repetitions: {t.track_loops}`" if t.track_loops else "") + \
                            f" **|** `👍⠂Recommended`\n"
 
             embed_queue = disnake.Embed(title="Next recommended songs:", color=player.bot.get_color(player.guild.me),

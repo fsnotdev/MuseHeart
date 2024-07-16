@@ -12,7 +12,7 @@ from collections import deque
 from contextlib import suppress
 from itertools import cycle
 from time import time
-from typing import Optional, Union, TYPE_CHECKING, List, Dict
+from typing import Optional, Union, TYPE_CHECKING, List
 from urllib import parse
 from urllib.parse import quote
 
@@ -777,19 +777,16 @@ class LavalinkPlayer(wavelink.Player):
 
     async def hook(self, event) -> None:
 
-        if self.is_closing:
+        """if self.is_closing:
             return
 
         event_name = str(event)
 
-        try:
-            if not self.hook_event_task[event_name].done():
-                return
-            self.hook_event_task[event_name].cancel()
-        except:
-            pass
+        if self.hook_event_task.get(event_name):
+            return
 
-        self.hook_event_task[event_name] = self.bot.loop.create_task(self.hook_events(event))
+        self.hook_event_task[event_name] = self.bot.loop.create_task(self.hook_events(event))"""
+        await self.hook_events(event)
 
     async def hook_events(self, event):
 
@@ -912,11 +909,11 @@ class LavalinkPlayer(wavelink.Player):
             if event.cause.startswith((
                     "java.net.SocketTimeoutException: Read timed out",
                     "java.net.SocketException: Network is unreachable",
-                    "java.lang.IllegalStateException: Connection pool shut down",
             )) \
                 or (video_not_available:=event.cause.startswith((
                 "com.sedmelluq.discord.lavaplayer.tools.FriendlyException: This video is not available",
                 "com.sedmelluq.discord.lavaplayer.tools.FriendlyException: YouTube WebM streams are currently not supported.",
+                "java.lang.IllegalStateException: Connection pool shut down",
             )) or event.message in ("Video returned by YouTube isn't what was requested", "The video returned is not what was requested.")):
                 await send_report()
 
@@ -948,6 +945,7 @@ class LavalinkPlayer(wavelink.Player):
                     await asyncio.sleep(3)
                     self.locked = False
                     await self.process_next(start_position=self.position)
+                    self.hook_event_task[str(event)] = None
 
                 else:
                     await asyncio.sleep(10)
@@ -976,6 +974,7 @@ class LavalinkPlayer(wavelink.Player):
                             await asyncio.sleep(3)
                         self.locked = False
                         self.update = True
+                        self.hook_event_task[str(event)] = None
                         return
 
                     elif self.retries_403["counter"] < 3:
@@ -987,6 +986,7 @@ class LavalinkPlayer(wavelink.Player):
                             return
 
                         self.locked = False
+                        self.hook_event_task[str(event)] = None
                         self.set_command_log(
                             text=f'Error 403 occurred while playing the current song on YouTube. Attempt {self.retries_403["counter"]}/5...')
                         if not self.auto_pause:
@@ -1015,6 +1015,7 @@ class LavalinkPlayer(wavelink.Player):
                     self.current = None
                     self.queue.appendleft(track)
                     self.locked = False
+                    self.hook_event_task[str(event)] = None
                     if track.info["sourceName"] == "youtube":
                         self.set_command_log(
                             text=f"Due to YouTube restrictions on the server `{self.node.identifier}`, during the current session "
@@ -1100,6 +1101,7 @@ class LavalinkPlayer(wavelink.Player):
             await asyncio.sleep(cooldown)
 
             self.locked = False
+            self.hook_event_task[str(event)] = None
             await self.process_next(start_position=start_position)
             return
 

@@ -33,8 +33,8 @@ class LiteSkin:
         duration = "`🔴 Livestream`" if player.current.is_stream else \
             time_format(player.current.duration)
 
-        embed.description = f"> ▶️ **┃**[`{fix_characters(player.current.title, 45)}`]({player.current.uri or player.current.search_uri})\n" \
-                            f"> ℹ️ **┃**`{duration}`┃`{fix_characters(player.current.author, 18)}`┃"
+        embed.description = f"> -# ▶️ **┃**[`{fix_characters(player.current.title, 45)}`]({player.current.uri or player.current.search_uri})\n" \
+                            f"> -# ℹ️ **┃**`{duration}`┃`{fix_characters(player.current.author, 18)}`┃"
 
         if not player.current.autoplay:
             embed.description += f"<@{player.current.requester}>"
@@ -45,7 +45,7 @@ class LiteSkin:
                 embed.description = "`[Recomendada]`"
 
         if player.current.playlist_name:
-            embed.description += f"\n> 🎼 **┃ Playlist:** [`{player.current.playlist_name}`]({player.current.playlist_url})"
+            embed.description += f"\n> -# 🎼 **┃ Playlist:** [`{player.current.playlist_name}`]({player.current.playlist_url})"
 
         data["embeds"].append(embed)
 

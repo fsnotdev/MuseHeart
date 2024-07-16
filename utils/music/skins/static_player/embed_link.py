@@ -29,12 +29,12 @@ class EmbedLinkStaticSkin:
         txt = ""
 
         if player.current_hint:
-            txt += f"\n> `💡 Hint: {player.current_hint}`\n"
+            txt += f"\n> -# `💡 Dica: {player.current_hint}`\n"
 
         if player.current.is_stream:
-            duration_txt = f"\n> 🔴 **⠂Duration:** `Livestream`"
+            duration_txt = f"\n> -# 🔴 **⠂Duration:** `Livestream`"
         else:
-            duration_txt = f"\n> ⏰ **⠂Duration:** `{time_format(player.current.duration)}`"
+            duration_txt = f"\n> -# ⏰ **⠂Duration:** `{time_format(player.current.duration)}`"
 
         title = fix_characters(player.current.title) if not player.current.uri else f"[{fix_characters(player.current.title)}]({player.current.uri})"
 
@@ -49,46 +49,46 @@ class EmbedLinkStaticSkin:
         vc_txt = ""
 
         if not player.current.autoplay:
-            txt += f"\n> ✋ **⠂Requested by:** <@{player.current.requester}>\n"
+            txt += f"\n> -# ✋ **⠂Requested by:** <@{player.current.requester}>\n"
         else:
             try:
                 mode = f" [`Recommended Music`](<{player.current.info['extra']['related']['uri']}>)"
             except:
                 mode = "`Recommended Music`"
-            txt += f"\n> 👍 **⠂Added via:** {mode}\n"
+            txt += f"\n> -# 👍 **⠂Added via:** {mode}\n"
 
         try:
-            vc_txt += f"> *️⃣ **⠂Voice Channel:** {player.guild.me.voice.channel.mention}\n"
+            vc_txt += f"> -# *️⃣ **⠂Voice Channel:** {player.guild.me.voice.channel.mention}\n"
         except AttributeError:
             pass
 
         if player.current.playlist_name:
-            txt += f"> 📑 **⠂Playlist:** [`{fix_characters(player.current.playlist_name) or 'Visualize'}`](<{player.current.playlist_url}>)\n"
+            txt += f"> -# 📑 **⠂Playlist:** [`{fix_characters(player.current.playlist_name) or 'Visualize'}`](<{player.current.playlist_url}>)\n"
 
         if player.current.track_loops:
-            txt += f"> 🔂 **⠂Remaining Loops:** `{player.current.track_loops}`\n"
+            txt += f"> -# 🔂 **⠂Remaining repetitions:** `{player.current.track_loops}`\n"
 
         elif player.loop:
             if player.loop == 'current':
-                txt += '> 🔂 **⠂Loop:** `current song`\n'
+                txt += '> -# 🔂 **⠂Repetition:** `Current music`\n'
             else:
-                txt += '> 🔁 **⠂Loop:** `queue`\n'
+                txt += '> -# 🔁 **⠂Repetition:** `queue`\n'
 
         txt += vc_txt
 
         if player.command_log:
 
-            txt += f"> {player.command_log_emoji} **⠂Last Interaction:** {player.command_log}\n"
+            txt += f"> -# {player.command_log_emoji} **⠂Last Interaction:** {player.command_log}\n"
 
         if qsize := len(player.queue):
 
-            qtext = "> **Songs in queue"
+            qtext = "> -# **Songs in queue"
 
             if qsize  > 4:
                 qtext += f" [{qsize}]:"
 
             qtext += "**\n" + "\n".join(
-                                  f"> `{(n + 1)} [{time_format(t.duration) if not t.is_stream else '🔴 stream'}]` [`{fix_characters(t.title, 30)}`](<{t.uri}>)"
+                                  f"> -# `{(n + 1)} [{time_format(t.duration) if not t.is_stream else '🔴 stream'}]` [`{fix_characters(t.title, 30)}`](<{t.uri}>)"
                                   for n, t in enumerate(
                                       itertools.islice(player.queue, 4)))
 
@@ -98,7 +98,7 @@ class EmbedLinkStaticSkin:
 
             txt = "**Next recommended songs:**\n" + \
                               "\n".join(
-                                  f"`{(n + 1)} [{time_format(t.duration) if not t.is_stream else '🔴 stream'}]` [`{fix_characters(t.title, 30)}`](<{t.uri}>)"
+                                  f"-# `{(n + 1)} [{time_format(t.duration) if not t.is_stream else '🔴 stream'}]` [`{fix_characters(t.title, 30)}`](<{t.uri}>)"
                                   for n, t in enumerate(
                                       itertools.islice(player.queue_autoplay, 4))) + f"\n{txt}"
 
