@@ -280,6 +280,9 @@ class SpotifyClient:
             except:
                 thumb = ""
 
+            if result["tracks"] is None:
+                raise GenericError("**There were no results for the album link provided...**")
+
             if len(result["tracks"]) < 2:
 
                 track = result["tracks"][0]
@@ -340,13 +343,17 @@ class SpotifyClient:
             result = await bot.spotify.get_playlist_info(url_id)
             data["playlistInfo"]["name"] = result["name"]
             data["playlistInfo"]["thumb"] = result["images"][0]["url"]
+
+            if result["tracks"]["items"] is None:
+                raise GenericError("**There were no results for the playlist link provided...**")
+
             tracks_data = [t["track"] for t in result["tracks"]["items"]]
 
         else:
             raise GenericError(f"**The Spotify link is not recognized/supported:**\n{query}")
 
         if not tracks_data:
-            raise GenericError("**There were no results found in the provided Spotify link...**")
+            raise GenericError("**There were no results for the provided Spotify link...**")
 
         data["playlistInfo"]["selectedTrack"] = -1
         data["playlistInfo"]["type"] = url_type
