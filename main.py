@@ -26,7 +26,6 @@ print("Serverrrr iz Running") 
 
 from utils.client import BotPool
 
-print(f"🐍 - Versão do python: {python_version()}")
 
 pool = BotPool()
 
