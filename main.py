@@ -21,7 +21,6 @@ def keep_alive():
     t.start()
 
 keep_alive()
-print("Serverrrr iz Running") 
 
 
 from utils.client import BotPool
