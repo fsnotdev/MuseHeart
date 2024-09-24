@@ -1,6 +1,6 @@
 
 # -*- coding: utf-8 -*-
-from platform import python_version
+
 
 from flask import Flask, render_template
 from threading import Thread
